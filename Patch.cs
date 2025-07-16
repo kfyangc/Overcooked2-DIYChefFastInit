@@ -1,15 +1,16 @@
-﻿using System;
-using System.Linq;
-using System.Reflection;
+﻿using BitStream;
 using HarmonyLib;
 using OC2DIYChef.Extension;
-using Team17.Online;
-using Team17.Online.Multiplayer.Messaging;
-using Team17.Online.Multiplayer;
-using UnityEngine;
-using BitStream;
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Reflection.Emit;
+using Team17.Online;
+using Team17.Online.Multiplayer;
+using Team17.Online.Multiplayer.Messaging;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace OC2DIYChef
@@ -151,9 +152,16 @@ namespace OC2DIYChef
         [HarmonyPatch(typeof(ChefMeshReplacer), "ReplaceModel")]
         public static IEnumerable<CodeInstruction> ChefMeshReplacerReplaceModelPatch(IEnumerable<CodeInstruction> instructions)
         {
+            string path = Application.dataPath;
+            bool is64 =
+                File.Exists(path.Replace("/Overcooked2_Data", "/UnityCrashHandler64.exe")) &&
+                Directory.Exists(path.Replace("/Overcooked2_Data", "/MonoBleedingEdge"));
+            int e1 = is64 ? 258 : 267;
+            int e2 = is64 ? 249 : 258;
+
             var codes = instructions.ToList();
-            codes.RemoveRange(267, 3);
-            codes.RemoveRange(258, 6);
+            codes.RemoveRange(e1, 3);
+            codes.RemoveRange(e2, 6);
             return codes.AsEnumerable();
         }
 
@@ -391,7 +399,7 @@ namespace OC2DIYChef
             if (step == 0) return;
             if (Mathf.Abs(__instance.XValue()) > 0.01 || Mathf.Abs(__instance.YValue()) < 0.99) return;
 
-            int player = (int)emoteWheel.m_player;
+            int player = (int)emoteWheel.get_m_player();
             FastList<User> users = ClientUserSystem.m_Users;
             if (player >= users.Count) return;
             MetaGameProgress metaGameProgress = GameUtils.GetMetaGameProgress();

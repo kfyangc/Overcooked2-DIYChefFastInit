@@ -30,6 +30,7 @@ namespace OC2DIYChef
         public const MessageType diyChefMessageType = (MessageType)67;
 
         public static GUIStyle guiStyle;
+        public static Texture2D background;
         static IEnumerator loadingCoroutine1, loadingCoroutine2;
         static string loadingName;
 
@@ -166,12 +167,12 @@ namespace OC2DIYChef
         {
             if (guiStyle == null)
             {
-                Texture2D consoleBackground = new Texture2D(1, 1, TextureFormat.RGBAFloat, false);
-                consoleBackground.SetPixel(0, 0, new Color(0.23f, 0.65f, 0.79f, 1f));
-                consoleBackground.Apply();
+                background = new Texture2D(1, 1);
+                background.SetPixel(0, 0, new Color(0.23f, 0.65f, 0.79f, 1f));
+                background.Apply();
                 guiStyle = new GUIStyle(GUIStyle.none);
                 guiStyle.normal.textColor = new Color(1f, 1f, 1f);
-                guiStyle.normal.background = consoleBackground;
+                guiStyle.normal.background = background;
                 guiStyle.fontStyle = FontStyle.Bold;
                 guiStyle.fontSize = 40;
                 guiStyle.alignment = TextAnchor.MiddleLeft;

@@ -2,12 +2,16 @@
 
 ## Installation
 
-1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) for the game (x86 for Steam, x64 for Epic)
+1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) for the game (x86 for Steam, x64 for Steam crossplay branch or Epic)
 2. Create a new folder `BepInEx/plugins/OC2DIYChef` in the game's directory and copy `bin/Release/OC2DIYChef.dll` to it
 
 > ### Compiling
 >
-> You may compile the MOD yourself. The following dependencies need to be copied into `lib/` directory: 
+> You may compile the MOD yourself. 
+>
+> Choose the proper .NET version (.NET framework 3.5 for Steam, .NET framework 4 for Steam crossplay branch or Epic).
+>
+> The following dependencies need to be copied into `lib/` directory: 
 >
 > - In the game's `Overcooked2_Data/Managed/` directory `Assembly-CSharp.dll`, `UnityEngine.dll`, `UnityEngine.CoreModule.dll`, `UnityEngine.UI.dll`, `UnityEngine.IMGUIModule.dll`, `UnityEngine.ImageConversionModule.dll`, `UnityEngine.TextRenderingModule.dll`.
 > - In `BepInEx/core/` directory `0Harmony20.dll`, `BepInEx.dll`, `BepInEx.Harmony.dll`.
@@ -109,6 +113,10 @@ Add a line `LOBBYSWITCHCHEF=TRUE` to `prefer.txt` to switch chefs at the lobby b
   
 
 ## Update Log
+
+#### v1.3
+
+- Support Steam Beta and Epic version.
 
 #### v1.2
 

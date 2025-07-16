@@ -6,15 +6,18 @@
 
    Steam 端安装 x86 版本（[GitHub](https://github.com/BepInEx/BepInEx/releases) 或 [百度网盘链接](https://pan.baidu.com/s/1G81rpJNwVsJplJi6fD2jPA?pwd=lobe)）
 
-   Epic 端安装 x64 版本（[GitHub](https://github.com/BepInEx/BepInEx/releases) 或 [百度网盘链接](https://pan.baidu.com/s/1C4UDhK7R9Ei6Eu0B6lQ9Cw?pwd=3lu1)）
+   Steam crossplay 版本或 Epic 端安装 x64 版本（[GitHub](https://github.com/BepInEx/BepInEx/releases) 或 [百度网盘链接](https://pan.baidu.com/s/1C4UDhK7R9Ei6Eu0B6lQ9Cw?pwd=3lu1)）
 
-   解压后拷贝到游戏根目录下
+   > Steam - 库 - Overcooked2 - 属性 - 测试版
+   > <div align="center">
+   >     <img src="beta.png" width="90%" height="90%" />
+   > </div>
+
+   解压后拷贝到游戏根目录下（下图中选中的三项）
 
    <div align="center">
        <img src="bepinex.png" width="30%" height="30%" />
    </div>
-
-   > 开启 `BepInEx` 的控制台可能会导致无法以手柄进入游戏。确保配置文件 `BepInEx/config/BepInEx.cfg` 中 `[Logging.Console]` 组中值为 `Enabled = false`。
 
 2. 将 `OC2DIYChef` 文件夹拷贝到 `BepInEx/plugins` 文件夹中
 
@@ -102,7 +105,6 @@
     > - 例如 Body_Top 会依次尝试寻找贴图文件 t_Body_Top，t_Body，t_Head。
     >
     > - 材质参数说明：
-    >
     >   `_Brightness_Intensity`：身体部分可用，总光照强度；
     >   `_Metallic`：金属度；
     >   `_RimIntensity`：边缘光强度；
@@ -117,11 +119,16 @@
 
 ## 更新
 
+#### v1.3
+
+- 支持 Steam Beta 版和 Epic 版。
+
 #### v1.2
 
 - 支持替换刀模型。
 - 修复了默认厨师使用自制帽子时第一次不显示的 bug。
 - 降低了关卡结算界面的光照。
+- 修复了 Body_Body 加载过慢的问题。
 
 #### v1.1
 

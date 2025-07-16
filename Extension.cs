@@ -49,6 +49,7 @@ namespace OC2DIYChef.Extension
         static readonly FieldInfo fieldInfo_m_emoteSelector = AccessTools.Field(typeof(ClientEmoteWheel), "m_emoteSelector");
         static readonly FieldInfo fieldInfo_m_xMovement = AccessTools.Field(typeof(ClientEmoteWheel), "m_xMovement");
         static readonly FieldInfo fieldInfo_m_yMovement = AccessTools.Field(typeof(ClientEmoteWheel), "m_yMovement");
+        static readonly FieldInfo fieldInfo_m_player = AccessTools.Field(typeof(EmoteWheel), "m_player");
        
         public static bool DownJustPressed(this ClientEmoteWheel instance)
         {
@@ -82,6 +83,11 @@ namespace OC2DIYChef.Extension
         public static EmoteSelector get_m_emoteSelector(this ClientEmoteWheel instance)
         {
             return (EmoteSelector)fieldInfo_m_emoteSelector.GetValue(instance);
+        }
+
+        public static PlayerInputLookup.Player get_m_player(this EmoteWheel instance)
+        {
+            return (PlayerInputLookup.Player)fieldInfo_m_player.GetValue(instance);
         }
     }
 
