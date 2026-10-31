@@ -12,10 +12,11 @@
     <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="MonoCacheProbe.cs;../../../AssetDiskCache.cs;../../../AssetHash.cs;../../../ObjImporter.cs" />
+    <Compile Include="MonoCacheProbe.cs;../../../AssetDiskCache.cs;../../../AssetHash.cs;../../../MeshCacheCodec.cs;../../../ObjImporter.cs;../../../ImportWorker.cs" />
     <Reference Include="$(ManagedDir)/mscorlib.dll;$(ManagedDir)/System.dll;$(ManagedDir)/System.Core.dll" Private="false" />
     <Reference Include="$(ManagedDir)/UnityEngine*.dll" Private="false" />
   </ItemGroup>

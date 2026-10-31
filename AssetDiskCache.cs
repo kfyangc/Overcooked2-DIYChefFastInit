@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Threading;
+using System.Diagnostics;
 using UnityEngine;
 
 namespace OC2DIYChef
@@ -25,6 +26,17 @@ namespace OC2DIYChef
         internal static bool Enabled = true;
         internal static Action<string> Log;
         static TextureWrite writer;
+        [ThreadStatic] internal static ReadTimings Timings;
+
+        internal sealed class ReadTimings
+        {
+            internal long SourceHashTicks, CacheReadTicks, PayloadHashTicks, MeshDecodeTicks;
+            internal double SourceHashMs { get { return SourceHashTicks * 1000.0 / Stopwatch.Frequency; } }
+            internal double CacheReadMs { get { return CacheReadTicks * 1000.0 / Stopwatch.Frequency; } }
+            internal double PayloadHashMs { get { return PayloadHashTicks * 1000.0 / Stopwatch.Frequency; } }
+            internal double CacheMs { get { return CacheReadMs + PayloadHashMs; } }
+            internal double MeshDecodeMs { get { return MeshDecodeTicks * 1000.0 / Stopwatch.Frequency; } }
+        }
 
         internal static long PendingWriteBytes
         {
@@ -38,8 +50,12 @@ namespace OC2DIYChef
         }
         static byte[] FingerprintFile(string path)
         {
-            using (var stream = File.OpenRead(path))
-                return AssetHash.Compute(stream);
+            long start = Stopwatch.GetTimestamp();
+            try
+            {
+                using (var stream = File.OpenRead(path)) return AssetHash.Compute(stream);
+            }
+            finally { if (Timings != null) Timings.SourceHashTicks += Stopwatch.GetTimestamp() - start; }
         }
         static bool Equal(byte[] left, byte[] right)
         {
@@ -142,26 +158,11 @@ namespace OC2DIYChef
                         if (cancelled != null && cancelled()) throw new OperationCanceledException();
                         byte[] geometry = input.ReadCheckedBytes((int)expected);
                         input.Verify();
-                        using (var fields = new BinaryReader(new MemoryStream(geometry, false)))
-                        {
-                            var data = new ObjImporter.MeshData { Vertices = new Vector3[vertices],
-                                Normals = new Vector3[vertices], UV = new Vector2[vertices], Triangles = new int[indices] };
-                            for (int i = 0; i < vertices; i++)
-                            {
-                                if ((i & 1023) == 0 && cancelled != null && cancelled()) throw new OperationCanceledException();
-                                data.Vertices[i] = new Vector3(fields.ReadSingle(), fields.ReadSingle(), fields.ReadSingle());
-                                data.Normals[i] = new Vector3(fields.ReadSingle(), fields.ReadSingle(), fields.ReadSingle());
-                                data.UV[i] = new Vector2(fields.ReadSingle(), fields.ReadSingle());
-                            }
-                            for (int i = 0; i < indices; i++)
-                            {
-                                int index = fields.ReadInt32();
-                                if (index < 0 || index >= vertices) throw new FormatException("invalid triangle index");
-                                data.Triangles[i] = index;
-                            }
-                            hit = true;
-                            return data;
-                        }
+                        long decodeStart = Stopwatch.GetTimestamp();
+                        var data = MeshCacheCodec.Decode(geometry, vertices, indices, cancelled);
+                        if (Timings != null) Timings.MeshDecodeTicks += Stopwatch.GetTimestamp() - decodeStart;
+                        hit = true;
+                        return data;
                     }
                     catch (OperationCanceledException) { throw; }
                     catch (Exception ex) { Warning(source, ex); }
@@ -247,9 +248,16 @@ namespace OC2DIYChef
             internal CacheReader(Stream source, byte[] digest) : base(source) { expected = digest; }
             internal byte[] ReadCheckedBytes(int length)
             {
+                long start = Stopwatch.GetTimestamp();
                 byte[] bytes = ReadBytes(length);
                 if (bytes.Length != length) throw new EndOfStreamException();
+                long readEnd = Stopwatch.GetTimestamp();
                 checksum.Append(bytes, 0, bytes.Length);
+                if (Timings != null)
+                {
+                    Timings.CacheReadTicks += readEnd - start;
+                    Timings.PayloadHashTicks += Stopwatch.GetTimestamp() - readEnd;
+                }
                 return bytes;
             }
             internal void Verify()

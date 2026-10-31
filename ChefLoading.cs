@@ -32,6 +32,7 @@ namespace OC2DIYChef
         static IEnumerator work;
         static ResourceCache active;
         static ChefMeshReplacer.ChefModelType activeType;
+        static long workTicks;
         static readonly List<float> frames = new List<float>();
         static float nextReport;
         internal static bool Applying;
@@ -153,14 +154,18 @@ namespace OC2DIYChef
         static void StartWork(ResourceCache resource, ChefMeshReplacer.ChefModelType type)
         {
             active = resource; activeType = type;
+            workTicks = 0;
             work = resource.Prepare(type);
         }
 
         static void Advance()
         {
+            long start = Stopwatch.GetTimestamp();
             try
             {
                 if (work.MoveNext()) return;
+                DIYChefPlugin.Log("PrepareCost " + active.Name + "/" + activeType + " mainThreadMs=" +
+                    ((workTicks + Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency).ToString("F2"));
                 (work as IDisposable)?.Dispose();
                 work = null; active = null;
             }
@@ -172,6 +177,7 @@ namespace OC2DIYChef
                     " model=" + activeType + " stage=prepare: " + ex);
                 CancelWork();
             }
+            finally { workTicks += Stopwatch.GetTimestamp() - start; }
         }
 
         static void CancelWork()

@@ -4,11 +4,12 @@
     <TargetFramework>net10.0</TargetFramework>
     <GameDir Condition="'$(GameDir)' == ''">D:/Games/Steam Games/steamapps/common/Overcooked! 2</GameDir>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Production targets Mono/.NET 3.5, where SHA256Managed is supported. -->
     <NoWarn>$(NoWarn);SYSLIB0021</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="DiskCacheRegression.cs;../AssetDiskCache.cs;../AssetHash.cs;../ObjImporter.cs" />
+    <Compile Include="DiskCacheRegression.cs;../AssetDiskCache.cs;../AssetHash.cs;../MeshCacheCodec.cs;../ObjImporter.cs" />
     <Reference Include="$(GameDir)/Overcooked2_Data/Managed/UnityEngine*.dll" />
   </ItemGroup>
 </Project>

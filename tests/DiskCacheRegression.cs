@@ -19,12 +19,43 @@ static class DiskCacheRegression
     {
         AssetDiskCache.Log = Console.WriteLine;
         AssetHash.Warning = Console.WriteLine;
+        AssetDiskCache.Timings = new AssetDiskCache.ReadTimings();
+        if (args.Length == 3 && args[0] == "--verify-source")
+        {
+            AssetDiskCache.Root = args[2];
+            int total = 0, existing = 0;
+            foreach (string path in Directory.GetFiles(args[1], "*.obj", SearchOption.AllDirectories))
+            {
+                var sourceData = ObjImporter.ParseFile(path, null);
+                bool cacheHit;
+                var cachedData = AssetDiskCache.ReadMesh(path, null, out cacheHit);
+                if (cacheHit) existing++;
+                byte[] sourceBytes = EncodeMesh(sourceData), cachedBytes = EncodeMesh(cachedData);
+                if (!sourceBytes.SequenceEqual(cachedBytes))
+                {
+                    int different = Enumerable.Range(0, Math.Min(sourceBytes.Length, cachedBytes.Length))
+                        .First(i => sourceBytes[i] != cachedBytes[i]);
+                    Console.WriteLine("First different float at byte " + different + " source=" +
+                        BitConverter.ToSingle(sourceBytes, different / 4 * 4).ToString("R") + " cached=" +
+                        BitConverter.ToSingle(cachedBytes, different / 4 * 4).ToString("R"));
+                }
+                Check(sourceBytes.SequenceEqual(cachedBytes),
+                    "cached geometry is byte-identical to source parse: " + path);
+                Check(EncodeMesh(AssetDiskCache.ReadMesh(path, null, out cacheHit)).SequenceEqual(sourceBytes) && cacheHit,
+                    "second read hits the existing schema without changing geometry: " + path);
+                total++;
+            }
+            Console.WriteLine("PASS: " + total + " mesh caches match source geometry byte for byte; existing=" + existing +
+                "; created=" + (total - existing) + ".");
+            return;
+        }
         if (args.Length == 3 && args[0] == "--warm")
         {
             Warm(args[1], args[2]);
             return;
         }
         CheckHashing();
+        CheckMeshDecoder();
         string workspace = Path.GetFullPath(Path.Combine("artifacts", "cache-regression", Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(workspace);
         string source = Path.Combine(workspace, "中文 空格.obj");
@@ -149,6 +180,55 @@ static class DiskCacheRegression
             Check(AssetHash.Compute(source).SequenceEqual(reference) && source.Position == source.Length,
                 "stream fingerprint hashes from current position to EOF");
         }
+    }
+
+    static byte[] EncodeMesh(ObjImporter.MeshData data)
+    {
+        using (var buffer = new MemoryStream())
+        using (var writer = new BinaryWriter(buffer))
+        {
+            for (int i = 0; i < data.Vertices.Length; i++)
+            {
+                writer.Write(data.Vertices[i].x); writer.Write(data.Vertices[i].y); writer.Write(data.Vertices[i].z);
+                writer.Write(data.Normals[i].x); writer.Write(data.Normals[i].y); writer.Write(data.Normals[i].z);
+                writer.Write(data.UV[i].x); writer.Write(data.UV[i].y);
+            }
+            foreach (int index in data.Triangles) writer.Write(index);
+            return buffer.ToArray();
+        }
+    }
+
+    static void CheckMeshDecoder()
+    {
+        const int count = 70001;
+        var data = new ObjImporter.MeshData { Vertices = new Vector3[count], Normals = new Vector3[count],
+            UV = new Vector2[count], Triangles = new[] { 0, 65536, count - 1 } };
+        for (int i = 0; i < count; i++)
+        {
+            data.Vertices[i] = new Vector3(-i * 0.125f, i * 0.25f, -0.0f);
+            data.Normals[i] = new Vector3(1.0f / (i + 1), float.MaxValue, float.Epsilon);
+            data.UV[i] = new Vector2(i % 7, -i % 11);
+        }
+        byte[] bytes = EncodeMesh(data);
+        Check(EncodeMesh(MeshCacheCodec.Decode(bytes, count, 3, null)).SequenceEqual(bytes),
+            "direct mesh decoding preserves every float/index byte, including 32-bit vertex indices");
+        bool cancelled = false;
+        int checks = 0;
+        try { MeshCacheCodec.Decode(bytes, count, 3, delegate { return ++checks == 2; }); }
+        catch (OperationCanceledException) { cancelled = true; }
+        Check(cancelled && checks == 2, "direct decoder cancels during vertex restoration");
+        byte[] invalidIndex = (byte[])bytes.Clone();
+        Buffer.BlockCopy(BitConverter.GetBytes(count), 0, invalidIndex, count * 32, 4);
+        bool rejected = false;
+        try { MeshCacheCodec.Decode(invalidIndex, count, 3, null); }
+        catch (FormatException) { rejected = true; }
+        Check(rejected, "direct decoder validates indices before returning geometry");
+        rejected = false;
+        try { MeshCacheCodec.Decode(new byte[31], 1, 0, null); }
+        catch (FormatException) { rejected = true; }
+        Check(rejected, "direct decoder rejects truncated buffers before unsafe access");
+        Check(MeshCacheCodec.Decode(new byte[0], 0, 0, null).Vertices.Length == 0,
+            "direct decoder handles intentionally empty parts");
     }
 
     static void Warm(string resources, string output)

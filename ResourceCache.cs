@@ -64,7 +64,7 @@ namespace OC2DIYChef
                 if (!Imported)
                 {
                     while (Worker != null && !Worker.Completed) yield return null;
-                    Worker = new ImportWorker(Path, IsHat);
+                    Worker = new ImportWorker(Path, IsHat, DIYChefAvatarData.AllowsPart);
                     var worker = Worker;
                     worker.Start();
                     try
@@ -73,7 +73,16 @@ namespace OC2DIYChef
                         if (worker.Error != null) throw new FormatException(worker.Stage, worker.Error);
                         DIYChefPlugin.Log("Import " + Name + " readParseMs=" + worker.ReadParseMs.ToString("F2") +
                             " temporaryBytes=" + worker.Data.Bytes + " meshDiskHits=" + worker.MeshCacheHits +
-                            " textureDiskHits=" + worker.TextureCacheHits);
+                            " textureDiskHits=" + worker.TextureCacheHits +
+                            " textureReadMs=" + worker.TextureReadMs.ToString("F2") +
+                            " meshReadMs=" + worker.MeshReadMs.ToString("F2") +
+                            " materialReadMs=" + worker.MaterialReadMs.ToString("F2") +
+                            " meshSourceReadHashMs=" + worker.Timings.SourceHashMs.ToString("F2") +
+                            " cacheReadMs=" + worker.Timings.CacheReadMs.ToString("F2") +
+                            " payloadHashMs=" + worker.Timings.PayloadHashMs.ToString("F2") +
+                            " meshDecodeMs=" + worker.Timings.MeshDecodeMs.ToString("F2") +
+                            " workerCpuMs=" + worker.CpuMs.ToString("F2") + " collections=" + worker.Collections +
+                            " files=" + worker.Files);
                         var raw = worker.Data;
                         // Clear each byte/array buffer as it is consumed, before the next upload.
                         foreach (string key in new List<string>(raw.Textures.Keys))
@@ -177,101 +186,6 @@ namespace OC2DIYChef
             foreach (var entry in All)
                 if (entry.owned.Contains(material)) return true;
             return false;
-        }
-    }
-
-    internal sealed class RawResources
-    {
-        internal readonly Dictionary<string, RawTexture> Textures = new Dictionary<string, RawTexture>();
-        internal readonly Dictionary<string, ObjImporter.MeshData> Meshes = new Dictionary<string, ObjImporter.MeshData>();
-        internal readonly Dictionary<string, Dictionary<string, float>> Materials = new Dictionary<string, Dictionary<string, float>>();
-        internal long Bytes
-        {
-            get
-            {
-                long value = 0;
-                foreach (var texture in Textures.Values)
-                    value += texture.Cached != null ? texture.Cached.Pixels.LongLength : texture.PNG.LongLength;
-                foreach (var mesh in Meshes.Values) value += mesh.EstimatedBytes;
-                return value;
-            }
-        }
-    }
-
-    internal sealed class RawTexture
-    {
-        internal string Source;
-        internal byte[] Fingerprint, PNG;
-        internal CachedTexture Cached;
-    }
-
-    internal sealed class ImportWorker
-    {
-        readonly string path;
-        readonly bool hat;
-        internal volatile bool Completed, Cancelled;
-        internal RawResources Data;
-        internal Exception Error;
-        internal string Stage;
-        internal double ReadParseMs;
-        internal int MeshCacheHits, TextureCacheHits;
-
-        internal ImportWorker(string path, bool hat) { this.path = path; this.hat = hat; }
-        internal void Start() { new Thread(Read) { IsBackground = true, Name = "DIYChef import" }.Start(); }
-        void CheckCancelled() { if (Cancelled) throw new OperationCanceledException(); }
-        void Read()
-        {
-            var timer = Stopwatch.StartNew();
-            var result = new RawResources();
-            try
-            {
-                foreach (string file in Directory.GetFiles(path, "t_*.png"))
-                {
-                    CheckCancelled(); Stage = "read PNG " + file;
-                    byte[] png = File.ReadAllBytes(file);
-                    byte[] fingerprint = AssetDiskCache.Enabled ? AssetDiskCache.Fingerprint(png) : null;
-                    CachedTexture cached = AssetDiskCache.Enabled ? AssetDiskCache.ReadTexture(file, fingerprint) : null;
-                    if (cached != null) TextureCacheHits++;
-                    result.Textures.Add(System.IO.Path.GetFileNameWithoutExtension(file),
-                        new RawTexture { Source = file, Fingerprint = fingerprint, Cached = cached,
-                            PNG = cached == null ? png : null });
-                }
-                foreach (string file in Directory.GetFiles(path, "*.obj"))
-                {
-                    CheckCancelled(); Stage = "parse OBJ " + file;
-                    string key = System.IO.Path.GetFileNameWithoutExtension(file);
-                    if (hat || DIYChefAvatarData.AllowsPart(key))
-                    {
-                        bool hit;
-                        result.Meshes.Add(key, AssetDiskCache.ReadMesh(file, delegate { return Cancelled; }, out hit));
-                        if (hit) MeshCacheHits++;
-                    }
-                }
-                foreach (string file in Directory.GetFiles(path, "m_*.txt"))
-                {
-                    CheckCancelled(); Stage = "read material " + file;
-                    var values = new Dictionary<string, float>();
-                    foreach (string line in File.ReadAllLines(file))
-                    {
-                        int equals = line.IndexOf('=');
-                        if (equals < 0) continue;
-                        float value;
-                        if (float.TryParse(line.Substring(equals + 1), NumberStyles.Float,
-                            CultureInfo.InvariantCulture, out value))
-                            values[line.Substring(0, equals)] = value;
-                    }
-                    result.Materials.Add(System.IO.Path.GetFileNameWithoutExtension(file), values);
-                }
-                CheckCancelled();
-                Data = result;
-            }
-            catch (Exception ex) { Error = ex; }
-            finally
-            {
-                if (Cancelled) Data = null;
-                ReadParseMs = timer.Elapsed.TotalMilliseconds;
-                Completed = true; // Publication barrier for Data/Error and timing.
-            }
         }
     }
 
