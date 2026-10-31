@@ -72,19 +72,46 @@ namespace OC2DIYChef
                         while (!worker.Completed) yield return null;
                         if (worker.Error != null) throw new FormatException(worker.Stage, worker.Error);
                         DIYChefPlugin.Log("Import " + Name + " readParseMs=" + worker.ReadParseMs.ToString("F2") +
-                            " temporaryBytes=" + worker.Data.Bytes);
+                            " temporaryBytes=" + worker.Data.Bytes + " meshDiskHits=" + worker.MeshCacheHits +
+                            " textureDiskHits=" + worker.TextureCacheHits);
                         var raw = worker.Data;
                         // Clear each byte/array buffer as it is consumed, before the next upload.
                         foreach (string key in new List<string>(raw.Textures.Keys))
                         {
+                            var input = raw.Textures[key];
+                            // Only one decoded texture write can retain a pixel buffer at a time.
+                            while (input.Cached == null && AssetDiskCache.Enabled && AssetDiskCache.WriterBusy)
+                                yield return null;
                             var upload = Stopwatch.StartNew();
-                            Texture2D texture = Own(new Texture2D(2, 2, TextureFormat.RGBA32, true), 0);
-                            if (!texture.LoadImage(raw.Textures[key], true))
-                                throw new FormatException("PNG decode: " + key);
+                            Texture2D texture;
+                            if (input.Cached != null)
+                            {
+                                var cached = input.Cached;
+                                texture = Own(new Texture2D(cached.Width, cached.Height,
+                                    (TextureFormat)cached.Format, cached.MipCount > 1), 0);
+                                texture.LoadRawTextureData(cached.Pixels);
+                                texture.Apply(false, true);
+                            }
+                            else
+                            {
+                                texture = Own(new Texture2D(2, 2, TextureFormat.RGBA32, true), 0);
+                                if (!texture.LoadImage(input.PNG, !AssetDiskCache.Enabled))
+                                    throw new FormatException("PNG decode: " + key);
+                                if (AssetDiskCache.Enabled)
+                                {
+                                    var cached = new CachedTexture { Width = texture.width, Height = texture.height,
+                                        Format = (int)texture.format, MipCount = texture.mipmapCount,
+                                        Pixels = texture.GetRawTextureData() };
+                                    texture.Apply(false, true);
+                                    AssetDiskCache.QueueTextureWrite(input.Source, input.Fingerprint, cached);
+                                }
+                            }
                             Bytes += (long)texture.width * texture.height * 4 * 4 / 3;
                             Textures.Add(key, texture);
                             raw.Textures.Remove(key);
-                            DIYChefPlugin.Log("Texture " + Name + "/" + key + " decodeUploadMs=" + upload.Elapsed.TotalMilliseconds.ToString("F2"));
+                            DIYChefPlugin.Log("Texture " + Name + "/" + key + " source=" +
+                                (input.Cached != null ? "disk-pixels" : "png") +
+                                " decodeUploadMs=" + upload.Elapsed.TotalMilliseconds.ToString("F2"));
                             yield return null;
                         }
                         foreach (string key in new List<string>(raw.Meshes.Keys))
@@ -155,7 +182,7 @@ namespace OC2DIYChef
 
     internal sealed class RawResources
     {
-        internal readonly Dictionary<string, byte[]> Textures = new Dictionary<string, byte[]>();
+        internal readonly Dictionary<string, RawTexture> Textures = new Dictionary<string, RawTexture>();
         internal readonly Dictionary<string, ObjImporter.MeshData> Meshes = new Dictionary<string, ObjImporter.MeshData>();
         internal readonly Dictionary<string, Dictionary<string, float>> Materials = new Dictionary<string, Dictionary<string, float>>();
         internal long Bytes
@@ -163,11 +190,19 @@ namespace OC2DIYChef
             get
             {
                 long value = 0;
-                foreach (var bytes in Textures.Values) value += bytes.LongLength;
+                foreach (var texture in Textures.Values)
+                    value += texture.Cached != null ? texture.Cached.Pixels.LongLength : texture.PNG.LongLength;
                 foreach (var mesh in Meshes.Values) value += mesh.EstimatedBytes;
                 return value;
             }
         }
+    }
+
+    internal sealed class RawTexture
+    {
+        internal string Source;
+        internal byte[] Fingerprint, PNG;
+        internal CachedTexture Cached;
     }
 
     internal sealed class ImportWorker
@@ -179,6 +214,7 @@ namespace OC2DIYChef
         internal Exception Error;
         internal string Stage;
         internal double ReadParseMs;
+        internal int MeshCacheHits, TextureCacheHits;
 
         internal ImportWorker(string path, bool hat) { this.path = path; this.hat = hat; }
         internal void Start() { new Thread(Read) { IsBackground = true, Name = "DIYChef import" }.Start(); }
@@ -192,14 +228,24 @@ namespace OC2DIYChef
                 foreach (string file in Directory.GetFiles(path, "t_*.png"))
                 {
                     CheckCancelled(); Stage = "read PNG " + file;
-                    result.Textures.Add(System.IO.Path.GetFileNameWithoutExtension(file), File.ReadAllBytes(file));
+                    byte[] png = File.ReadAllBytes(file);
+                    byte[] fingerprint = AssetDiskCache.Enabled ? AssetDiskCache.Fingerprint(png) : null;
+                    CachedTexture cached = AssetDiskCache.Enabled ? AssetDiskCache.ReadTexture(file, fingerprint) : null;
+                    if (cached != null) TextureCacheHits++;
+                    result.Textures.Add(System.IO.Path.GetFileNameWithoutExtension(file),
+                        new RawTexture { Source = file, Fingerprint = fingerprint, Cached = cached,
+                            PNG = cached == null ? png : null });
                 }
                 foreach (string file in Directory.GetFiles(path, "*.obj"))
                 {
                     CheckCancelled(); Stage = "parse OBJ " + file;
                     string key = System.IO.Path.GetFileNameWithoutExtension(file);
                     if (hat || DIYChefAvatarData.AllowsPart(key))
-                        result.Meshes.Add(key, ObjImporter.ParseFile(file, delegate { return Cancelled; }));
+                    {
+                        bool hit;
+                        result.Meshes.Add(key, AssetDiskCache.ReadMesh(file, delegate { return Cancelled; }, out hit));
+                        if (hit) MeshCacheHits++;
+                    }
                 }
                 foreach (string file in Directory.GetFiles(path, "m_*.txt"))
                 {
@@ -222,6 +268,7 @@ namespace OC2DIYChef
             catch (Exception ex) { Error = ex; }
             finally
             {
+                if (Cancelled) Data = null;
                 ReadParseMs = timer.Elapsed.TotalMilliseconds;
                 Completed = true; // Publication barrier for Data/Error and timing.
             }
@@ -268,4 +315,3 @@ namespace OC2DIYChef
         }
     }
 }
-

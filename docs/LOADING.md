@@ -67,3 +67,22 @@ dotnet run --project tests/ChefSelectionRegression.csproj -c Release
 ```
 
 使用托管游戏接口替身执行实际快照和恢复代码，29 项断言通过，覆盖原版/额外厨师互换、额外厨师互换、分屏区分、玩家重排、新玩家、远端玩家、重复取消、确认后重开和同步顺序。不加载 Unity、不启动游戏；实际 A/B 输入表现由游戏内测试确认。
+
+## 1.3.0.4 持久化资源缓存
+
+在 BepInEx/cache/DIYChefFastInit 保存解析后的 OBJ 几何和解码后的纹理像素、原始格式及 mipmap。内存中已有模型仍直接复用；资源被内存缓存回收或游戏重新启动后，可从磁盘缓存恢复，跳过 OBJ 文本解析和 PNG 解码，仍需创建 Unity 对象并上传 GPU。
+
+新增 [Loading] DiskCacheEnabled，默认 true。原有 CacheBudgetMiB、MaxCachedChefs 保留用户配置，不因磁盘缓存而增加。解码贴图每次最多保留一个后台写入缓冲区，并纳入临时内存诊断。
+
+原文件使用 SHA-256 内容指纹，缓存使用结构版本及负载校验和；原资源在下次导入时变化、缓存损坏或结构不兼容时，回读原资源并重建。缓存写入失败不阻止原资源加载。删除该缓存目录会让后续使用重新生成缓存，不影响厨师 ID、选择和资源原文件。
+
+离线验证与 OBJ 预生成命令：
+
+```powershell
+dotnet run --project tests/DiskCacheRegression.csproj -c Release
+dotnet run --project tests/DiskCacheRegression.csproj -c Release -- --warm "<插件 Resources 目录>" "<游戏目录>/BepInEx/cache/DIYChefFastInit"
+```
+
+回归覆盖内容变化（包含大小和时间戳均不变）、命中、损坏、截断、结构版本、空 OBJ、纹理格式/mipmap、取消、禁用缓存和写入失败。离线预生成只处理 OBJ，不启动游戏；PNG 像素由游戏首次使用时按原加载方式生成缓存。完整切换耗时及纹理缓存的实际渲染表现仍需游戏内确认。
+
+本机离线检查：19 项缓存断言通过；已在指定目录预生成 349 个 OBJ 缓存，并逐项验证再次读取后的顶点、法线、UV、三角形一致。独立工具的磁盘再读合计约 0.91 秒，此数值不代表游戏切换耗时。

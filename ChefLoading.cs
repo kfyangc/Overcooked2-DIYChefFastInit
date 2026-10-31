@@ -1,3 +1,4 @@
+using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
 using System;
@@ -5,6 +6,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.IO;
 using System.Reflection;
 using System.Threading;
 using UnityEngine;
@@ -43,6 +45,10 @@ namespace OC2DIYChef
                 "Target number of resident chefs. Active and pending chefs remain pinned.");
             diagnostics = config.Bind("Loading", "Diagnostics", false,
                 "Log frame P95/max, process memory and first camera-render latency.");
+            AssetDiskCache.Enabled = config.Bind("Loading", "DiskCacheEnabled", true,
+                "Cache parsed OBJ geometry and decoded texture pixels on disk; changed source files rebuild automatically.").Value;
+            AssetDiskCache.Root = Path.Combine(Paths.CachePath, "DIYChefFastInit");
+            AssetDiskCache.Log = DIYChefPlugin.Log;
         }
 
         internal static ChefMeshReplacer.ChefModelType Type(ChefMeshReplacer replacer)
@@ -269,7 +275,7 @@ namespace OC2DIYChef
                         " maxMs=" + frames[frames.Count - 1].ToString("F2") +
                         ProcessMemory.Read() +
                         " cacheBytes=" + ResourceCache.All.Sum(x => x.Bytes) +
-                        " temporaryBytes=" + (ResourceCache.Worker != null && ResourceCache.Worker.Data != null ? ResourceCache.Worker.Data.Bytes : 0) +
+                        " temporaryBytes=" + ((ResourceCache.Worker != null && ResourceCache.Worker.Data != null ? ResourceCache.Worker.Data.Bytes : 0) + AssetDiskCache.PendingWriteBytes) +
                         " pinned=" + ResourceCache.All.Count(x => x.References > 0) +
                         " budgetBlockedByPins=" + (ResourceCache.All.Sum(x => x.Bytes) > Math.Max(1, budget.Value) * 1024L * 1024L) +
                         " pending=" + pending.Count + " active=" + (active == null ? "-" : active.Name));
