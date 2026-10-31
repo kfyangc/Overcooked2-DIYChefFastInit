@@ -60,7 +60,9 @@ namespace OC2DIYChef.Research
         public static void Run()
         {
             AssetDiskCache.Root = Cache;
+            AssetDiskCache.BackgroundCompressionEnabled = false;
             AssetDiskCache.Log = Console.WriteLine;
+            Lz4Codec.Initialise(Path.Combine(Cache, "native"), Console.WriteLine);
             AssetHash.Warning = Console.WriteLine;
             string png = Path.Combine(Source, "t_Head.png");
             byte[] pngBytes = File.ReadAllBytes(png);

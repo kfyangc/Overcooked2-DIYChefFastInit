@@ -15,8 +15,9 @@ static class DiskCacheRegression
         if (!value) throw new Exception(message);
         assertions++;
     }
-    static void Main(string[] args)
+    internal static void Main(string[] args)
     {
+        AssetDiskCache.BackgroundCompressionEnabled = false;
         AssetDiskCache.Log = Console.WriteLine;
         AssetHash.Warning = Console.WriteLine;
         AssetDiskCache.Timings = new AssetDiskCache.ReadTimings();
@@ -57,8 +58,9 @@ static class DiskCacheRegression
         CheckHashing();
         CheckHashBatches();
         CheckMeshDecoder();
-        string workspace = Path.GetFullPath(Path.Combine("artifacts", "cache-regression", Guid.NewGuid().ToString("N")));
+        string workspace = Path.GetFullPath(Path.Combine(Path.Combine("artifacts", "cache-regression"), Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(workspace);
+        if (IntPtr.Size == 4) Check(Lz4Codec.Initialise(Path.Combine(workspace, "native"), Console.WriteLine), "embedded x86 LZ4 library loads");
         string source = Path.Combine(workspace, "中文 空格.obj");
         AssetDiskCache.Root = Path.Combine(workspace, "cache");
         string obj = "v 0 0 0\nv 0.25 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4\n";
@@ -150,6 +152,7 @@ static class DiskCacheRegression
         AssetDiskCache.Root = root;
         CheckWorkerBatches(workspace);
         CheckNativePixels(workspace);
+        if (Lz4Codec.Available) CheckCompressedTextures(workspace);
         Console.WriteLine("PASS: " + assertions + " disk cache assertions; no Unity objects or game process created.");
     }
 
@@ -394,6 +397,108 @@ static class DiskCacheRegression
         try { NativePixelBuffer.Read(new MemoryStream(new byte[3]), 4, null); }
         catch (EndOfStreamException) { truncated = true; }
         Check(truncated && NativePixelBuffer.AllocatedBytes == 0, "truncated native stream releases partial pixels");
+    }
+
+    static void CheckCompressedTextures(string workspace)
+    {
+        string source = Path.Combine(workspace, "lz4-texture.png");
+        byte[] fingerprint = AssetHash.Compute(new byte[] { 50, 60, 70 });
+        byte[] pixels = Enumerable.Range(0, 87381 * 4).Select(i => (byte)(i % 23)).ToArray();
+        var texture = new CachedTexture { Width = 256, Height = 256, Format = (int)TextureFormat.ARGB32, MipCount = 9, Pixels = pixels };
+        AssetDiskCache.WriteTexture(source, fingerprint, texture);
+        string path = AssetDiskCache.CachePath(source, 2);
+        byte[] legacy = File.ReadAllBytes(path);
+        Check(BitConverter.ToInt32(legacy, 4) == 1 && AssetDiskCache.ReadTexture(source, fingerprint).Pixels.SequenceEqual(pixels),
+            "legacy raw textures remain readable before migration");
+        Check(AssetDiskCache.CompressTextureCache(path), "legacy texture migrates to LZ4HC");
+        byte[] compressed = File.ReadAllBytes(path);
+        Check(BitConverter.ToInt32(compressed, 4) == 2 && BitConverter.ToInt32(compressed, 96) == 1 && compressed.Length < legacy.Length / 5,
+            "compressed texture schema saves space and records LZ4 codec");
+        Check(compressed.Skip(44).Take(32).SequenceEqual(legacy.Skip(44).Take(32)), "migration preserves decoded-pixel checksum");
+        Check(AssetDiskCache.ReadTexture(source, fingerprint).Pixels.SequenceEqual(pixels), "managed compressed read is byte-identical");
+        using (var native = AssetDiskCache.ReadTexture(source, fingerprint, true))
+        {
+            var copied = new byte[pixels.Length];
+            System.Runtime.InteropServices.Marshal.Copy(native.NativePixels.Pointer, copied, 0, copied.Length);
+            Check(native.Compressed && native.Pixels == null && copied.SequenceEqual(pixels), "native compressed read preserves pixels and avoids large managed storage");
+        }
+        Check(NativePixelBuffer.AllocatedBytes == 0 && !AssetDiskCache.CompressTextureCache(path), "processed cache is not recompressed or retained");
+        byte[] damaged = (byte[])compressed.Clone(); damaged[damaged.Length - 1] ^= 1;
+        File.WriteAllBytes(path, damaged);
+        Check(AssetDiskCache.ReadTexture(source, fingerprint, true) == null && NativePixelBuffer.AllocatedBytes == 0,
+            "corrupt LZ4 stream or decoded checksum is rejected without leaking memory");
+        damaged = (byte[])compressed.Clone(); Buffer.BlockCopy(BitConverter.GetBytes(99), 0, damaged, 96, 4); File.WriteAllBytes(path, damaged);
+        Check(AssetDiskCache.ReadTexture(source, fingerprint, true) == null, "unknown compression codec falls back");
+        File.WriteAllBytes(path, compressed.Take(compressed.Length - 1).ToArray());
+        Check(AssetDiskCache.ReadTexture(source, fingerprint, true) == null, "truncated compressed texture falls back");
+        File.WriteAllBytes(path, compressed);
+        bool cancelled = false;
+        try { AssetDiskCache.ReadTexture(source, fingerprint, true, delegate { return true; }); }
+        catch (OperationCanceledException) { cancelled = true; }
+        Check(cancelled && NativePixelBuffer.AllocatedBytes == 0, "cancelled compressed read releases native buffers");
+        File.WriteAllBytes(path, legacy);
+        Check(!AssetDiskCache.CompressTextureCache(path, delegate { return true; }) && File.ReadAllBytes(path).SequenceEqual(legacy),
+            "cancelled migration keeps the original file");
+        byte[] newerFingerprint = AssetHash.Compute(new byte[] { 80, 90, 100 });
+        byte[] newerPixels = pixels.Select(x => (byte)(x + 1)).ToArray();
+        bool replaced = false;
+        Check(!AssetDiskCache.CompressTextureCache(path, delegate
+        {
+            if (!replaced && NativePixelBuffer.AllocatedBytes > pixels.Length)
+            {
+                replaced = true;
+                AssetDiskCache.WriteTexture(source, newerFingerprint, new CachedTexture { Width = 256, Height = 256,
+                    Format = (int)TextureFormat.ARGB32, MipCount = 9, Pixels = newerPixels });
+            }
+            return false;
+        }) && replaced && AssetDiskCache.ReadTexture(source, newerFingerprint).Pixels.SequenceEqual(newerPixels),
+            "migration cannot overwrite a newer source cache published during compression");
+        Check(NativePixelBuffer.AllocatedBytes == 0 && Directory.GetFiles(AssetDiskCache.Root, "*.tmp").Length == 0,
+            "migration releases workspaces and temporary files on all exits");
+        string tiny = source + ".tiny";
+        AssetDiskCache.WriteTexture(tiny, fingerprint, new CachedTexture { Width = 1, Height = 1,
+            Format = (int)TextureFormat.RGBA32, MipCount = 1, Pixels = new byte[] { 1, 2, 3, 4 } });
+        string tinyPath = AssetDiskCache.CachePath(tiny, 2);
+        Check(AssetDiskCache.CompressTextureCache(tinyPath) && BitConverter.ToInt32(File.ReadAllBytes(tinyPath), 96) == 0 &&
+            AssetDiskCache.ReadTexture(tiny, fingerprint).Pixels.SequenceEqual(new byte[] { 1, 2, 3, 4 }),
+            "incompressible pixels are stored raw with a processed schema");
+        AssetDiskCache.BackgroundCompressionEnabled = true;
+        AssetDiskCache.QueueTextureWrite(source, fingerprint, texture);
+        var wait = Stopwatch.StartNew();
+        while ((AssetDiskCache.WriterBusy || AssetDiskCache.CompressionBusy) && wait.ElapsedMilliseconds < 5000) Thread.Sleep(1);
+        Check(!AssetDiskCache.WriterBusy && !AssetDiskCache.CompressionBusy && AssetDiskCache.ReadTexture(source, fingerprint).Compressed &&
+            NativePixelBuffer.AllocatedBytes == 0, "background PNG write is followed by bounded native compression");
+        AssetDiskCache.BackgroundCompressionEnabled = false;
+        AssetDiskCache.StopTextureCompression();
+        string previousRoot = AssetDiskCache.Root;
+        AssetDiskCache.Root = Path.Combine(workspace, "startup-compression");
+        AssetDiskCache.WriteTexture(source, fingerprint, texture);
+        string startupPath = AssetDiskCache.CachePath(source, 2);
+        AssetDiskCache.BackgroundCompressionEnabled = true;
+        AssetDiskCache.StartTextureCompression();
+        wait = Stopwatch.StartNew();
+        while (AssetDiskCache.CompressionBusy && wait.ElapsedMilliseconds < 5000) Thread.Sleep(1);
+        Check(!AssetDiskCache.CompressionBusy && AssetDiskCache.ReadTexture(source, fingerprint).Compressed,
+            "startup scan upgrades existing raw texture files");
+        byte[] processed = File.ReadAllBytes(startupPath);
+        AssetDiskCache.StartTextureCompression();
+        wait = Stopwatch.StartNew();
+        while (AssetDiskCache.CompressionBusy && wait.ElapsedMilliseconds < 5000) Thread.Sleep(1);
+        Check(!AssetDiskCache.CompressionBusy && File.ReadAllBytes(startupPath).SequenceEqual(processed),
+            "startup scan leaves already-compressed files unchanged");
+        AssetDiskCache.BackgroundCompressionEnabled = false;
+        AssetDiskCache.WriteTexture(source, fingerprint, texture);
+        AssetDiskCache.BackgroundCompressionEnabled = true;
+        AssetDiskCache.StartTextureCompression();
+        wait = Stopwatch.StartNew();
+        while (AssetDiskCache.CompressionBusy && NativePixelBuffer.AllocatedBytes == 0 && wait.ElapsedMilliseconds < 5000) Thread.Sleep(1);
+        AssetDiskCache.StopTextureCompression();
+        wait = Stopwatch.StartNew();
+        while (AssetDiskCache.CompressionBusy && wait.ElapsedMilliseconds < 5000) Thread.Sleep(1);
+        Check(!AssetDiskCache.CompressionBusy && NativePixelBuffer.AllocatedBytes == 0 && AssetDiskCache.ValidateTextureCache(startupPath),
+            "shutdown cancels or completes the active upgrade without losing valid data or native memory");
+        AssetDiskCache.BackgroundCompressionEnabled = false;
+        AssetDiskCache.Root = previousRoot;
     }
 
     static void CheckMeshDecoder()

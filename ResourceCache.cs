@@ -80,6 +80,7 @@ namespace OC2DIYChef
                             " meshSourceReadHashMs=" + worker.Timings.SourceHashMs.ToString("F2") +
                             " cacheReadMs=" + worker.Timings.CacheReadMs.ToString("F2") +
                             " payloadHashMs=" + worker.Timings.PayloadHashMs.ToString("F2") +
+                            " textureDecodeMs=" + worker.Timings.TextureDecodeMs.ToString("F2") +
                             " meshDecodeMs=" + worker.Timings.MeshDecodeMs.ToString("F2") +
                             " workerCpuMs=" + worker.CpuMs.ToString("F2") + " collections=" + worker.Collections +
                             " files=" + worker.Files +
@@ -133,7 +134,7 @@ namespace OC2DIYChef
                             Textures.Add(key, texture);
                             raw.Textures.Remove(key);
                             DIYChefPlugin.Log("Texture " + Name + "/" + key + " source=" +
-                                (input.Cached != null ? "disk-pixels" : "png") +
+                                (input.Cached != null ? input.Cached.Compressed ? "disk-lz4" : "disk-pixels" : "png") +
                                 " decodeUploadMs=" + upload.Elapsed.TotalMilliseconds.ToString("F2"));
                             yield return null;
                         }

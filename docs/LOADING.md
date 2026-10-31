@@ -7,10 +7,13 @@
 安装 .NET SDK，然后执行：
 
 ```powershell
+./tools/Fetch-Lz4.ps1
 dotnet build -c Release "-p:GameDir=D:/Games/Steam Games/steamapps/common/Overcooked! 2"
 ```
 
 也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/OC2DIYChef.dll。
+
+Fetch-Lz4.ps1 获取并校验固定版本的官方 x86 LZ4 库，缓存在忽略提交的 lib 目录。构建将它及许可证嵌入插件 DLL；安装仍只需 OC2DIYChef.dll。首次使用时自动释放到 BepInEx/cache/DIYChefFastInit/native。第三方声明见 THIRD_PARTY_NOTICES.md。
 
 退出游戏，备份安装目录中旧的 OC2DIYChef.dll，然后将新 DLL 放到原 DLL 的位置，保留旁边的 Resources 和 prefer.txt。避免在 plugins 下留下第二个同 GUID 的插件。重启后，在 BepInEx/LogOutput.log 核对 Loading 行的版本及 Version 行的完整 DLL 路径。
 
@@ -118,3 +121,18 @@ dotnet run --project tests/DiskCacheRegression.csproj -c Release -- --warm "<插
 缓存像素经 64 KiB 传输缓冲读入短期原生内存，通过 Unity 的指针接口载入，Apply 后释放，避免命中时分配整张约 22 MB 的托管数组。PNG 命中时只流式计算指纹，未命中时保留原来的 LoadImage 路径。缓存结构、完整内容校验、像素格式、mipmap、画质和驻留预算不变。取消、失败和未消费结果都会释放原生暂存，并记录 nativePixelBytes。
 
 61 项回归通过，覆盖并行摘要隔离、作用域生命周期、实际导入、指针数据一致性与失败释放；349 个 OBJ 缓存逐字节核对通过。游戏自带 Mono 中 128 个短摘要由逐次创建上下文的 39.23 ms 降到复用的 0.76 ms；此数值只描述该项开销。正式 Worker 离线三次为 95.38、66.16、68.68 ms，完整游戏效果待用户复测，本轮未启动游戏。详细证据及计时限制见 CHEF_SWITCH_PERFORMANCE.md。
+
+## 1.3.0.8 LZ4HC 纹理缓存
+
+纹理缓存使用 LZ4HC level 9 压缩、原生 LZ4 解压。像素、ARGB/RGBA 格式及全部 mipmap 不变，仍完整校验解压后的像素和元数据 SHA-256，保持同尺寸同时间戳源修改的失效检测。网格缓存格式保持 1；纹理兼容格式 1，压缩完成后为格式 2。
+
+启动后单个低优先级后台任务逐份转换已有原始缓存。新 PNG 解码产生的像素先由原有快速写入任务落盘，再排队压缩；前台不等待 HC 编码。队列只保存文件名，编码工作区最多一份；输入、编码工作区和验证输出按阶段释放，原生暂存量可在诊断中查看。新文件在完整解压校验通过后原子替换，压缩期间出现更新的源缓存则放弃旧结果。取消、退出或压缩失败时保留有效缓存；无压缩收益的像素记录为格式 2 原始负载，避免反复压缩。
+
+本机现有 55 份纹理缓存已离线转换并逐份验证：1,091,922,348 字节（1041.34 MiB）降至 93,786,778 字节（89.44 MiB），节省约 91.4%，耗时约 51 秒。该转换只运行独立 Mono 文件工具。纹理格式、画质及 Unity 资源驻留预算保持原值。
+
+```powershell
+./tests/Run-DiskCacheMonoRegression.ps1
+./tools/Compress-TextureCache.ps1
+```
+
+第一条在游戏自带 x86 Mono 下执行回归，不启动游戏；本机 81 项通过。第二条可在游戏退出后提前转换指定缓存目录，也可等待插件启动后逐步转换。压缩缓存读取日志为 source=disk-lz4，另记录 textureDecodeMs。完整游戏切换效果由用户测试；调研与原型数据见 TEXTURE_CACHE_COMPRESSION.md。

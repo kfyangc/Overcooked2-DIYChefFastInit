@@ -53,6 +53,8 @@ namespace OC2DIYChef
             AssetHash.Warning = DIYChefPlugin.Log;
             using (var checksum = AssetHash.Create())
                 DIYChefPlugin.Log("Disk cache checksum backend=" + (checksum.IsNative ? "windows-native" : "managed"));
+            if (AssetDiskCache.Enabled && Lz4Codec.Initialise(Path.Combine(AssetDiskCache.Root, "native"), DIYChefPlugin.Log))
+                AssetDiskCache.StartTextureCompression();
         }
 
         internal static ChefMeshReplacer.ChefModelType Type(ChefMeshReplacer replacer)
@@ -296,6 +298,7 @@ namespace OC2DIYChef
 
         internal static void Shutdown()
         {
+            AssetDiskCache.StopTextureCompression();
             pending.Clear(); CancelWork();
             ChefSelectionMenu.Clear();
             DIYChefCustomisation.Shutdown();

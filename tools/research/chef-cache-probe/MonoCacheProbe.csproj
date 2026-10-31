@@ -16,8 +16,9 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="MonoCacheProbe.cs;../../../AssetDiskCache.cs;../../../AssetHash.cs;../../../NativePixelBuffer.cs;../../../MeshCacheCodec.cs;../../../ObjImporter.cs;../../../ImportWorker.cs" />
+    <Compile Include="MonoCacheProbe.cs;../../../AssetDiskCache.cs;../../../TextureCacheCompression.cs;../../../Lz4Codec.cs;../../../AssetHash.cs;../../../NativePixelBuffer.cs;../../../MeshCacheCodec.cs;../../../ObjImporter.cs;../../../ImportWorker.cs" />
     <Reference Include="$(ManagedDir)/mscorlib.dll;$(ManagedDir)/System.dll;$(ManagedDir)/System.Core.dll" Private="false" />
     <Reference Include="$(ManagedDir)/UnityEngine*.dll" Private="false" />
+    <EmbeddedResource Include="../../../lib/lz4-win-x86.dll" LogicalName="OC2DIYChef.Native.LZ4.x86" />
   </ItemGroup>
 </Project>

@@ -23,7 +23,7 @@ namespace OC2DIYChef
             }
         }
 
-        NativePixelBuffer(int length)
+        internal NativePixelBuffer(int length)
         {
             if (length < 1) throw new ArgumentOutOfRangeException("length");
             Length = length;
@@ -57,13 +57,15 @@ namespace OC2DIYChef
             catch { pixels.Dispose(); throw; }
         }
 
-        internal void WriteTo(BinaryWriter writer)
+        internal void WriteTo(BinaryWriter writer, int length = -1)
         {
+            if (length == -1) length = Length;
+            if (length < 0 || length > Length) throw new ArgumentOutOfRangeException("length");
             byte[] chunk = new byte[Math.Min(Length, ChunkSize)];
             int offset = 0;
-            while (offset < Length)
+            while (offset < length)
             {
-                int count = Math.Min(chunk.Length, Length - offset);
+                int count = Math.Min(chunk.Length, length - offset);
                 Marshal.Copy(Offset(Pointer, offset), chunk, 0, count);
                 writer.Write(chunk, 0, count);
                 offset += count;

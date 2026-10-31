@@ -17,6 +17,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="*.cs;Properties/AssemblyInfo.cs" />
+    <EmbeddedResource Include="lib/lz4-win-x86.dll" LogicalName="OC2DIYChef.Native.LZ4.x86" />
+    <EmbeddedResource Include="third_party/lz4/LICENSE" LogicalName="OC2DIYChef.Native.LZ4.LICENSE" />
     <Reference Include="$(ManagedDir)/mscorlib.dll" Private="false" />
     <Reference Include="$(ManagedDir)/System.dll" Private="false" />
     <Reference Include="$(ManagedDir)/System.Core.dll" Private="false" />
@@ -27,6 +29,7 @@
     <Reference Include="$(GameDir)/BepInEx/core/BepInEx.Harmony.dll" Private="false" />
   </ItemGroup>
   <Target Name="CheckGameDirectory" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('lib/lz4-win-x86.dll')" Text="Run powershell -File tools/Fetch-Lz4.ps1 to fetch the pinned LZ4 native dependency." />
     <Error Condition="!Exists('$(ManagedDir)/Assembly-CSharp.dll')" Text="Set GameDir or OC2_GAME_DIR to your Overcooked! 2 installation." />
   </Target>
 </Project>
