@@ -9,17 +9,13 @@
    Steam crossplay 版本或 Epic 端安装 x64 版本（[GitHub](https://github.com/BepInEx/BepInEx/releases) 或 [百度网盘链接](https://pan.baidu.com/s/1C4UDhK7R9Ei6Eu0B6lQ9Cw?pwd=3lu1)）
 
    > Steam - 库 - Overcooked2 - 属性 - 测试版
-   > <div align="center">
-   >     <img src="beta.png" width="90%" height="90%" />
-   > </div>
+   > ![Steam 测试版设置](assets/beta.png)
 
    解压后拷贝到游戏根目录下（下图中选中的三项）
 
-   <div align="center">
-       <img src="bepinex.png" width="30%" height="30%" />
-   </div>
+   ![BepInEx 解压后选中的三项](assets/bepinex.png)
 
-2. 将 `OC2DIYChef` 文件夹拷贝到 `BepInEx/plugins` 文件夹中
+2. 从 [Releases](../../releases) 下载最新的发布包，将 `OC2DIYChef` 文件夹拷贝到 `BepInEx/plugins` 文件夹中
 
 
 
@@ -29,9 +25,8 @@
 
 - 将 `OC2DIYChef/official-all.txt` 原地复制一份并重命名为 `prefer.txt`，然后编辑 `prefer.txt`，删去不想使用的厨师的名字。厨师名对应见下图。
 
-  <div align="center">
-      <img src="chef_name.png" width="100%" height="100%" />
-  </div><br>
+  ![厨师名对照表](assets/chef_name.png)
+
   <div align="right" style="font-size:14pt;font-weight:bold">由糯米糍整理</div>
   
 - 可以在 `prefer.txt` 中对厨师排序，其中第一个厨师是默认厨师。每次进入游戏或添加本地玩家时会自动选用默认厨师。联机时若你使用额外厨师，对于没有安装此 MOD 的其他玩家显示的是默认厨师。
@@ -142,8 +137,6 @@
 
 - 修复了原始厨师模型上的一个顶点权重错误。
 
-  <div align="center">
-      <img src="meshbug.png" width="30%" height="30%" />
-  </div>
+  ![顶点权重错误示例](assets/meshbug.png)
 
 - 兼容配置文件名 `prefer.txt.txt`。
