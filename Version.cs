@@ -2,6 +2,6 @@ namespace OC2DIYChef
 {
     internal static class PluginVersion
     {
-        public const string Value = "1.3.0.2";
+        public const string Value = "1.3.0.3";
     }
 }

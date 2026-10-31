@@ -105,6 +105,13 @@ namespace OC2DIYChef
             return false; // No original setter state is changed; old model keeps animating.
         }
 
+        internal static void Cancel(ChefMeshReplacer replacer)
+        {
+            if (replacer == null) return;
+            pending.Remove(replacer.GetInstanceID());
+            if (active != null && !Wants(active)) CancelWork();
+        }
+
         internal static void EnsureImmediate(ref GameSession.SelectedChefData data, ChefMeshReplacer replacer)
         {
             if (data == null) return;
@@ -274,6 +281,7 @@ namespace OC2DIYChef
         internal static void Shutdown()
         {
             pending.Clear(); CancelWork();
+            ChefSelectionMenu.Clear();
             DIYChefCustomisation.Shutdown();
             foreach (var resource in ResourceCache.All) if (resource.References == 0) resource.Evict();
         }

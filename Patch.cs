@@ -448,6 +448,41 @@ namespace OC2DIYChef
             ClientUserSystem.usersChanged();
         }
 
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(ChefCustomiser), "CacheCurrentAvatars")]
+        public static void CacheDIYChefSelection(ChefCustomiser __instance)
+        {
+            ChefSelectionMenu.Capture(__instance);
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(ChefCustomiser), "RevertAvatars")]
+        public static void RevertDIYChefSelection(ChefCustomiser __instance, out bool __state)
+        {
+            __state = ChefSelectionMenu.RestoreBeforeAvatars(__instance);
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(ChefCustomiser), "RevertAvatars")]
+        public static void RefreshRestoredDIYChefSelection(bool __state)
+        {
+            if (__state) ChefSelectionMenu.SynchronizeRestoredChoices();
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(FrontendChefMenu), "Hide")]
+        public static void ReleaseChefSelectionOnHide(FrontendChefMenu __instance, bool __result)
+        {
+            if (__result) ChefSelectionMenu.Release(__instance);
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(FrontendChefMenu), "OnDestroy")]
+        public static void ReleaseChefSelectionOnDestroy(FrontendChefMenu __instance)
+        {
+            ChefSelectionMenu.Release(__instance);
+        }
+
         public static class FrontendChefCustomisationPatch
         {
             [HarmonyPrefix]
