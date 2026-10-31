@@ -15,7 +15,7 @@
 
    ![BepInEx 解压后选中的三项](assets/bepinex.png)
 
-2. 将 `OC2DIYChef` 文件夹拷贝到 `BepInEx/plugins` 文件夹中
+2. 从 [Releases](../../releases) 下载最新的发布包，将 `OC2DIYChef` 文件夹拷贝到 `BepInEx/plugins` 文件夹中
 
 
 

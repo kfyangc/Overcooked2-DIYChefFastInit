@@ -3,7 +3,7 @@
 ## Installation
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) for the game (x86 for Steam, x64 for Steam crossplay branch or Epic)
-2. Create a new folder `BepInEx/plugins/OC2DIYChef` in the game's directory and copy `bin/Release/OC2DIYChef.dll` to it
+2. Download `OC2DIYChef.dll` from [Releases](../../releases), create a new folder `BepInEx/plugins/OC2DIYChef` in the game's directory and copy the dll into it
 
 > ### Compiling
 >
