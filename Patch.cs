@@ -1,4 +1,4 @@
-﻿using BitStream;
+using BitStream;
 using HarmonyLib;
 using OC2DIYChef.Extension;
 using System;
@@ -148,21 +148,32 @@ namespace OC2DIYChef
                 });
         }
 
-        [HarmonyTranspiler]
-        [HarmonyPatch(typeof(ChefMeshReplacer), "ReplaceModel")]
-        public static IEnumerable<CodeInstruction> ChefMeshReplacerReplaceModelPatch(IEnumerable<CodeInstruction> instructions)
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(FrontendChef), "SetChefData", new Type[] { typeof(GameSession.SelectedChefData), typeof(bool) })]
+        public static bool FrontendChefSetData(FrontendChef __instance, GameSession.SelectedChefData chefData, bool force)
         {
-            string path = Application.dataPath;
-            bool is64 =
-                File.Exists(path.Replace("/Overcooked2_Data", "/UnityCrashHandler64.exe")) &&
-                Directory.Exists(path.Replace("/Overcooked2_Data", "/MonoBleedingEdge"));
-            int e1 = is64 ? 258 : 267;
-            int e2 = is64 ? 249 : 258;
+            return ChefLoading.Applying || ChefLoading.Submit(__instance, chefData, force);
+        }
 
-            var codes = instructions.ToList();
-            codes.RemoveRange(e1, 3);
-            codes.RemoveRange(e2, 6);
-            return codes.AsEnumerable();
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(FrontendChef), "SetChefData", new Type[] { typeof(GameSession.SelectedChefData), typeof(bool) })]
+        public static void FrontendChefSetDataComplete(FrontendChef __instance)
+        {
+            ChefLoading.Capture(__instance);
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(ChefMeshReplacer), "SetChefData")]
+        public static void ReplacerSetData(ChefMeshReplacer __instance, ref GameSession.SelectedChefData chefData)
+        {
+            ChefLoading.EnsureImmediate(ref chefData, __instance);
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(ChefMeshReplacer), "SetChefData")]
+        public static void ReplacerSetDataComplete(ChefMeshReplacer __instance, GameSession.SelectedChefData chefData)
+        {
+            ChefLoading.Track(__instance, chefData);
         }
 
         [HarmonyPrefix]
@@ -181,7 +192,7 @@ namespace OC2DIYChef
                     {
                         gameObject.RequireComponent<SkinnedMeshRenderer>().material = _data.Colour.ChefMaterial;
                     }
-                    else 
+                    else
                     {
                         Material material = gameObject.RequireComponent<SkinnedMeshRenderer>().material;
                         material.SetColor(maskParamID, _data.Colour.MaskColour);
@@ -316,7 +327,7 @@ namespace OC2DIYChef
             chef.SetChefHat(HatMeshVisibility.VisState.Fancy);
             chef.SetShaderMode(FrontendChef.ShaderMode.eUI);
             chef.SetUIChefAmbientLighting(__instance.get_m_AmbientColor());
-            if (chef.ChefModel != chefModel && player != -1)
+            if (player != -1)
                 chef.SetAnimationSet((FrontendChef.AnimationSet)player);
 
             return false;
@@ -361,6 +372,7 @@ namespace OC2DIYChef
         {
             FastList<User> users = ClientUserSystem.m_Users;
             int player = users.FindIndex(x => x.EntityID == uEntityID || x.Entity2ID == uEntityID);
+            if (player < 0 || player >= DIYChefCustomisation.userDIYChefID.Length) return true;
             byte diyChefID = DIYChefCustomisation.userDIYChefID[player];
             var diyChef = DIYChefCustomisation.diyChefs.Find(x => x.id == diyChefID);
             if (diyChef != null)
@@ -458,9 +470,9 @@ namespace OC2DIYChef
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(MetaGameProgress), "ByteLoad")]
-        public static void MetaGameProgressByteLoadPatch(MetaGameProgress __instance)
+        public static void MetaGameProgressByteLoadPatch(MetaGameProgress __instance, bool __result)
         {
-            DIYChefCustomisation.OnAwake(__instance);
+            if (__result) DIYChefCustomisation.OnAwake(__instance);
         }
 
         [HarmonyPrefix]
@@ -471,18 +483,5 @@ namespace OC2DIYChef
             return false;
         }
 
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(TimeManager), "Update")]
-        public static bool TimeManagerUpdatePatch() => false;
-
-        private static readonly MethodInfo methodInfoDeltaTime = AccessTools.PropertyGetter(typeof(Time), "deltaTime");
-        [HarmonyTranspiler]
-        [HarmonyPatch(typeof(MaterialTimeController), "Update")]
-        public static IEnumerable<CodeInstruction> MaterialTimeControllerUpdatePatch(IEnumerable<CodeInstruction> instructions)
-        {
-            var codes = instructions.ToList();
-            codes[6] = new CodeInstruction(OpCodes.Call, methodInfoDeltaTime);
-            return codes.AsEnumerable();
-        }
     }
 }

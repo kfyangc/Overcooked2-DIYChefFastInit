@@ -2,6 +2,8 @@
 bin/
 lib/
 obj/
+bin/
+artifacts/
 .vs/
 *.pdf
 BODY/

@@ -1,10 +1,10 @@
-﻿using BepInEx;
+using BepInEx;
 using HarmonyLib;
 using System.Collections;
 
 namespace OC2DIYChef
 {
-    [BepInPlugin("dev.gua.overcooked.diychef", "Overcooked2 DIYChef Plugin", "1.3")]
+    [BepInPlugin("dev.gua.overcooked.diychef", "Overcooked2 DIYChef Plugin", PluginVersion.Value)]
     [BepInProcess("Overcooked2.exe")]
     public class DIYChefPlugin : BaseUnityPlugin
     {
@@ -14,6 +14,8 @@ namespace OC2DIYChef
         public void Awake()
         {
             pluginInstance = this;
+            ChefLoading.Configure(Config);
+            Log("Version " + PluginVersion.Value + "; " + typeof(DIYChefPlugin).Assembly.Location);
             patcher = new Harmony("dev.gua.overcooked.diychef");
             patcher.PatchAll(typeof(Patch));
             patcher.PatchAll(typeof(Patch.FrontendChefCustomisationPatch));
@@ -25,13 +27,10 @@ namespace OC2DIYChef
 
         void Update()
         {
-            DIYChefCustomisation.Update();
+            ChefLoading.Update();
         }
 
-        void OnGUI()
-        {
-            DIYChefCustomisation.OnGUI();
-        }
+        void OnDestroy() { ChefLoading.Shutdown(); }
 
         public static void Log(string msg) { pluginInstance.Logger.LogInfo(msg); }
     }
