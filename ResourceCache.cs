@@ -26,7 +26,7 @@ namespace OC2DIYChef
         internal readonly HashSet<ChefMeshReplacer.ChefModelType> FailedModels = new HashSet<ChefMeshReplacer.ChefModelType>();
         internal bool ImportFailed;
         internal readonly Dictionary<string, Texture2D> Textures = new Dictionary<string, Texture2D>();
-        internal readonly Dictionary<string, Mesh> Meshes = new Dictionary<string, Mesh>();
+        internal readonly Dictionary<string, ObjImporter.MeshData> Geometry = new Dictionary<string, ObjImporter.MeshData>();
         internal readonly Dictionary<string, Dictionary<string, float>> Materials = new Dictionary<string, Dictionary<string, float>>();
         readonly List<Object> owned = new List<Object>();
 
@@ -90,7 +90,9 @@ namespace OC2DIYChef
                         foreach (string key in new List<string>(raw.Meshes.Keys))
                         {
                             var data = raw.Meshes[key];
-                            Meshes.Add(key, Own(ObjImporter.CreateMesh(data), data.EstimatedBytes * 2));
+                            // Keep immutable geometry, rather than an uploaded Unity mesh to clone.
+                            Geometry.Add(key, data);
+                            Bytes += data.EstimatedBytes;
                             raw.Meshes.Remove(key);
                             yield return null;
                         }
@@ -127,7 +129,7 @@ namespace OC2DIYChef
                     Bytes = previousBytes;
                     if (!Imported || checkpoint == 0)
                     {
-                        Textures.Clear(); Meshes.Clear(); Materials.Clear(); Imported = false;
+                        Textures.Clear(); Geometry.Clear(); Materials.Clear(); Imported = false;
                     }
                 }
             }
@@ -139,7 +141,7 @@ namespace OC2DIYChef
             if (Hat != null && Bytes != 0) Hat.prefab = null;
             for (int i = owned.Count - 1; i >= 0; i--)
                 if (owned[i] != null) Object.Destroy(owned[i]);
-            owned.Clear(); Textures.Clear(); Meshes.Clear(); Materials.Clear();
+            owned.Clear(); Textures.Clear(); Geometry.Clear(); Materials.Clear();
             Bytes = 0; Imported = false;
         }
 

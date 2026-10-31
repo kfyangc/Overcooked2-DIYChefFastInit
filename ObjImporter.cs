@@ -84,21 +84,29 @@ public static class ObjImporter
                 }
             }
         }
-        // Unity 2017.4/x86 uses 16-bit indices by default.
-        if (output.Count == 0 || output.Count > 65535)
-            throw new FormatException("OBJ expanded vertex count must be 1..65535: " + path);
+        // Empty optional parts intentionally hide a template part. Large parts use
+        // Unity 2017.4's 32-bit index format rather than truncating vertex indices.
         return new MeshData { Vertices = output.ToArray(), Normals = outNormals.ToArray(),
             UV = outUV.ToArray(), Triangles = triangles.ToArray() };
     }
 
     public static Mesh CreateMesh(MeshData data)
     {
+        return CreateMesh(data, null, null);
+    }
+
+    public static Mesh CreateMesh(MeshData data, BoneWeight[] weights, Matrix4x4[] bindposes)
+    {
         var mesh = new Mesh();
         try
         {
+            if (data.Vertices.Length > 65535) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             mesh.vertices = data.Vertices;
             mesh.uv = data.UV;
             mesh.normals = data.Normals;
+            // Supply the complete vertex layout before its first graphics upload.
+            if (bindposes != null) mesh.bindposes = bindposes;
+            if (weights != null) mesh.boneWeights = weights;
             mesh.triangles = data.Triangles;
             mesh.RecalculateBounds();
             mesh.RecalculateTangents();

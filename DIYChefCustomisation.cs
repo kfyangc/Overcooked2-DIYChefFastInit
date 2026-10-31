@@ -431,9 +431,6 @@ namespace OC2DIYChef
             string name = sourceName;
             string hatName = HatName;
             Texture2D texture = Resources.Textures["t_" + name];
-            Mesh mesh = Resources.Own(GameObject.Instantiate(Resources.Meshes[name]),
-                Resources.Meshes[name].vertexCount * 64L);
-            mesh.name = hatName;
             var matParams = Resources.Materials["m_" + name];
             GameObject hatPrefab = DIYChefCustomisation.defaultTemplate.ModelPrefab.transform.FindChildStartsWithRecursive("Hat_Baseballcap").gameObject;
             var built = Resources.Own(GameObject.Instantiate(hatPrefab), 4096);
@@ -450,18 +447,9 @@ namespace OC2DIYChef
             foreach (var pair in matParams)
                 material.SetFloat(pair.Key, pair.Value);
 
-            mesh.bindposes = hat.bones.Select(x => BindPoses.GetMatrix(x.name)).ToArray();
-            BoneWeight[] boneWeights = new BoneWeight[mesh.vertexCount];
-            int i = hat.bones.FindIndex_Predicate(x => x.name.Equals("HatBase"));
-            if (i < 0) i = 0;
-            for (int j = 0; j < mesh.vertexCount; j++)
-            {
-                boneWeights[j].weight0 = 1;
-                boneWeights[j].boneIndex0 = i;
-            }
-            mesh.boneWeights = boneWeights;
-            hat.sharedMesh = mesh;
-            mesh.UploadMeshData(true);
+            var hatBone = hat.bones.FirstOrDefault(x => x != null && x.name == "HatBase");
+            if (hatBone == null) throw new FormatException(HatName + ": missing bone HatBase");
+            MeshBinding.Bind(Resources, Resources.Geometry[name], hat, HatName, new[] { hatBone }, false);
             prefab = built;
             yield break;
         }
@@ -528,7 +516,7 @@ namespace OC2DIYChef
         internal ChefAvatarData template;
         internal ResourceCache Resources;
         Dictionary<string, Texture2D> textureDict { get { return Resources.Textures; } }
-        Dictionary<string, Mesh> meshDict { get { return Resources.Meshes; } }
+        Dictionary<string, ObjImporter.MeshData> meshDict { get { return Resources.Geometry; } }
         Dictionary<string, Dictionary<string, float>> materialDict { get { return Resources.Materials; } }
 
         private static readonly Dictionary<string, string> allowedPartToBone = new Dictionary<string, string>
@@ -729,69 +717,12 @@ namespace OC2DIYChef
 
                 foreach (var part in allParts)
                 {
-                    // A renderer owns its binding, even across model types and tools.
-                    Mesh meshPart = Resources.Own(GameObject.Instantiate(meshDict[partName]),
-                        meshDict[partName].vertexCount * 64L);
-                    meshPart.name = partName;
-                    meshPart.bindposes = part.bones.Select(x => BindPoses.GetMatrix(x.name)).ToArray();
-
-                    BoneWeight[] boneWeights = new BoneWeight[meshPart.vertexCount];
-                    if (partName != "Body_Body")
-                    {
-                        int i = part.bones.FindIndex_Predicate(x => x.name.Equals(boneName));
-                        if (i < 0) throw new FormatException(partName + ": missing bone " + boneName);
-                        for (int j = 0; j < meshPart.vertexCount; j++)
-                        {
-                            boneWeights[j].weight0 = 1;
-                            boneWeights[j].boneIndex0 = i;
-                        }
-                    }
-                    else
-                    {
-                        int i1 = part.bones.FindIndex_Predicate(x => x.name.Equals("Body_Top"));
-                        int i2 = part.bones.FindIndex_Predicate(x => x.name.Equals("Jnt_Body"));
-                        if (i1 < 0 || i2 < 0) throw new FormatException("Body_Body: missing body bones");
-                        Vector3[] v = meshPart.vertices;
-                        for (int j = 0; j < meshPart.vertexCount; j++)
-                        {
-                            boneWeights[j].boneIndex0 = i1;
-                            boneWeights[j].boneIndex1 = i2;
-                            float y = v[j].y;
-                            if (y > 0.54)
-                            {
-                                boneWeights[j].weight0 = 1.0f;
-                                boneWeights[j].weight1 = 0.0f;
-                            }
-                            else if (y > 0.46)
-                            {
-                                boneWeights[j].weight0 = 0.75f;
-                                boneWeights[j].weight1 = 0.25f;
-                            }
-                            else if (y > 0.38)
-                            {
-                                boneWeights[j].weight0 = 0.5f;
-                                boneWeights[j].weight1 = 0.5f;
-                            }
-                            else if (y > 0.30)
-                            {
-                                boneWeights[j].weight0 = 0.3f;
-                                boneWeights[j].weight1 = 0.7f;
-                            }
-                            else if (y > 0.22)
-                            {
-                                boneWeights[j].weight0 = 0.1f;
-                                boneWeights[j].weight1 = 0.9f;
-                            }
-                            else
-                            {
-                                boneWeights[j].weight0 = 0.0f;
-                                boneWeights[j].weight1 = 1.0f;
-                            }
-                        }
-                    }
-                    meshPart.boneWeights = boneWeights;
-                    part.sharedMesh = meshPart;
-                    meshPart.UploadMeshData(true);
+                    string[] names = partName == "Body_Body" ?
+                        new[] { "Body_Top", "Jnt_Body" } : new[] { boneName };
+                    Transform[] bones = names.Select(n => part.bones.FirstOrDefault(x => x != null && x.name == n)).ToArray();
+                    if (bones.Any(x => x == null))
+                        throw new FormatException(partName + ": missing bones " + string.Join(",", names));
+                    MeshBinding.Bind(Resources, meshDict[partName], part, partName, bones, partName == "Body_Body");
                 }
                 yield return null;
             }
@@ -976,4 +907,3 @@ namespace OC2DIYChef
         }
     }
 }
-

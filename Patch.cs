@@ -155,6 +155,25 @@ namespace OC2DIYChef
             return ChefLoading.Applying || ChefLoading.Submit(__instance, chefData, force);
         }
 
+        [HarmonyTranspiler]
+        [HarmonyPatch(typeof(ChefMeshReplacer), "ReplaceModel")]
+        public static IEnumerable<CodeInstruction> ResolveCustomBody(IEnumerable<CodeInstruction> instructions)
+        {
+            var codes = instructions.ToList();
+            var find = AccessTools.Method(typeof(GameObjectUtils), "FindChildRecursive", new[] { typeof(Transform), typeof(string) });
+            var replacement = AccessTools.Method(typeof(Patch), "FindChefBody");
+            for (int i = 1; i < codes.Count; i++)
+                if (codes[i].Calls(find) && codes[i - 1].opcode == OpCodes.Ldstr &&
+                    (string)codes[i - 1].operand == "Body")
+                    codes[i].operand = replacement;
+            return codes;
+        }
+
+        public static Transform FindChefBody(Transform root, string name)
+        {
+            return root.FindChildRecursive(name) ?? root.FindChildRecursive("Body_Body");
+        }
+
         [HarmonyPostfix]
         [HarmonyPatch(typeof(FrontendChef), "SetChefData", new Type[] { typeof(GameSession.SelectedChefData), typeof(bool) })]
         public static void FrontendChefSetDataComplete(FrontendChef __instance)
