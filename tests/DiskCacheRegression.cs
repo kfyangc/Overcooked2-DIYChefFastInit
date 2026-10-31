@@ -55,6 +55,7 @@ static class DiskCacheRegression
             return;
         }
         CheckHashing();
+        CheckHashBatches();
         CheckMeshDecoder();
         string workspace = Path.GetFullPath(Path.Combine("artifacts", "cache-regression", Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(workspace);
@@ -147,6 +148,8 @@ static class DiskCacheRegression
         Check(AssetDiskCache.ReadMesh(source, null, out hit).Vertices.Length == 4 && !hit,
             "cache write failure does not fail source loading");
         AssetDiskCache.Root = root;
+        CheckWorkerBatches(workspace);
+        CheckNativePixels(workspace);
         Console.WriteLine("PASS: " + assertions + " disk cache assertions; no Unity objects or game process created.");
     }
 
@@ -196,6 +199,201 @@ static class DiskCacheRegression
             foreach (int index in data.Triangles) writer.Write(index);
             return buffer.ToArray();
         }
+    }
+
+    static void CheckHashBatches()
+    {
+        var metrics = AssetHash.Timings = new AssetHash.NativeTimings();
+        byte[] a = System.Text.Encoding.UTF8.GetBytes("first independent digest");
+        byte[] b = System.Text.Encoding.UTF8.GetBytes("第二份独立数据");
+        byte[] expectedA, expectedB;
+        using (var sha = new SHA256Managed()) { expectedA = sha.ComputeHash(a); expectedB = sha.ComputeHash(b); }
+        bool native;
+        using (AssetHash.BeginBatch())
+        using (var first = AssetHash.Create())
+        {
+            native = first.IsNative;
+            first.Append(a, 0, 5);
+            using (var second = AssetHash.Create())
+            {
+                second.Append(b, 0, b.Length);
+                Check(second.Finish().SequenceEqual(expectedB), "overlapping digests retain independent hash state");
+            }
+            using (AssetHash.BeginBatch())
+                Check(AssetHash.Compute(b).SequenceEqual(expectedB), "nested hash batches preserve outer digest state");
+            first.Append(a, 5, a.Length - 5);
+            Check(first.Finish().SequenceEqual(expectedA), "outer digest remains correct after nested batch");
+        }
+        Check(!native || metrics.Contexts == 1 && metrics.Releases == 1 && metrics.Hashes == 3,
+            "nested and overlapping native digests acquire and release one provider");
+        AssetHash retained;
+        using (AssetHash.BeginBatch())
+        {
+            retained = AssetHash.Create();
+            retained.Append(a, 0, a.Length);
+        }
+        Check(!native || metrics.Releases == 1, "a digest keeps its provider alive after batch disposal");
+        Check(retained.Finish().SequenceEqual(expectedA), "digest can finish after its owner batch exits");
+        retained.Dispose(); retained.Dispose();
+        Check(!native || metrics.Contexts == 2 && metrics.Releases == 2, "provider is released once after last digest exits");
+        try
+        {
+            using (AssetHash.BeginBatch())
+            using (var digest = AssetHash.Create())
+            {
+                digest.Append(b, 0, b.Length);
+                throw new OperationCanceledException();
+            }
+        }
+        catch (OperationCanceledException) { }
+        using (AssetHash.BeginBatch())
+            Check(AssetHash.Compute(a).SequenceEqual(expectedA), "exception unwinding restores usable batch state");
+        Check(!native || metrics.Contexts == 4 && metrics.Releases == 4, "cancelled hash batches release provider references");
+
+        Exception[] errors = new Exception[4];
+        var threads = new Thread[errors.Length];
+        for (int i = 0; i < threads.Length; i++)
+        {
+            int index = i;
+            threads[i] = new Thread(delegate()
+            {
+                try
+                {
+                    var local = AssetHash.Timings = new AssetHash.NativeTimings();
+                    using (AssetHash.BeginBatch())
+                        for (int j = 0; j < 10; j++)
+                            if (!AssetHash.Compute(index % 2 == 0 ? a : b).SequenceEqual(index % 2 == 0 ? expectedA : expectedB))
+                                throw new Exception("cross-thread hash state was mixed");
+                    if (native && (local.Contexts != 1 || local.Releases != 1)) throw new Exception("thread provider was not scoped");
+                }
+                catch (Exception error) { errors[index] = error; }
+                finally { AssetHash.Timings = null; }
+            });
+            threads[i].Start();
+        }
+        foreach (var thread in threads) thread.Join();
+        Check(errors.All(x => x == null), "parallel imports use independent scoped providers and produce correct hashes");
+        string oldRoot = AssetDiskCache.Root;
+        AssetDiskCache.Root = Path.GetFullPath("artifacts/hash-path-check");
+        string source = Path.GetFullPath("artifacts/中文 路径.obj");
+        byte[] key;
+        using (var sha = new SHA256Managed()) key = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(source.ToUpperInvariant()));
+        string expectedPath = Path.Combine(AssetDiskCache.Root, BitConverter.ToString(key).Replace("-", "").ToLowerInvariant() + ".mesh");
+        int contextsBefore = metrics.Contexts;
+        Check(AssetDiskCache.CachePath(source, 1) == expectedPath && metrics.Contexts == contextsBefore,
+            "cache filenames stay compatible without acquiring native providers");
+        AssetDiskCache.Root = oldRoot;
+        AssetHash.Timings = null;
+    }
+
+    static void WaitWorker(ImportWorker worker)
+    {
+        var timer = Stopwatch.StartNew();
+        while (!worker.Completed && timer.ElapsedMilliseconds < 5000) Thread.Sleep(1);
+        if (!worker.Completed) { worker.Cancelled = true; throw new Exception("worker timed out"); }
+    }
+
+    static void CheckWorkerBatches(string workspace)
+    {
+        string folder = Path.Combine(workspace, "worker");
+        Directory.CreateDirectory(folder);
+        const string obj = "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n";
+        foreach (string name in new[] { "Head", "Eyes" })
+        {
+            string path = Path.Combine(folder, name + ".obj");
+            File.WriteAllText(path, obj);
+            bool hit; AssetDiskCache.ReadMesh(path, null, out hit);
+        }
+        string png = Path.Combine(folder, "t_Head.png");
+        byte[] source = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1sAAAAASUVORK5CYII=");
+        File.WriteAllBytes(png, source);
+        AssetDiskCache.WriteTexture(png, AssetHash.Compute(source), new CachedTexture
+        { Width = 1, Height = 1, Format = (int)TextureFormat.RGBA32, MipCount = 1, Pixels = new byte[] { 0, 0, 0, 255 } });
+        File.WriteAllText(Path.Combine(folder, "m_Head.txt"), "_Glossiness=0.25\n");
+        var worker = new ImportWorker(folder, false, delegate { return true; });
+        worker.Start(); WaitWorker(worker);
+        Check(worker.Error == null && worker.MeshCacheHits == 2 && worker.TextureCacheHits == 1 &&
+            worker.Data.Materials["m_Head"]["_Glossiness"] == 0.25f, "actual worker restores meshes, pixels and material values");
+        Check(worker.HashTimings.Contexts == 0 || worker.HashTimings.Contexts == 1 && worker.HashTimings.Releases == 1,
+            "actual import shares and releases one native provider");
+        Check(worker.Data.Textures["t_Head"].Cached.Pixels == null && NativePixelBuffer.AllocatedBytes == 4,
+            "actual worker uses native pixel storage instead of a large managed array");
+        worker.Cancel();
+        Check(worker.Data == null && NativePixelBuffer.AllocatedBytes == 0, "completed import releases unconsumed native pixels");
+        ImportWorker cancelled = null;
+        cancelled = new ImportWorker(folder, false, delegate { cancelled.Cancelled = true; return true; });
+        cancelled.Start(); WaitWorker(cancelled);
+        Check(cancelled.Error is OperationCanceledException && cancelled.Data == null &&
+            NativePixelBuffer.AllocatedBytes == 0 &&
+            (cancelled.HashTimings.Contexts == 0 || cancelled.HashTimings.Contexts == 1 && cancelled.HashTimings.Releases == 1),
+            "cancelling an actual import discards data and releases its provider");
+        var failed = new ImportWorker(folder, false, delegate { throw new FormatException("broken resource"); });
+        failed.Start(); WaitWorker(failed);
+        Check(failed.Error is FormatException && failed.Data == null && NativePixelBuffer.AllocatedBytes == 0,
+            "a later mesh failure frees already-read native textures");
+        File.Delete(AssetDiskCache.CachePath(png, 2));
+        var cold = new ImportWorker(folder, false, delegate { return true; });
+        cold.Start(); WaitWorker(cold);
+        Check(cold.Error == null && cold.TextureCacheHits == 0 && cold.Data.Textures["t_Head"].PNG.SequenceEqual(source) &&
+            cold.Data.Textures["t_Head"].Fingerprint.SequenceEqual(AssetHash.Compute(source)),
+            "cache miss retains the exact PNG bytes and matching source fingerprint");
+        cold.Cancel();
+        AssetDiskCache.Enabled = false;
+        var disabled = new ImportWorker(folder, false, delegate { return true; });
+        disabled.Start(); WaitWorker(disabled);
+        Check(disabled.Error == null && disabled.HashTimings.Contexts == 0 && disabled.MeshCacheHits == 0 &&
+            disabled.Data.Textures["t_Head"].PNG.SequenceEqual(source), "disabled cache uses PNG/OBJ source without native providers");
+        disabled.Cancel();
+        AssetDiskCache.Enabled = true;
+    }
+
+    static void CheckNativePixels(string workspace)
+    {
+        string source = Path.Combine(workspace, "native-pixels.png");
+        byte[] fingerprint = AssetHash.Compute(new byte[] { 1, 2, 3, 4 });
+        byte[] pixels = Enumerable.Range(0, 87381 * 4).Select(i => (byte)(i * 13)).ToArray();
+        AssetDiskCache.WriteTexture(source, fingerprint, new CachedTexture { Width = 256, Height = 256,
+            Format = (int)TextureFormat.RGBA32, MipCount = 9, Pixels = pixels });
+        var cached = AssetDiskCache.ReadTexture(source, fingerprint, true);
+        byte[] copied = new byte[pixels.Length];
+        System.Runtime.InteropServices.Marshal.Copy(cached.NativePixels.Pointer, copied, 0, copied.Length);
+        Check(cached.Pixels == null && cached.PixelLength == pixels.Length && copied.SequenceEqual(pixels),
+            "native cache reads preserve every pixel byte across chunk boundaries");
+        byte[] prefix = new byte[] { 7, 8, 9 };
+        byte[] expected;
+        using (var sha = new SHA256Managed()) expected = sha.ComputeHash(prefix.Concat(pixels).ToArray());
+        foreach (bool native in new[] { true, false })
+            using (var hash = AssetHash.Create(native))
+            {
+                hash.Append(prefix, 0, prefix.Length);
+                hash.Append(cached.NativePixels.Pointer, cached.NativePixels.Length);
+                Check(hash.Finish().SequenceEqual(expected), "pointer hashing matches reference with native preference=" + native);
+            }
+        string rewritten = source + ".copy";
+        AssetDiskCache.WriteTexture(rewritten, fingerprint, cached);
+        Check(AssetDiskCache.ReadTexture(rewritten, fingerprint).Pixels.SequenceEqual(pixels),
+            "native pixel writer keeps the existing cache schema and checksum");
+        cached.Dispose(); cached.Dispose();
+        Check(NativePixelBuffer.AllocatedBytes == 0, "native texture buffers release exactly once");
+        bool disposed = false;
+        try { var pointer = cached.NativePixels.Pointer; }
+        catch (ObjectDisposedException) { disposed = true; }
+        Check(disposed, "released pixels cannot be passed back to Unity");
+        string file = AssetDiskCache.CachePath(source, 2);
+        byte[] damaged = File.ReadAllBytes(file);
+        damaged[damaged.Length - 1] ^= 1;
+        File.WriteAllBytes(file, damaged);
+        Check(AssetDiskCache.ReadTexture(source, fingerprint, true) == null && NativePixelBuffer.AllocatedBytes == 0,
+            "native checksum rejection frees its pixel allocation");
+        bool cancelled = false;
+        int reads = 0;
+        try { AssetDiskCache.ReadTexture(rewritten, fingerprint, true, delegate { return ++reads == 2; }); }
+        catch (OperationCanceledException) { cancelled = true; }
+        Check(cancelled && NativePixelBuffer.AllocatedBytes == 0, "cancelled native read releases partial pixels");
+        bool truncated = false;
+        try { NativePixelBuffer.Read(new MemoryStream(new byte[3]), 4, null); }
+        catch (EndOfStreamException) { truncated = true; }
+        Check(truncated && NativePixelBuffer.AllocatedBytes == 0, "truncated native stream releases partial pixels");
     }
 
     static void CheckMeshDecoder()

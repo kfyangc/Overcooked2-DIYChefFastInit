@@ -285,6 +285,7 @@ namespace OC2DIYChef
                         ProcessMemory.Read() +
                         " cacheBytes=" + ResourceCache.All.Sum(x => x.Bytes) +
                         " temporaryBytes=" + ((ResourceCache.Worker != null && ResourceCache.Worker.Data != null ? ResourceCache.Worker.Data.Bytes : 0) + AssetDiskCache.PendingWriteBytes) +
+                        " nativePixelBytes=" + NativePixelBuffer.AllocatedBytes +
                         " pinned=" + ResourceCache.All.Count(x => x.References > 0) +
                         " budgetBlockedByPins=" + (ResourceCache.All.Sum(x => x.Bytes) > Math.Max(1, budget.Value) * 1024L * 1024L) +
                         " pending=" + pending.Count + " active=" + (active == null ? "-" : active.Name));

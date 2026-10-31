@@ -73,6 +73,12 @@ namespace OC2DIYChef.Research
                 report.WriteLine("stage,median_ms");
                 Console.WriteLine("PointerSize=" + IntPtr.Size + "; CLR=" + Environment.Version +
                     "; PNG=" + pngBytes.Length + "; textureCache=" + cacheBytes.Length);
+                Measure("small_path_hash_128_native_contexts", delegate
+                { for (int i = 0; i < 128; i++) AssetHash.Compute(System.Text.Encoding.UTF8.GetBytes(png)); });
+                Measure("small_path_hash_128_shared_context", delegate
+                { using (AssetHash.BeginBatch()) for (int i = 0; i < 128; i++) AssetHash.Compute(System.Text.Encoding.UTF8.GetBytes(png)); });
+                Measure("cache_path_128_managed", delegate
+                { for (int i = 0; i < 128; i++) AssetDiskCache.CachePath(png, 2); });
                 Measure("png_file_read", delegate { File.ReadAllBytes(png); });
                 Measure("png_sha256", delegate { AssetDiskCache.Fingerprint(pngBytes); });
                 Measure("texture_cache_file_read", delegate { File.ReadAllBytes(cachePath); });
@@ -92,6 +98,11 @@ namespace OC2DIYChef.Research
                 Measure("texture_cached_load_with_validation", delegate
                 {
                     if (AssetDiskCache.ReadTexture(png, fingerprint) == null) throw new Exception("Texture cache missed");
+                });
+                Measure("texture_cached_load_native_pixels", delegate
+                {
+                    using (var pixels = AssetDiskCache.ReadTexture(png, fingerprint, true))
+                        if (pixels == null || pixels.NativePixels == null) throw new Exception("Native texture cache missed");
                 });
                 Measure("all_mesh_source_sha256", delegate
                 {
@@ -165,7 +176,6 @@ namespace OC2DIYChef.Research
                     Console.WriteLine("steady_worker_" + i + "," + timer.Elapsed.TotalMilliseconds.ToString("F3") +
                         ",collections=" + (GC.CollectionCount(0) - before));
                 }
-                GC.KeepAlive(retained);
                 for (int i = 0; i < 3; i++)
                 {
                     var worker = new ImportWorker(Source, false, delegate { return true; });
@@ -180,7 +190,14 @@ namespace OC2DIYChef.Research
                         " payloadReadHash=" + worker.Timings.CacheMs.ToString("F3") +
                         " meshDecode=" + worker.Timings.MeshDecodeMs.ToString("F3") +
                         " cpu=" + worker.CpuMs.ToString("F3") + " collections=" + worker.Collections);
+                    Console.WriteLine("native_lifecycle contexts=" + worker.HashTimings.Contexts + " hashes=" + worker.HashTimings.Hashes +
+                        " acquire=" + worker.HashTimings.AcquireMs.ToString("F3") + " create=" + worker.HashTimings.CreateMs.ToString("F3") +
+                        " finish=" + worker.HashTimings.FinishMs.ToString("F3") + " destroy=" + worker.HashTimings.DestroyMs.ToString("F3") +
+                        " release=" + worker.HashTimings.ReleaseMs.ToString("F3"));
+                    worker.Cancel();
+                    if (NativePixelBuffer.AllocatedBytes != 0) throw new Exception("Import retained native pixels after cancellation");
                 }
+                GC.KeepAlive(retained);
             }
         }
     }

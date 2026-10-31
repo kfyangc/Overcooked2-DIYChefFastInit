@@ -7,10 +7,13 @@ using UnityEngine;
 
 namespace OC2DIYChef
 {
-    internal sealed class CachedTexture
+    internal sealed class CachedTexture : IDisposable
     {
         internal int Width, Height, Format, MipCount;
         internal byte[] Pixels;
+        internal NativePixelBuffer NativePixels;
+        internal int PixelLength { get { return Pixels != null ? Pixels.Length : NativePixels != null ? NativePixels.Length : 0; } }
+        public void Dispose() { if (NativePixels != null) NativePixels.Dispose(); }
     }
 
     // This layer only handles files and managed data. It never calls Unity object APIs.
@@ -65,7 +68,15 @@ namespace OC2DIYChef
         }
         internal static string CachePath(string source, int kind)
         {
-            byte[] key = Fingerprint(Encoding.UTF8.GetBytes(Path.GetFullPath(source).ToUpperInvariant()));
+            // A path is a tiny input. Do not acquire a native provider just to
+            // derive the filename; the resulting SHA-256 and filenames stay identical.
+            byte[] path = Encoding.UTF8.GetBytes(Path.GetFullPath(source).ToUpperInvariant());
+            byte[] key;
+            using (var digest = AssetHash.Create(false))
+            {
+                digest.Append(path, 0, path.Length);
+                key = digest.Finish();
+            }
             return Path.Combine(Root, BitConverter.ToString(key).Replace("-", "").ToLowerInvariant() +
                 (kind == MeshKind ? ".mesh" : ".texture"));
         }
@@ -183,7 +194,8 @@ namespace OC2DIYChef
             return parsed;
         }
 
-        internal static CachedTexture ReadTexture(string source, byte[] fingerprint)
+        internal static CachedTexture ReadTexture(string source, byte[] fingerprint, bool nativePixels = false,
+            Func<bool> cancelled = null)
         {
             using (var input = Open(source, fingerprint, TextureKind))
             {
@@ -212,10 +224,16 @@ namespace OC2DIYChef
                     } while (texture.MipCount > 1);
                     if (channels == 0 || mips != texture.MipCount || expected != length)
                         throw new FormatException("invalid texture format or mip chain");
-                    texture.Pixels = input.ReadCheckedBytes(length);
-                    input.Verify();
-                    return texture;
+                    try
+                    {
+                        if (nativePixels) texture.NativePixels = input.ReadCheckedPixels(length, cancelled);
+                        else texture.Pixels = input.ReadCheckedBytes(length);
+                        input.Verify();
+                        return texture;
+                    }
+                    catch { texture.Dispose(); throw; }
                 }
+                catch (OperationCanceledException) { throw; }
                 catch (Exception ex) { Warning(source, ex); return null; }
             }
         }
@@ -225,14 +243,16 @@ namespace OC2DIYChef
             Write(source, fingerprint, TextureKind, delegate(BinaryWriter output)
             {
                 output.Write(texture.Width); output.Write(texture.Height); output.Write(texture.Format);
-                output.Write(texture.MipCount); output.Write(texture.Pixels.Length); output.Write(texture.Pixels);
+                output.Write(texture.MipCount); output.Write(texture.PixelLength);
+                if (texture.Pixels != null) output.Write(texture.Pixels);
+                else texture.NativePixels.WriteTo(output);
             });
         }
 
         internal static void QueueTextureWrite(string source, byte[] fingerprint, CachedTexture texture)
         {
             if (!Enabled || WriterBusy) return;
-            var request = new TextureWrite { Bytes = texture.Pixels.LongLength };
+            var request = new TextureWrite { Bytes = texture.PixelLength };
             writer = request;
             new Thread(delegate()
             {
@@ -264,6 +284,23 @@ namespace OC2DIYChef
             {
                 if (BaseStream.Position != BaseStream.Length || !Equal(checksum.Finish(), expected))
                     throw new FormatException("payload checksum mismatch");
+            }
+            internal NativePixelBuffer ReadCheckedPixels(int length, Func<bool> cancelled)
+            {
+                long start = Stopwatch.GetTimestamp();
+                var pixels = NativePixelBuffer.Read(BaseStream, length, cancelled);
+                try
+                {
+                    long readEnd = Stopwatch.GetTimestamp();
+                    checksum.Append(pixels.Pointer, pixels.Length);
+                    if (Timings != null)
+                    {
+                        Timings.CacheReadTicks += readEnd - start;
+                        Timings.PayloadHashTicks += Stopwatch.GetTimestamp() - readEnd;
+                    }
+                    return pixels;
+                }
+                catch { pixels.Dispose(); throw; }
             }
             protected override void Dispose(bool disposing)
             {

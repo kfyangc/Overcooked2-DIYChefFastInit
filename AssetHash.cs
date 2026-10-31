@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Diagnostics;
+using System.Threading;
 
 namespace OC2DIYChef
 {
@@ -10,10 +12,77 @@ namespace OC2DIYChef
     {
         static volatile bool nativeUnavailable;
         internal static Action<string> Warning;
-        IntPtr provider, hash;
+        NativeProvider provider;
+        IntPtr hash;
         HashAlgorithm managed;
         bool finished;
+        bool disposed;
         internal bool IsNative { get { return managed == null; } }
+        [ThreadStatic] internal static NativeTimings Timings;
+        [ThreadStatic] static Batch batch;
+
+        // Scope a provider to one import, not one hash. Each digest still has its
+        // own hash handle; threads and overlapping digests never share hash state.
+        internal sealed class Batch : IDisposable
+        {
+            readonly Batch parent;
+            NativeProvider provider;
+            bool disposed;
+            internal Batch() { parent = batch; batch = this; }
+            internal NativeProvider Provider()
+            {
+                if (provider == null) provider = parent == null ? NativeProvider.Open() : parent.Provider().Retain();
+                return provider;
+            }
+            public void Dispose()
+            {
+                if (disposed) return;
+                disposed = true;
+                batch = parent;
+                if (provider != null) { provider.Release(); provider = null; }
+            }
+        }
+
+        internal static Batch BeginBatch() { return new Batch(); }
+
+        internal sealed class NativeProvider
+        {
+            internal IntPtr Handle;
+            int references = 1;
+            internal static NativeProvider Open()
+            {
+                var provider = new NativeProvider();
+                long start = Stopwatch.GetTimestamp();
+                bool success = CryptAcquireContext(out provider.Handle, null, null, 24, 0xf0000000);
+                if (Timings != null) { Timings.Contexts++; Timings.AcquireTicks += Stopwatch.GetTimestamp() - start; }
+                if (!success)
+                {
+                    var error = NativeError();
+                    if (provider.Handle != IntPtr.Zero) provider.Release();
+                    throw error;
+                }
+                return provider;
+            }
+            internal NativeProvider Retain() { Interlocked.Increment(ref references); return this; }
+            internal void Release()
+            {
+                if (Interlocked.Decrement(ref references) != 0) return;
+                long start = Stopwatch.GetTimestamp(); CryptReleaseContext(Handle, 0); Handle = IntPtr.Zero;
+                if (Timings != null) { Timings.Releases++; Timings.ReleaseTicks += Stopwatch.GetTimestamp() - start; }
+            }
+        }
+
+        internal sealed class NativeTimings
+        {
+            internal long AcquireTicks, CreateTicks, FinishTicks, DestroyTicks, ReleaseTicks;
+            internal int Contexts, Hashes, Releases;
+            static double Ms(long ticks) { return ticks * 1000.0 / Stopwatch.Frequency; }
+            internal double AcquireMs { get { return Ms(AcquireTicks); } }
+            internal double CreateMs { get { return Ms(CreateTicks); } }
+            internal double FinishMs { get { return Ms(FinishTicks); } }
+            internal double DestroyMs { get { return Ms(DestroyTicks); } }
+            internal double ReleaseMs { get { return Ms(ReleaseTicks); } }
+        }
 
         [DllImport("advapi32.dll", SetLastError = true)]
         static extern bool CryptAcquireContext(out IntPtr provider, string container, string name, uint type, uint flags);
@@ -47,9 +116,11 @@ namespace OC2DIYChef
                 var instance = new AssetHash();
                 try
                 {
-                    if (!CryptAcquireContext(out instance.provider, null, null, 24, 0xf0000000) ||
-                        !CryptCreateHash(instance.provider, 0x800c, IntPtr.Zero, 0, out instance.hash))
-                        throw NativeError();
+                    instance.provider = batch == null ? NativeProvider.Open() : batch.Provider().Retain();
+                    long start = Stopwatch.GetTimestamp();
+                    bool created = CryptCreateHash(instance.provider.Handle, 0x800c, IntPtr.Zero, 0, out instance.hash);
+                    if (Timings != null) { Timings.Hashes++; Timings.CreateTicks += Stopwatch.GetTimestamp() - start; }
+                    if (!created) throw NativeError();
                     return instance;
                 }
                 catch (DllNotFoundException ex) { DisableNative(ex); }
@@ -63,6 +134,7 @@ namespace OC2DIYChef
 
         internal void Append(byte[] buffer, int offset, int count)
         {
+            if (disposed) throw new ObjectDisposedException("AssetHash");
             if (finished) throw new InvalidOperationException("Hash already completed");
             if (buffer == null || offset < 0 || count < 0 || offset > buffer.Length - count)
                 throw new ArgumentOutOfRangeException();
@@ -71,14 +143,37 @@ namespace OC2DIYChef
             var pin = GCHandle.Alloc(buffer, GCHandleType.Pinned);
             try
             {
-                var start = new IntPtr(pin.AddrOfPinnedObject().ToInt64() + offset);
+                var start = NativePixelBuffer.Offset(pin.AddrOfPinnedObject(), offset);
                 if (!CryptHashData(hash, start, (uint)count, 0)) throw NativeError();
             }
             finally { pin.Free(); }
         }
 
+        internal void Append(IntPtr pointer, int count)
+        {
+            if (disposed) throw new ObjectDisposedException("AssetHash");
+            if (finished) throw new InvalidOperationException("Hash already completed");
+            if (count < 0 || pointer == IntPtr.Zero && count != 0) throw new ArgumentOutOfRangeException();
+            if (count == 0) return;
+            if (managed == null)
+            {
+                if (!CryptHashData(hash, pointer, (uint)count, 0)) throw NativeError();
+                return;
+            }
+            byte[] chunk = new byte[Math.Min(count, 65536)];
+            int offset = 0;
+            while (offset < count)
+            {
+                int length = Math.Min(chunk.Length, count - offset);
+                Marshal.Copy(NativePixelBuffer.Offset(pointer, offset), chunk, 0, length);
+                managed.TransformBlock(chunk, 0, length, chunk, 0);
+                offset += length;
+            }
+        }
+
         internal byte[] Finish()
         {
+            if (disposed) throw new ObjectDisposedException("AssetHash");
             if (finished) throw new InvalidOperationException("Hash already completed");
             byte[] result;
             if (managed != null)
@@ -90,7 +185,10 @@ namespace OC2DIYChef
             {
                 result = new byte[32];
                 uint length = 32;
-                if (!CryptGetHashParam(hash, 2, result, ref length, 0) || length != 32) throw NativeError();
+                long start = Stopwatch.GetTimestamp();
+                bool success = CryptGetHashParam(hash, 2, result, ref length, 0);
+                if (Timings != null) Timings.FinishTicks += Stopwatch.GetTimestamp() - start;
+                if (!success || length != 32) throw NativeError();
             }
             finished = true;
             return result;
@@ -133,8 +231,14 @@ namespace OC2DIYChef
 
         public void Dispose()
         {
-            if (hash != IntPtr.Zero) { CryptDestroyHash(hash); hash = IntPtr.Zero; }
-            if (provider != IntPtr.Zero) { CryptReleaseContext(provider, 0); provider = IntPtr.Zero; }
+            if (disposed) return;
+            disposed = true;
+            if (hash != IntPtr.Zero)
+            {
+                long start = Stopwatch.GetTimestamp(); CryptDestroyHash(hash); hash = IntPtr.Zero;
+                if (Timings != null) Timings.DestroyTicks += Stopwatch.GetTimestamp() - start;
+            }
+            if (provider != null) { provider.Release(); provider = null; }
             if (managed != null) { ((IDisposable)managed).Dispose(); managed = null; }
         }
     }

@@ -9,7 +9,7 @@
     <NoWarn>$(NoWarn);SYSLIB0021</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="DiskCacheRegression.cs;../AssetDiskCache.cs;../AssetHash.cs;../MeshCacheCodec.cs;../ObjImporter.cs" />
+    <Compile Include="DiskCacheRegression.cs;../AssetDiskCache.cs;../AssetHash.cs;../NativePixelBuffer.cs;../MeshCacheCodec.cs;../ObjImporter.cs;../ImportWorker.cs" />
     <Reference Include="$(GameDir)/Overcooked2_Data/Managed/UnityEngine*.dll" />
   </ItemGroup>
 </Project>

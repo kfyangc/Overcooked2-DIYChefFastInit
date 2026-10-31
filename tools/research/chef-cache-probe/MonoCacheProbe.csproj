@@ -16,7 +16,7 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="MonoCacheProbe.cs;../../../AssetDiskCache.cs;../../../AssetHash.cs;../../../MeshCacheCodec.cs;../../../ObjImporter.cs;../../../ImportWorker.cs" />
+    <Compile Include="MonoCacheProbe.cs;../../../AssetDiskCache.cs;../../../AssetHash.cs;../../../NativePixelBuffer.cs;../../../MeshCacheCodec.cs;../../../ObjImporter.cs;../../../ImportWorker.cs" />
     <Reference Include="$(ManagedDir)/mscorlib.dll;$(ManagedDir)/System.dll;$(ManagedDir)/System.Core.dll" Private="false" />
     <Reference Include="$(ManagedDir)/UnityEngine*.dll" Private="false" />
   </ItemGroup>

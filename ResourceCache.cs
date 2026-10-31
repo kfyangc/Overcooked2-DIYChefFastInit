@@ -82,7 +82,15 @@ namespace OC2DIYChef
                             " payloadHashMs=" + worker.Timings.PayloadHashMs.ToString("F2") +
                             " meshDecodeMs=" + worker.Timings.MeshDecodeMs.ToString("F2") +
                             " workerCpuMs=" + worker.CpuMs.ToString("F2") + " collections=" + worker.Collections +
-                            " files=" + worker.Files);
+                            " files=" + worker.Files +
+                            " hashContexts=" + worker.HashTimings.Contexts + " hashContextReleases=" + worker.HashTimings.Releases +
+                            " nativeHashes=" + worker.HashTimings.Hashes +
+                            " hashAcquireMs=" + worker.HashTimings.AcquireMs.ToString("F2") +
+                            " hashCreateMs=" + worker.HashTimings.CreateMs.ToString("F2") +
+                            " hashFinishMs=" + worker.HashTimings.FinishMs.ToString("F2") +
+                            " hashDestroyMs=" + worker.HashTimings.DestroyMs.ToString("F2") +
+                            " hashReleaseMs=" + worker.HashTimings.ReleaseMs.ToString("F2") +
+                            " nativePixelBytes=" + NativePixelBuffer.AllocatedBytes);
                         var raw = worker.Data;
                         // Clear each byte/array buffer as it is consumed, before the next upload.
                         foreach (string key in new List<string>(raw.Textures.Keys))
@@ -98,8 +106,14 @@ namespace OC2DIYChef
                                 var cached = input.Cached;
                                 texture = Own(new Texture2D(cached.Width, cached.Height,
                                     (TextureFormat)cached.Format, cached.MipCount > 1), 0);
-                                texture.LoadRawTextureData(cached.Pixels);
-                                texture.Apply(false, true);
+                                try
+                                {
+                                    if (cached.NativePixels != null)
+                                        texture.LoadRawTextureData(cached.NativePixels.Pointer, cached.NativePixels.Length);
+                                    else texture.LoadRawTextureData(cached.Pixels);
+                                    texture.Apply(false, true);
+                                }
+                                finally { cached.Dispose(); }
                             }
                             else
                             {
@@ -137,8 +151,7 @@ namespace OC2DIYChef
                     }
                     finally
                     {
-                        worker.Cancelled = true;
-                        worker.Data = null;
+                        worker.Cancel();
                     }
                 }
                 if (!Ready(type))
