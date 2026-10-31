@@ -1,9 +1,43 @@
+# DIYChef FastInit
+
+[中文说明](README-zh.md)
+
+**Current version: 2.0.0**
+
+This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248/Overcooked2-DIYChef) to reduce startup waits when many custom chefs and hats are installed, and to speed up loading previously cached resources. Existing chef resources, `prefer.txt` and BepInEx configuration remain compatible.
+
+## Improvements
+
+- **Load on demand:** Register resource information at startup, then load models and textures when a chef or hat is used.
+- **Reuse resources in memory:** Cache recently used resources and reclaim idle entries according to the cache budget.
+- **Persistent disk cache:** Reuse processed meshes and textures after a game restart or memory cache eviction. Changed source files automatically rebuild their cache entries.
+- **Lossless texture compression:** Compress texture caches with LZ4HC in the background, reducing disk usage while preserving pixels, image quality and mipmaps.
+
+## Installation and upgrades
+
+The current version is built and verified for the Windows Steam x86 game and requires BepInEx 5 x86.
+
+Exit the game, back up the old plugin DLL outside `BepInEx/plugins`, and place **`DIYChefFastInit.dll`** in the existing plugin directory. Keep `Resources`, `prefer.txt` and other resource files alongside it. The plugin ID and configuration filename remain unchanged.
+
+Disk caches are stored in **`BepInEx/cache/DIYChefFastInit`**. The first use still needs to generate cache entries; subsequent loads can reuse them. Deleted caches are generated again automatically. Keep the original chef resources installed.
+
+See the [loading and build guide](docs/LOADING.md) for build instructions, cache settings and diagnostics, and the [third-party notices](docs/THIRD_PARTY_NOTICES.md) for component details. Both documents are in Chinese.
+
+---
+
 # Overcooked! 2 - DIY Chef MOD
 
 ## Installation
 
-1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) for the game (x86 for Steam, x64 for Steam crossplay branch or Epic)
-2. Download `DIYChefFastInit.dll` from [Releases](../../releases), create a new folder `BepInEx/plugins/OC2DIYChef` in the game's directory and copy the dll into it. When upgrading, remove the old `OC2DIYChef.dll` from the plugins directory and keep `Resources` and `prefer.txt` alongside the new DLL.
+1. Install BepInEx 5 x86 for the Windows Steam x86 game:
+
+   Download the x86 release from [GitHub](https://github.com/BepInEx/BepInEx/releases) or [Baidu Netdisk](https://pan.baidu.com/s/1G81rpJNwVsJplJi6fD2jPA?pwd=lobe).
+
+   Extract the archive and copy its contents into the game directory (the three selected items below).
+
+   ![BepInEx files to copy into the game directory](assets/bepinex.png)
+
+2. Download `DIYChefFastInit.dll` from this repository's [Releases](../../releases), create a folder `BepInEx/plugins/OC2DIYChef` in the game's directory and copy the DLL into it. When upgrading, back up the previous `OC2DIYChef.dll` or `DIYChefFastInit.dll` outside `BepInEx/plugins`, then install the new DLL alongside the existing `Resources` and `prefer.txt`.
 
 > ### Compiling
 >
@@ -17,9 +51,11 @@
 
 ### Hiding some of the chefs
 
-- Copy and rename `official-all.txt` as `OC2DIYChef/prefer.txt`, then edit it and remove the names of the chefs you don't want to use. The names of all the chefs are shown below.
+- Copy `OC2DIYChef/official-all.txt` to `OC2DIYChef/prefer.txt`, then edit it and remove the names of the chefs you don't want to use. The names of all the chefs are shown below.
 
   ![names of all chefs](assets/chef_name.png)
+
+  <div align="right" style="font-size:14pt;font-weight:bold">Compiled by 糯米糍</div>
   
 - You can sort the chefs in `prefer.txt`. 
 
@@ -41,12 +77,12 @@
 
   When the host has this mod installed and another player has added the same DIY chef, the DIY chef will be shown to the player. Otherwise, your default chef is shown to the player.
 
-- Some of the AYCE chef resources are packed as `Resources_ayce1.zip`.
+- Some AYCE chef resources are available on [Baidu Netdisk](https://pan.baidu.com/s/1EWneQ8k8-P0v49UKs5UpRg?pwd=iu9i).
 
 
 ### Specifying hat styles
 
-After each chef in `prefer.txt`, you can add `HAT=xxx` (separated by spaces) to specify the hat style for that chef. The options are `None`, `Santa`, `Fancy`, `Baseballcap`.
+After each chef in `prefer.txt`, you can add `HAT=xxx` (separated by spaces) to specify the hat style for that chef. The options are `None` (no hat), `Santa` (Santa hat), `Fancy` (chef hat) and `Baseballcap` (campfire hat).
 
 ### Adding DIY hats
 
@@ -97,7 +133,14 @@ Add a line `LOBBYSWITCHCHEF=TRUE` to `prefer.txt` to switch chefs at the lobby b
   
   - Individual texture / material files for each model (with prefix `t_` / `m_`, models without individual textures use the main texture / material);
   
-    > For example, `Body_Top` tries to find texture files `t_Body_Top`, `t_Body`, `t_Head` sequentially.
+    > - For example, `Body_Top` tries to find texture files `t_Body_Top`, `t_Body`, `t_Head` sequentially.
+    >
+    > - Material parameters:
+    >   `_Brightness_Intensity`: overall lighting intensity, available for body parts;
+    >   `_Metallic`: metallicity;
+    >   `_RimIntensity`: rim light intensity;
+    >   `_RimPower`: rim light falloff;
+    >   `_Roughness`: smoothness; higher values produce smoother surfaces.
   
   - You can add `BODY=xxx` to the `INFO` file to use a different body model, e.g. `BODY=Chef_Snowman`.
   
@@ -122,6 +165,7 @@ Add a line `LOBBYSWITCHCHEF=TRUE` to `prefer.txt` to switch chefs at the lobby b
 - Support DIY knife model.
 - Fix default chef with DIY hat not displaying at first loading.
 - Reduce light on level ending UI.
+- Fix slow loading of `Body_Body`.
 
 #### v1.1
 

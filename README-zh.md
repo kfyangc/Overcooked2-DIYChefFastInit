@@ -1,22 +1,49 @@
+# 厨房暖暖 快速载入 / DIYChef FastInit
+
+[English](README.md)
+
+**当前版本：2.0.0**
+
+本项目基于 [gua248 的 Overcooked2-DIYChef](https://github.com/gua248/Overcooked2-DIYChef)（《胡闹厨房 2》厨师外观模组，厨房暖暖），优化额外厨师和帽子的加载流程，减少安装大量资源时的启动等待，并加快已缓存资源的再次载入。原有厨师资源、`prefer.txt` 和 BepInEx 配置可以继续使用。
+
+## 优化内容
+
+- **按需加载**：启动时登记资源信息，实际使用厨师或帽子时再加载模型与纹理。
+- **内存复用**：缓存最近使用的资源，按预算回收闲置资源，减少重复创建。
+- **磁盘缓存**：保存处理后的网格和纹理，重启游戏或资源被内存缓存回收后也能复用；源文件变化时自动重建。
+- **无损纹理压缩**：使用 LZ4HC 在后台压缩纹理缓存，保持像素、画质和 mipmap 不变，减少缓存占用。
+
+## 安装与升级
+
+当前版本按 Windows Steam x86 环境构建和验证，需要安装 BepInEx 5 x86。
+
+退出游戏后，将原插件 DLL 备份到 `BepInEx/plugins` 目录之外，再把 **`DIYChefFastInit.dll`** 放入原插件目录，保留旁边的 `Resources`、`prefer.txt` 等文件。插件 ID 和配置文件名保持不变。
+
+磁盘缓存保存在 **`BepInEx/cache/DIYChefFastInit`**。首次使用仍需生成缓存，后续载入可复用；删除缓存后会自动重新生成。原始厨师资源仍需保留。
+
+构建方法、缓存配置和诊断方式见 [加载与构建说明](docs/LOADING.md)，第三方组件见 [第三方声明](docs/THIRD_PARTY_NOTICES.md)。
+
+---
+
 # 胡闹厨房2 - 厨师外观模组
 
 ## 安装
 
-1. 安装 BepInEx 5：
+1. 为 Windows Steam x86 版游戏安装 BepInEx 5 x86：
 
    Steam 端安装 x86 版本（[GitHub](https://github.com/BepInEx/BepInEx/releases) 或 [百度网盘链接](https://pan.baidu.com/s/1G81rpJNwVsJplJi6fD2jPA?pwd=lobe)）
-
-   Steam crossplay 版本或 Epic 端安装 x64 版本（[GitHub](https://github.com/BepInEx/BepInEx/releases) 或 [百度网盘链接](https://pan.baidu.com/s/1C4UDhK7R9Ei6Eu0B6lQ9Cw?pwd=3lu1)）
-
-   > Steam - 库 - Overcooked2 - 属性 - 测试版
-   > ![Steam 测试版设置](assets/beta.png)
 
    解压后拷贝到游戏根目录下（下图中选中的三项）
 
    ![BepInEx 解压后选中的三项](assets/bepinex.png)
 
-2. 从 [Releases](../../releases) 下载最新的发布包，将 `OC2DIYChef` 文件夹拷贝到 `BepInEx/plugins` 文件夹中
+2. 从本仓库的 [Releases](../../releases) 下载 `DIYChefFastInit.dll`，在游戏目录下创建 `BepInEx/plugins/OC2DIYChef` 文件夹，将 DLL 放入其中。升级时，将旧的 `OC2DIYChef.dll` 或 `DIYChefFastInit.dll` 备份到 `BepInEx/plugins` 目录之外，再安装新 DLL，保留原有的 `Resources` 和 `prefer.txt`。
 
+> ### 编译
+>
+> 安装 .NET SDK，先运行 `./tools/Fetch-Lz4.ps1`，再运行 `dotnet build -c Release "-p:GameDir=<游戏安装目录>"`。项目直接引用游戏的 Managed 和 BepInEx 程序集，生成 `bin/Release/DIYChefFastInit.dll`。
+>
+> 当前构建面向 Steam x86 版游戏，目标框架为 .NET Framework 3.5。配置、缓存与验证方式见 [加载与构建说明](docs/LOADING.md)。
 
 
 ## 使用
@@ -113,6 +140,12 @@
   
 
 ## 更新
+
+#### v2.0.0
+
+- 按需加载额外厨师，使用有预算限制的内存缓存及持久化网格、纹理缓存。
+- 在后台使用 LZ4HC 无损压缩纹理缓存。
+- 插件构建产物改为 `DIYChefFastInit.dll`，沿用原有插件 ID、资源目录结构和配置。
 
 #### v1.3
 
