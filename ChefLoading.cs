@@ -49,6 +49,9 @@ namespace OC2DIYChef
                 "Cache parsed OBJ geometry and decoded texture pixels on disk; changed source files rebuild automatically.").Value;
             AssetDiskCache.Root = Path.Combine(Paths.CachePath, "DIYChefFastInit");
             AssetDiskCache.Log = DIYChefPlugin.Log;
+            AssetHash.Warning = DIYChefPlugin.Log;
+            using (var checksum = AssetHash.Create())
+                DIYChefPlugin.Log("Disk cache checksum backend=" + (checksum.IsNative ? "windows-native" : "managed"));
         }
 
         internal static ChefMeshReplacer.ChefModelType Type(ChefMeshReplacer replacer)

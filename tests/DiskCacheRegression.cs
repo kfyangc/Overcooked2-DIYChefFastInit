@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Security.Cryptography;
 using OC2DIYChef;
 using UnityEngine;
 
@@ -17,11 +18,13 @@ static class DiskCacheRegression
     static void Main(string[] args)
     {
         AssetDiskCache.Log = Console.WriteLine;
+        AssetHash.Warning = Console.WriteLine;
         if (args.Length == 3 && args[0] == "--warm")
         {
             Warm(args[1], args[2]);
             return;
         }
+        CheckHashing();
         string workspace = Path.GetFullPath(Path.Combine("artifacts", "cache-regression", Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(workspace);
         string source = Path.Combine(workspace, "中文 空格.obj");
@@ -43,6 +46,9 @@ static class DiskCacheRegression
 
         string meshCache = AssetDiskCache.CachePath(source, 1);
         byte[] damaged = File.ReadAllBytes(meshCache);
+        using (var sha = new SHA256Managed())
+            Check(damaged.Skip(44).Take(32).SequenceEqual(sha.ComputeHash(damaged, 76, damaged.Length - 76)) &&
+                BitConverter.ToInt32(damaged, 4) == 1, "one-pass writer preserves existing cache schema and SHA-256 bytes");
         damaged[damaged.Length - 1] ^= 1;
         File.WriteAllBytes(meshCache, damaged);
         var repaired = AssetDiskCache.ReadMesh(source, null, out hit);
@@ -111,6 +117,38 @@ static class DiskCacheRegression
             "cache write failure does not fail source loading");
         AssetDiskCache.Root = root;
         Console.WriteLine("PASS: " + assertions + " disk cache assertions; no Unity objects or game process created.");
+    }
+
+    static void CheckHashing()
+    {
+        foreach (byte[] data in new[] { new byte[0], System.Text.Encoding.UTF8.GetBytes("abc"),
+            Enumerable.Range(0, 131091).Select(i => (byte)(i * 17)).ToArray() })
+        {
+            byte[] expected;
+            using (var sha = new SHA256Managed()) expected = sha.ComputeHash(data);
+            Check(AssetHash.Compute(data).SequenceEqual(expected), "native/default SHA-256 matches reference");
+            using (var fallback = AssetHash.Create(false))
+            {
+                fallback.Append(data, 0, data.Length);
+                Check(fallback.Finish().SequenceEqual(expected), "managed fallback matches reference");
+            }
+        }
+        byte[] buffer = Enumerable.Range(0, 131091).Select(i => (byte)(i * 17)).ToArray();
+        byte[] reference;
+        using (var sha = new SHA256Managed()) reference = sha.ComputeHash(buffer, 7, buffer.Length - 14);
+        using (var incremental = AssetHash.Create())
+        {
+            incremental.Append(buffer, 7, 65536);
+            incremental.Append(buffer, 65543, buffer.Length - 65550);
+            Check(incremental.Finish().SequenceEqual(reference), "incremental native hashing handles nonzero offsets and chunk boundaries");
+        }
+        using (var source = new MemoryStream(buffer, false))
+        {
+            source.Position = 7;
+            using (var sha = new SHA256Managed()) reference = sha.ComputeHash(buffer, 7, buffer.Length - 7);
+            Check(AssetHash.Compute(source).SequenceEqual(reference) && source.Position == source.Length,
+                "stream fingerprint hashes from current position to EOF");
+        }
     }
 
     static void Warm(string resources, string output)

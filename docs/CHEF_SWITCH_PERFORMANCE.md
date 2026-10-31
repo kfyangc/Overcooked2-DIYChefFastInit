@@ -2,6 +2,8 @@
 
 结论：游戏原版在选择阶段复用已导入、已加载的模型与材质；很多头像甚至共用同一预制体，只切换节点显隐。当前插件的磁盘缓存命中仍会扫描源文件、逐份校验完整负载，并重新构建 Unity 对象。现有日志与目标 Mono 离线探针均表明，1.3.0.4 的主要等待来自缓存校验和数据恢复，首先应优化这一段。
 
+本文原始调查针对 1.3.0.4；1.3.0.5 的校验优化与复测结果见文末。
+
 ## 调研范围与证据
 
 分析基线为提交 e28db67。读取本机实际 Assembly-CSharp.dll 的调用链、原始 StreamingAssets 资源和当前 BepInEx 日志。独立 x86 控制台进程加载游戏自带的 Mono/EmbedRuntime/mono.dll，仅执行文件、数组和校验代码；没有启动 Overcooked2.exe、加载 UnityPlayer、创建 Unity 对象或进行渲染测试。
@@ -104,7 +106,7 @@ Windows 原生实现与托管实现的 SHA-256 结果一致。几轮独立探针
 4. 降低贴图驻留与传输体积。评估适合透明度和画质要求的 GPU 压缩格式，提高同一预算下的驻留数量，再验证实际 shader 画面。
 5. 继续分别测后台阶段、Unity 构建、应用和首个相机显示帧。完整效果需要实际游戏测试确认。
 
-本次交付为调研与独立探针，正式插件和已安装 DLL 仍为 1.3.0.4，没有更改其行为或安装新版本。
+原始调研提交 46140af 没有修改正式插件；随后实施的校验优化与离线验证记录如下。
 
 ## 重现
 
@@ -117,3 +119,11 @@ Windows 原生实现与托管实现的 SHA-256 结果一致。几轮独立探针
 脚本可通过 GameDir、ResourceDir、CacheDir 参数指定其他安装与已缓存厨师。使用 .NET SDK 构建 net35 探针，通过 Windows 自带 .NET Framework C# 编译器生成 x86 宿主，再加载该安装的 Mono 运行时。输出为 artifacts/chef-switch-research/mono-benchmark.csv。
 
 Unity 2017.4 API 文档同时说明：[LoadRawTextureData](https://docs.unity3d.com/2017.4/Documentation/ScriptReference/Texture2D.LoadRawTextureData.html) 之后仍需 Apply 提交纹理；[RecalculateTangents](https://docs.unity3d.com/2017.4/Documentation/ScriptReference/Mesh.RecalculateTangents.html) 会根据网格数据重新生成切线。这些成本在当前构建路径中仍然存在。
+
+## 校验优化后的复测
+
+1.3.0.5 将 Windows 原生 SHA-256 接入缓存内容指纹、读校验和写摘要计算，读取时校验同一份已读字节，写入时按缓冲块计算摘要。保留所有内容与负载校验，缓存格式不变。
+
+同一探针、同一 Anya 缓存、同一游戏 x86 Mono 下，主要贴图与网格导入循环从 442.53 ms 降到 86.32 ms，约快 5.1 倍；贴图缓存读取与验证从 331.56 ms 降到 32.36 ms。网格恢复从 98.25 ms 降到 52.90 ms，剩余时间还包括内存数组恢复。
+
+28 项离线缓存/摘要检查通过；349 个现有 OBJ 缓存全部命中并验证数据一致。没有启动游戏，没有以这些 CPU 探针数字替代完整输入到实际绘制的测量。模型构建和显示宿主复用不在本轮修改范围内。

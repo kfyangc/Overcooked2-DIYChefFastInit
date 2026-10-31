@@ -33,6 +33,7 @@ namespace OC2DIYChef.Research
         {
             AssetDiskCache.Root = Cache;
             AssetDiskCache.Log = Console.WriteLine;
+            AssetHash.Warning = Console.WriteLine;
             string png = Path.Combine(Source, "t_Head.png");
             byte[] pngBytes = File.ReadAllBytes(png);
             byte[] fingerprint = AssetDiskCache.Fingerprint(pngBytes);

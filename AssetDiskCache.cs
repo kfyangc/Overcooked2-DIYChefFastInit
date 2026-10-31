@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using UnityEngine;
@@ -35,12 +34,12 @@ namespace OC2DIYChef
 
         internal static byte[] Fingerprint(byte[] bytes)
         {
-            using (var hash = new SHA256Managed()) return hash.ComputeHash(bytes);
+            return AssetHash.Compute(bytes);
         }
         static byte[] FingerprintFile(string path)
         {
             using (var stream = File.OpenRead(path))
-            using (var hash = new SHA256Managed()) return hash.ComputeHash(stream);
+                return AssetHash.Compute(stream);
         }
         static bool Equal(byte[] left, byte[] right)
         {
@@ -59,7 +58,7 @@ namespace OC2DIYChef
             if (Log != null) Log("Disk cache fallback " + path + ": " + error.Message);
         }
 
-        static BinaryReader Open(string source, byte[] fingerprint, int kind)
+        static CacheReader Open(string source, byte[] fingerprint, int kind)
         {
             if (!Enabled || string.IsNullOrEmpty(Root)) return null;
             string path = CachePath(source, kind);
@@ -75,11 +74,10 @@ namespace OC2DIYChef
                     return null;
                 }
                 byte[] expected = reader.ReadBytes(HashLength);
-                byte[] actual;
-                using (var hash = new SHA256Managed()) actual = hash.ComputeHash(reader.BaseStream);
-                if (!Equal(actual, expected)) throw new FormatException("payload checksum mismatch");
-                reader.BaseStream.Position = PayloadOffset;
-                return reader;
+                if (expected.Length != HashLength) throw new EndOfStreamException();
+                // The payload is read once into its final pixels or temporary mesh buffer.
+                // Validate those same bytes before any data is exposed to Unity.
+                return new CacheReader(reader.BaseStream, expected);
             }
             catch (Exception ex)
             {
@@ -102,11 +100,16 @@ namespace OC2DIYChef
                 {
                     output.Write(Magic); output.Write(Schema); output.Write(kind);
                     output.Write(fingerprint); output.Write(new byte[HashLength]);
-                    payload(output);
                     output.Flush();
-                    stream.Position = PayloadOffset;
                     byte[] digest;
-                    using (var hash = new SHA256Managed()) digest = hash.ComputeHash(stream);
+                    using (var sink = new HashingWriteStream(stream))
+                    using (var buffered = new BufferedStream(sink, 65536))
+                    using (var payloadOutput = new BinaryWriter(buffered))
+                    {
+                        payload(payloadOutput);
+                        payloadOutput.Flush();
+                        digest = sink.Finish();
+                    }
                     stream.Position = 12 + HashLength;
                     output.Write(digest);
                 }
@@ -130,28 +133,35 @@ namespace OC2DIYChef
                 {
                     try
                     {
-                        int vertices = input.ReadInt32(), indices = input.ReadInt32();
+                        byte[] counts = input.ReadCheckedBytes(8);
+                        int vertices = BitConverter.ToInt32(counts, 0), indices = BitConverter.ToInt32(counts, 4);
                         long expected = checked((long)vertices * 32 + (long)indices * 4);
-                        if (vertices < 0 || indices < 0 || indices % 3 != 0 ||
+                        if (vertices < 0 || indices < 0 || indices % 3 != 0 || expected > int.MaxValue ||
                             input.BaseStream.Length - input.BaseStream.Position != expected)
                             throw new FormatException("invalid geometry counts");
-                        var data = new ObjImporter.MeshData { Vertices = new Vector3[vertices],
-                            Normals = new Vector3[vertices], UV = new Vector2[vertices], Triangles = new int[indices] };
-                        for (int i = 0; i < vertices; i++)
+                        if (cancelled != null && cancelled()) throw new OperationCanceledException();
+                        byte[] geometry = input.ReadCheckedBytes((int)expected);
+                        input.Verify();
+                        using (var fields = new BinaryReader(new MemoryStream(geometry, false)))
                         {
-                            if ((i & 1023) == 0 && cancelled != null && cancelled()) throw new OperationCanceledException();
-                            data.Vertices[i] = new Vector3(input.ReadSingle(), input.ReadSingle(), input.ReadSingle());
-                            data.Normals[i] = new Vector3(input.ReadSingle(), input.ReadSingle(), input.ReadSingle());
-                            data.UV[i] = new Vector2(input.ReadSingle(), input.ReadSingle());
+                            var data = new ObjImporter.MeshData { Vertices = new Vector3[vertices],
+                                Normals = new Vector3[vertices], UV = new Vector2[vertices], Triangles = new int[indices] };
+                            for (int i = 0; i < vertices; i++)
+                            {
+                                if ((i & 1023) == 0 && cancelled != null && cancelled()) throw new OperationCanceledException();
+                                data.Vertices[i] = new Vector3(fields.ReadSingle(), fields.ReadSingle(), fields.ReadSingle());
+                                data.Normals[i] = new Vector3(fields.ReadSingle(), fields.ReadSingle(), fields.ReadSingle());
+                                data.UV[i] = new Vector2(fields.ReadSingle(), fields.ReadSingle());
+                            }
+                            for (int i = 0; i < indices; i++)
+                            {
+                                int index = fields.ReadInt32();
+                                if (index < 0 || index >= vertices) throw new FormatException("invalid triangle index");
+                                data.Triangles[i] = index;
+                            }
+                            hit = true;
+                            return data;
                         }
-                        for (int i = 0; i < indices; i++)
-                        {
-                            int index = input.ReadInt32();
-                            if (index < 0 || index >= vertices) throw new FormatException("invalid triangle index");
-                            data.Triangles[i] = index;
-                        }
-                        hit = true;
-                        return data;
                     }
                     catch (OperationCanceledException) { throw; }
                     catch (Exception ex) { Warning(source, ex); }
@@ -179,9 +189,10 @@ namespace OC2DIYChef
                 if (input == null) return null;
                 try
                 {
-                    var texture = new CachedTexture { Width = input.ReadInt32(), Height = input.ReadInt32(),
-                        Format = input.ReadInt32(), MipCount = input.ReadInt32() };
-                    int length = input.ReadInt32();
+                    byte[] metadata = input.ReadCheckedBytes(20);
+                    var texture = new CachedTexture { Width = BitConverter.ToInt32(metadata, 0), Height = BitConverter.ToInt32(metadata, 4),
+                        Format = BitConverter.ToInt32(metadata, 8), MipCount = BitConverter.ToInt32(metadata, 12) };
+                    int length = BitConverter.ToInt32(metadata, 16);
                     if (texture.Width < 1 || texture.Height < 1 || texture.MipCount < 1 || length < 0 ||
                         input.BaseStream.Length - input.BaseStream.Position != length)
                         throw new FormatException("invalid texture dimensions or payload");
@@ -200,7 +211,8 @@ namespace OC2DIYChef
                     } while (texture.MipCount > 1);
                     if (channels == 0 || mips != texture.MipCount || expected != length)
                         throw new FormatException("invalid texture format or mip chain");
-                    texture.Pixels = input.ReadBytes(length);
+                    texture.Pixels = input.ReadCheckedBytes(length);
+                    input.Verify();
                     return texture;
                 }
                 catch (Exception ex) { Warning(source, ex); return null; }
@@ -226,6 +238,59 @@ namespace OC2DIYChef
                 try { WriteTexture(source, fingerprint, texture); }
                 finally { request.Completed = true; }
             }) { IsBackground = true, Name = "DIYChef disk cache" }.Start();
+        }
+
+        sealed class CacheReader : BinaryReader
+        {
+            readonly byte[] expected;
+            readonly AssetHash checksum = AssetHash.Create();
+            internal CacheReader(Stream source, byte[] digest) : base(source) { expected = digest; }
+            internal byte[] ReadCheckedBytes(int length)
+            {
+                byte[] bytes = ReadBytes(length);
+                if (bytes.Length != length) throw new EndOfStreamException();
+                checksum.Append(bytes, 0, bytes.Length);
+                return bytes;
+            }
+            internal void Verify()
+            {
+                if (BaseStream.Position != BaseStream.Length || !Equal(checksum.Finish(), expected))
+                    throw new FormatException("payload checksum mismatch");
+            }
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing) checksum.Dispose();
+                base.Dispose(disposing);
+            }
+        }
+
+        // BufferedStream batches tiny BinaryWriter writes before native hash calls.
+        // The outer cache writer retains ownership of the file so it can update the header.
+        sealed class HashingWriteStream : Stream
+        {
+            readonly Stream file;
+            readonly AssetHash checksum = AssetHash.Create();
+            internal HashingWriteStream(Stream file) { this.file = file; }
+            internal byte[] Finish() { return checksum.Finish(); }
+            public override void Write(byte[] buffer, int offset, int count)
+            {
+                file.Write(buffer, offset, count);
+                checksum.Append(buffer, offset, count);
+            }
+            public override void Flush() { file.Flush(); }
+            public override bool CanRead { get { return false; } }
+            public override bool CanSeek { get { return false; } }
+            public override bool CanWrite { get { return true; } }
+            public override long Length { get { throw new NotSupportedException(); } }
+            public override long Position { get { throw new NotSupportedException(); } set { throw new NotSupportedException(); } }
+            public override int Read(byte[] buffer, int offset, int count) { throw new NotSupportedException(); }
+            public override long Seek(long offset, SeekOrigin origin) { throw new NotSupportedException(); }
+            public override void SetLength(long length) { throw new NotSupportedException(); }
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing) checksum.Dispose();
+                base.Dispose(disposing);
+            }
         }
 
         sealed class TextureWrite
