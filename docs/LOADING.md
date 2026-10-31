@@ -11,11 +11,11 @@
 dotnet build -c Release "-p:GameDir=D:/Games/Steam Games/steamapps/common/Overcooked! 2"
 ```
 
-也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/OC2DIYChef.dll。
+也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.0.0。
 
-Fetch-Lz4.ps1 获取并校验固定版本的官方 x86 LZ4 库，缓存在忽略提交的 lib 目录。构建将它及许可证嵌入插件 DLL；安装仍只需 OC2DIYChef.dll。首次使用时自动释放到 BepInEx/cache/DIYChefFastInit/native。第三方声明见 THIRD_PARTY_NOTICES.md。
+Fetch-Lz4.ps1 获取并校验固定版本的官方 x86 LZ4 库，缓存在忽略提交的 lib 目录。构建将它及许可证嵌入插件 DLL；安装只需 DIYChefFastInit.dll。首次使用时自动释放到 BepInEx/cache/DIYChefFastInit/native。第三方声明见 THIRD_PARTY_NOTICES.md。
 
-退出游戏，备份安装目录中旧的 OC2DIYChef.dll，然后将新 DLL 放到原 DLL 的位置，保留旁边的 Resources 和 prefer.txt。避免在 plugins 下留下第二个同 GUID 的插件。重启后，在 BepInEx/LogOutput.log 核对 Loading 行的版本及 Version 行的完整 DLL 路径。
+退出游戏，将安装目录中旧的 OC2DIYChef.dll 或 DIYChefFastInit.dll 备份到 plugins 目录之外，再将新的 DIYChefFastInit.dll 放到原插件目录，保留旁边的 Resources 和 prefer.txt。避免在 plugins 下留下第二个同 GUID 的插件。插件 GUID 和配置文件名保持不变，可沿用现有资源、配置及磁盘缓存。重启后，在 BepInEx/LogOutput.log 核对 Loading 行的版本及 Version 行的完整 DLL 路径。
 
 ## 行为与配置
 

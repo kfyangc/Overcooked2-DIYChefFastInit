@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net35</TargetFramework>
     <LangVersion>7.3</LangVersion>
-    <AssemblyName>OC2DIYChef</AssemblyName>
+    <AssemblyName>DIYChefFastInit</AssemblyName>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GameDir Condition="'$(GameDir)' == ''">$(OC2_GAME_DIR)</GameDir>
