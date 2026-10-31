@@ -1,262 +1,119 @@
-﻿/*
- * !!!! Mirror along the x-axis, 
- * !!!! including flipping the vertices, normals 
- * !!!! and triangle vertex index order
- */
-
-/* This version of ObjImporter first reads through the entire file, getting a count of how large
- * the final arrays will be, and then uses standard arrays for everything (as opposed to ArrayLists
- * or any other fancy things). 
- */
-
-using UnityEngine;
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
-//using System.Threading; // async sometimes causes crash
+using UnityEngine;
 
-#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
-#pragma warning disable CS0649 // Field never assigned
-
+// Parse is worker-safe: it only creates managed arrays and Unity value types.
+// CreateMesh is the only entry that touches Unity objects, on the main thread.
 public static class ObjImporter
 {
-    private struct IntVector3
+    public sealed class MeshData
     {
-        public int i, j, k;
+        public Vector3[] Vertices, Normals;
+        public Vector2[] UV;
+        public int[] Triangles;
+        public long EstimatedBytes { get { return Vertices.LongLength * 32 + Triangles.LongLength * 4; } }
     }
 
-    private struct MeshStruct
+    static readonly char[] WhiteSpace = { ' ', '\t' };
+    static float Float(string value)
     {
-        public Vector3[] vertices;
-        public Vector3[] normals;
-        public Vector2[] uv;
-        public Vector2[] uv1;
-        public Vector2[] uv2;
-        public int[] triangles;
-        public int[] faceVerts;
-        public int[] faceUVs;
-        public IntVector3[] faceData;
-        public string name;
+        float result = float.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture);
+        if (float.IsNaN(result) || float.IsInfinity(result)) throw new FormatException("Non-finite OBJ coordinate");
+        return result;
     }
 
-    public static Mesh ImportFile(string filePath)
+    static int Index(string value, int count)
     {
-        Mesh mesh = new Mesh();
-        ImportFile(filePath, ref mesh);
-        return mesh;
+        int index = int.Parse(value, CultureInfo.InvariantCulture);
+        index = index < 0 ? count + index : index - 1;
+        if (index < 0 || index >= count) throw new FormatException("OBJ index outside source array");
+        return index;
     }
 
-    // Use this for initialization
-    static void ImportFile(string filePath, ref Mesh mesh)
+    public static MeshData ParseFile(string path, Func<bool> cancelled)
     {
-        MeshStruct newMesh = CreateMeshStruct(filePath);
-
-        Vector3[] newVerts = new Vector3[newMesh.faceData.Length];
-        Vector2[] newUVs = new Vector2[newMesh.faceData.Length];
-        Vector3[] newNormals = new Vector3[newMesh.faceData.Length];
-        int i = 0;
-        /* The following foreach loops through the facedata and assigns the appropriate vertex, uv, or normal
-         * for the appropriate Unity mesh array.
-         */
-        foreach (IntVector3 v in newMesh.faceData)
+        var positions = new List<Vector3>();
+        var normals = new List<Vector3>();
+        var uv = new List<Vector2>();
+        var output = new List<Vector3>();
+        var outNormals = new List<Vector3>();
+        var outUV = new List<Vector2>();
+        var triangles = new List<int>();
+        using (var reader = File.OpenText(path))
         {
-            newVerts[i] = newMesh.vertices[v.i - 1];
-            if (v.j >= 1)
-                newUVs[i] = newMesh.uv[v.j - 1];
-
-            if (v.k >= 1)
-                newNormals[i] = newMesh.normals[v.k - 1];
-
-            i++;
-        }
-
-        mesh.vertices = newVerts;
-        mesh.uv = newUVs;
-        mesh.normals = newNormals;
-        mesh.triangles = newMesh.triangles;
-
-        mesh.RecalculateBounds();
-        mesh.RecalculateTangents();
-        /*
-         * https://docs.unity3d.com/ScriptReference/Mesh-tangents.html
-         * "You should calculate tangents yourself if you plan to use bump-mapped shaders on the Mesh." 
-         * "Assign tangents after assigning normals or using RecalculateNormals."
-         */
-    }
-
-    private static MeshStruct CreateMeshStruct(string filename)
-    {
-        int triangles = 0;
-        int vertices = 0;
-        int vt = 0;
-        int vn = 0;
-        int face = 0;
-        MeshStruct mesh = new MeshStruct();
-        StreamReader stream = File.OpenText(filename);
-        string entireText = stream.ReadToEnd();
-        stream.Close();
-        using (StringReader reader = new StringReader(entireText))
-        {
-            string currentText = reader.ReadLine();
-            char[] splitIdentifier = { ' ' };
-            string[] brokenString;
-            while (currentText != null)
+            string line;
+            int lineNumber = 0;
+            while ((line = reader.ReadLine()) != null)
             {
-                if (currentText.StartsWith("f "))
+                if ((++lineNumber & 255) == 0 && cancelled != null && cancelled())
+                    throw new OperationCanceledException();
+                int comment = line.IndexOf('#');
+                if (comment >= 0) line = line.Substring(0, comment);
+                string[] fields = line.Split(WhiteSpace, StringSplitOptions.RemoveEmptyEntries);
+                if (fields.Length == 0) continue;
+                switch (fields[0])
                 {
-                    currentText = currentText.Trim();                           //Trim the current line
-                    brokenString = currentText.Split(splitIdentifier, 100);      //Split the line into an array, separating the original line by blank spaces
-                    face = face + brokenString.Length - 1;
-                    triangles += 3 * (brokenString.Length - 3); /*brokenString.Length is 4 or greater since a face must have at least
-                                                                                     3 vertices.  For each additional vertice, there is an additional
-                                                                                     triangle in the mesh (hence this formula).*/
-                }
-                else if (currentText.StartsWith("v "))
-                    vertices++;
-                else if (currentText.StartsWith("vt "))
-                    vt++;
-                else if (currentText.StartsWith("vn "))
-                    vn++;
-
-                currentText = reader.ReadLine();
-                if (currentText != null)
-                {
-                    currentText = currentText.Replace("  ", " ");
+                    case "v":
+                        positions.Add(new Vector3(-Float(fields[1]), Float(fields[2]), Float(fields[3])));
+                        break;
+                    case "vn":
+                        normals.Add(new Vector3(-Float(fields[1]), Float(fields[2]), Float(fields[3])));
+                        break;
+                    case "vt":
+                        uv.Add(new Vector2(Float(fields[1]), Float(fields[2])));
+                        break;
+                    case "f":
+                        if (fields.Length < 4) throw new FormatException("OBJ face needs at least three vertices");
+                        int start = output.Count;
+                        for (int i = 1; i < fields.Length; i++)
+                        {
+                            string[] indices = fields[i].Split('/');
+                            output.Add(positions[Index(indices[0], positions.Count)]);
+                            outUV.Add(indices.Length > 1 && indices[1].Length != 0 ? uv[Index(indices[1], uv.Count)] : Vector2.zero);
+                            outNormals.Add(indices.Length > 2 && indices[2].Length != 0 ? normals[Index(indices[2], normals.Count)] : Vector3.zero);
+                        }
+                        for (int i = 1; i < fields.Length - 2; i++)
+                        {
+                            triangles.Add(start);
+                            triangles.Add(start + i + 1);
+                            triangles.Add(start + i);
+                        }
+                        break;
                 }
             }
         }
-        mesh.triangles = new int[triangles];
-        mesh.vertices = new Vector3[vertices];
-        mesh.uv = new Vector2[vt];
-        mesh.normals = new Vector3[vn];
-        mesh.faceData = new IntVector3[face];
-
-        PopulateMeshStruct(ref mesh, entireText);
-
-        return mesh;
+        // Empty optional parts intentionally hide a template part. Large parts use
+        // Unity 2017.4's 32-bit index format rather than truncating vertex indices.
+        return new MeshData { Vertices = output.ToArray(), Normals = outNormals.ToArray(),
+            UV = outUV.ToArray(), Triangles = triangles.ToArray() };
     }
 
-    private static void PopulateMeshStruct(ref MeshStruct mesh, string entireText)
+    public static Mesh CreateMesh(MeshData data)
     {
-        using (StringReader reader = new StringReader(entireText))
-        {
-            string currentText = reader.ReadLine();
-
-            char[] splitIdentifier = { ' ' };
-            char[] splitIdentifier2 = { '/' };
-            string[] brokenString;
-            string[] brokenBrokenString;
-            int f = 0;
-            int f2 = 0;
-            int v = 0;
-            int vn = 0;
-            int vt = 0;
-            int vt1 = 0;
-            int vt2 = 0;
-            while (currentText != null)
-            {
-                if (!currentText.StartsWith("f ") && !currentText.StartsWith("v ") && !currentText.StartsWith("vt ") &&
-                    !currentText.StartsWith("vn ") && !currentText.StartsWith("g ") && !currentText.StartsWith("usemtl ") &&
-                    !currentText.StartsWith("mtllib ") && !currentText.StartsWith("vt1 ") && !currentText.StartsWith("vt2 ") &&
-                    !currentText.StartsWith("vc ") && !currentText.StartsWith("usemap "))
-                {
-                    currentText = reader.ReadLine();
-                    if (currentText != null)
-                    {
-                        currentText = currentText.Replace("  ", " ");
-                    }
-                }
-                else
-                {
-                    currentText = currentText.Trim();
-                    brokenString = currentText.Split(splitIdentifier, 100);
-                    switch (brokenString[0])
-                    {
-                        case "g":
-                            break;
-                        case "usemtl":
-                            break;
-                        case "usemap":
-                            break;
-                        case "mtllib":
-                            break;
-                        case "v":
-                            mesh.vertices[v] = new Vector3(
-                                -System.Convert.ToSingle(brokenString[1]), 
-                                System.Convert.ToSingle(brokenString[2]),
-                                System.Convert.ToSingle(brokenString[3]));
-                            v++;
-                            break;
-                        case "vt":
-                            mesh.uv[vt] = new Vector2(
-                                System.Convert.ToSingle(brokenString[1]), 
-                                System.Convert.ToSingle(brokenString[2]));
-                            vt++;
-                            break;
-                        case "vt1":
-                            mesh.uv[vt1] = new Vector2(
-                                System.Convert.ToSingle(brokenString[1]), 
-                                System.Convert.ToSingle(brokenString[2]));
-                            vt1++;
-                            break;
-                        case "vt2":
-                            mesh.uv[vt2] = new Vector2(
-                                System.Convert.ToSingle(brokenString[1]), 
-                                System.Convert.ToSingle(brokenString[2]));
-                            vt2++;
-                            break;
-                        case "vn":
-                            mesh.normals[vn] = new Vector3(
-                                -System.Convert.ToSingle(brokenString[1]), 
-                                System.Convert.ToSingle(brokenString[2]),
-                                System.Convert.ToSingle(brokenString[3]));
-                            vn++;
-                            break;
-                        case "vc":
-                            break;
-                        case "f":
-
-                            int j = 1;
-                            List<int> intArray = new List<int>();
-                            while (j < brokenString.Length && ("" + brokenString[j]).Length > 0)
-                            {
-                                IntVector3 temp = new IntVector3();
-                                brokenBrokenString = brokenString[j].Split(splitIdentifier2, 3);    //Separate the face into individual components (vert, uv, normal)
-                                temp.i = System.Convert.ToInt32(brokenBrokenString[0]);
-                                if (brokenBrokenString.Length > 1)                                  //Some .obj files skip UV and normal
-                                {
-                                    if (brokenBrokenString[1] != "")                                    //Some .obj files skip the uv and not the normal
-                                    {
-                                        temp.j = System.Convert.ToInt32(brokenBrokenString[1]);
-                                    }
-                                    temp.k = System.Convert.ToInt32(brokenBrokenString[2]);
-                                }
-                                j++;
-
-                                mesh.faceData[f2] = temp;
-                                intArray.Add(f2);
-                                f2++;
-                            }
-                            j = 1;
-                            while (j + 2 < brokenString.Length)     //Create triangles out of the face data.  There will generally be more than 1 triangle per face.
-                            {
-                                mesh.triangles[f] = intArray[0];
-                                f++;
-                                mesh.triangles[f] = intArray[j + 1];
-                                f++;
-                                mesh.triangles[f] = intArray[j];
-                                f++;
-
-                                j++;
-                            }
-                            break;
-                    }
-                    currentText = reader.ReadLine();
-                    if (currentText != null)
-                    {
-                        currentText = currentText.Replace("  ", " ");       //Some .obj files insert double spaces, this removes them.
-                    }
-                }
-            }
-        }
+        return CreateMesh(data, null, null);
     }
+
+    public static Mesh CreateMesh(MeshData data, BoneWeight[] weights, Matrix4x4[] bindposes)
+    {
+        var mesh = new Mesh();
+        try
+        {
+            if (data.Vertices.Length > 65535) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            mesh.vertices = data.Vertices;
+            mesh.uv = data.UV;
+            mesh.normals = data.Normals;
+            // Supply the complete vertex layout before its first graphics upload.
+            if (bindposes != null) mesh.bindposes = bindposes;
+            if (weights != null) mesh.boneWeights = weights;
+            mesh.triangles = data.Triangles;
+            mesh.RecalculateBounds();
+            mesh.RecalculateTangents();
+            return mesh;
+        }
+        catch { UnityEngine.Object.Destroy(mesh); throw; }
+    }
+
+    public static Mesh ImportFile(string path) { return CreateMesh(ParseFile(path, null)); }
 }

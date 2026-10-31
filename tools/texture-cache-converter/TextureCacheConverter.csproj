@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>DIYChef.TextureCacheConverter</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GameDir Condition="'$(GameDir)' == ''">D:/Games/Steam Games/steamapps/common/Overcooked! 2</GameDir>
+    <ManagedDir>$(GameDir)/Overcooked2_Data/Managed</ManagedDir>
+    <FrameworkPathOverride>$(ManagedDir)</FrameworkPathOverride>
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>../../artifacts/texture-cache-converter/bin/$(Configuration)/</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="TextureCacheConverter.cs;../../AssetDiskCache.cs;../../TextureCacheCompression.cs;../../Lz4Codec.cs;../../AssetHash.cs;../../NativePixelBuffer.cs;../../ObjImporter.cs;../../MeshCacheCodec.cs" />
+    <EmbeddedResource Include="../../lib/lz4-win-x86.dll" LogicalName="OC2DIYChef.Native.LZ4.x86" />
+    <EmbeddedResource Include="../../third_party/lz4/LICENSE" LogicalName="OC2DIYChef.Native.LZ4.LICENSE" />
+    <Reference Include="$(ManagedDir)/mscorlib.dll;$(ManagedDir)/System.dll;$(ManagedDir)/System.Core.dll;$(ManagedDir)/UnityEngine*.dll" Private="false" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>DIYChef.CacheProbe</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GameDir Condition="'$(GameDir)' == ''">$(OC2_GAME_DIR)</GameDir>
+    <GameDir Condition="'$(GameDir)' == ''">D:/Games/Steam Games/steamapps/common/Overcooked! 2</GameDir>
+    <OutputPath>../../../artifacts/chef-switch-research/bin/$(Configuration)/</OutputPath>
+    <ManagedDir>$(GameDir)/Overcooked2_Data/Managed</ManagedDir>
+    <FrameworkPathOverride>$(ManagedDir)</FrameworkPathOverride>
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="MonoCacheProbe.cs;../../../AssetDiskCache.cs;../../../TextureCacheCompression.cs;../../../Lz4Codec.cs;../../../AssetHash.cs;../../../NativePixelBuffer.cs;../../../MeshCacheCodec.cs;../../../ObjImporter.cs;../../../ImportWorker.cs" />
+    <Reference Include="$(ManagedDir)/mscorlib.dll;$(ManagedDir)/System.dll;$(ManagedDir)/System.Core.dll" Private="false" />
+    <Reference Include="$(ManagedDir)/UnityEngine*.dll" Private="false" />
+    <EmbeddedResource Include="../../../lib/lz4-win-x86.dll" LogicalName="OC2DIYChef.Native.LZ4.x86" />
+  </ItemGroup>
+</Project>

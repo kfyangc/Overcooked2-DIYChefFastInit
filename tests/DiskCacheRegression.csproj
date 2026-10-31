@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <GameDir Condition="'$(GameDir)' == ''">D:/Games/Steam Games/steamapps/common/Overcooked! 2</GameDir>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Production targets Mono/.NET 3.5, where SHA256Managed is supported. -->
+    <NoWarn>$(NoWarn);SYSLIB0021</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="DiskCacheRegression.cs;../AssetDiskCache.cs;../TextureCacheCompression.cs;../Lz4Codec.cs;../AssetHash.cs;../NativePixelBuffer.cs;../MeshCacheCodec.cs;../ObjImporter.cs;../ImportWorker.cs" />
+    <Reference Include="$(GameDir)/Overcooked2_Data/Managed/UnityEngine*.dll" />
+    <EmbeddedResource Include="../lib/lz4-win-x86.dll" LogicalName="OC2DIYChef.Native.LZ4.x86" />
+  </ItemGroup>
+</Project>

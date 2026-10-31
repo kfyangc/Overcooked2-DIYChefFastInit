@@ -3,18 +3,13 @@
 ## Installation
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) for the game (x86 for Steam, x64 for Steam crossplay branch or Epic)
-2. Download `OC2DIYChef.dll` from [Releases](../../releases), create a new folder `BepInEx/plugins/OC2DIYChef` in the game's directory and copy the dll into it
+2. Download `DIYChefFastInit.dll` from [Releases](../../releases), create a new folder `BepInEx/plugins/OC2DIYChef` in the game's directory and copy the dll into it. When upgrading, remove the old `OC2DIYChef.dll` from the plugins directory and keep `Resources` and `prefer.txt` alongside the new DLL.
 
 > ### Compiling
 >
-> You may compile the MOD yourself. 
+> Install the .NET SDK, run `./tools/Fetch-Lz4.ps1`, then `dotnet build -c Release "-p:GameDir=<game directory>"`. The build references the game's Managed and BepInEx assemblies directly and produces `bin/Release/DIYChefFastInit.dll`.
 >
-> Choose the proper .NET version (.NET framework 3.5 for Steam, .NET framework 4 for Steam crossplay branch or Epic).
->
-> The following dependencies need to be copied into `lib/` directory: 
->
-> - In the game's `Overcooked2_Data/Managed/` directory `Assembly-CSharp.dll`, `UnityEngine.dll`, `UnityEngine.CoreModule.dll`, `UnityEngine.UI.dll`, `UnityEngine.IMGUIModule.dll`, `UnityEngine.ImageConversionModule.dll`, `UnityEngine.TextRenderingModule.dll`.
-> - In `BepInEx/core/` directory `0Harmony20.dll`, `BepInEx.dll`, `BepInEx.Harmony.dll`.
+> The current build targets the Steam x86 game with .NET Framework 3.5. See [loading and build documentation](docs/LOADING.md) for configuration, caching and verification.
 
 
 
@@ -111,6 +106,12 @@ Add a line `LOBBYSWITCHCHEF=TRUE` to `prefer.txt` to switch chefs at the lobby b
   
 
 ## Update Log
+
+#### v2.0.0
+
+- Load DIY chefs on demand with a bounded in-memory cache and persistent mesh and texture caches.
+- Compress texture caches losslessly with LZ4HC in the background.
+- Build the plugin as `DIYChefFastInit.dll`, retaining the existing plugin ID, resource layout and configuration.
 
 #### v1.3
 

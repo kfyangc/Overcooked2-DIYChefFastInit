@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <GameDir Condition="'$(GameDir)' == ''">D:/Games/Steam Games/steamapps/common/Overcooked! 2</GameDir>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="ObjImportRegression.cs;../ObjImporter.cs;../SkinWeights.cs;obj/BaselineObjImporter.cs" />
+    <Reference Include="$(GameDir)/Overcooked2_Data/Managed/UnityEngine*.dll" />
+  </ItemGroup>
+</Project>

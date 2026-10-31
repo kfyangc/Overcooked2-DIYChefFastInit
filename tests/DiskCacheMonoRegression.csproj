@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AssemblyName>DIYChef.CacheMonoRegression</AssemblyName>
+    <GameDir Condition="'$(GameDir)' == ''">D:/Games/Steam Games/steamapps/common/Overcooked! 2</GameDir>
+    <ManagedDir>$(GameDir)/Overcooked2_Data/Managed</ManagedDir>
+    <FrameworkPathOverride>$(ManagedDir)</FrameworkPathOverride>
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="DiskCacheRegression.cs;DiskCacheMonoBridge.cs;../AssetDiskCache.cs;../TextureCacheCompression.cs;../Lz4Codec.cs;../AssetHash.cs;../NativePixelBuffer.cs;../MeshCacheCodec.cs;../ObjImporter.cs;../ImportWorker.cs" />
+    <EmbeddedResource Include="../lib/lz4-win-x86.dll" LogicalName="OC2DIYChef.Native.LZ4.x86" />
+    <Reference Include="$(ManagedDir)/mscorlib.dll;$(ManagedDir)/System.dll;$(ManagedDir)/System.Core.dll;$(ManagedDir)/UnityEngine*.dll" Private="false" />
+  </ItemGroup>
+</Project>
