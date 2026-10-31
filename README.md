@@ -24,9 +24,7 @@
 
 - Copy and rename `official-all.txt` as `OC2DIYChef/prefer.txt`, then edit it and remove the names of the chefs you don't want to use. The names of all the chefs are shown below.
 
-  <div align="center">
-      <img src="chef_name.png" width="100%" height="100%" />
-  </div><br>
+  ![names of all chefs](assets/chef_name.png)
   
 - You can sort the chefs in `prefer.txt`. 
 
@@ -136,9 +134,7 @@ Add a line `LOBBYSWITCHCHEF=TRUE` to `prefer.txt` to switch chefs at the lobby b
 
 - Fix a vertex weight error in the original chef model.
 
-  <div align="center">
-      <img src="meshbug.png" width="30%" height="30%" />
-  </div>
+  ![vertex weight bug](assets/meshbug.png)
 
 - Compatible with config file name `prefer.txt.txt`.
 
