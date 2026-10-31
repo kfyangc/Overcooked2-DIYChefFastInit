@@ -4,7 +4,7 @@ using System.Collections;
 
 namespace OC2DIYChef
 {
-    [BepInPlugin("dev.gua.overcooked.diychef", "Overcooked2 DIYChef Plugin", PluginVersion.Value)]
+    [BepInPlugin("dev.gua.overcooked.diychef", "厨房暖暖 快速载入 / 厨房暖暖 启动速度优化 / DIYChef FastInit", PluginVersion.Value)]
     [BepInProcess("Overcooked2.exe")]
     public class DIYChefPlugin : BaseUnityPlugin
     {
