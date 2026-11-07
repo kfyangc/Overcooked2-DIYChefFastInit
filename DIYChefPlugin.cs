@@ -25,13 +25,22 @@ namespace OC2DIYChef
                 Log("Patched: " + patched.FullDescription());
         }
 
+        void Start() { ModelTestCompatibility.Initialize(); }
+
         void Update()
         {
             ChefLoading.Update();
         }
 
-        void OnDestroy() { ChefLoading.Shutdown(); }
+        void LateUpdate() { ModelTestCompatibility.LateUpdate(); }
+
+        void OnDestroy()
+        {
+            ModelTestCompatibility.Shutdown();
+            ChefLoading.Shutdown();
+        }
 
         public static void Log(string msg) { pluginInstance.Logger.LogInfo(msg); }
+        internal static void Warn(string msg) { pluginInstance.Logger.LogWarning(msg); }
     }
 }

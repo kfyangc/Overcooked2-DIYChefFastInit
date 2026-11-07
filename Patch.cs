@@ -183,16 +183,20 @@ namespace OC2DIYChef
 
         [HarmonyPrefix]
         [HarmonyPatch(typeof(ChefMeshReplacer), "SetChefData")]
-        public static void ReplacerSetData(ChefMeshReplacer __instance, ref GameSession.SelectedChefData chefData)
+        public static void ReplacerSetData(ChefMeshReplacer __instance, ref GameSession.SelectedChefData chefData,
+            out GameObject __state)
         {
+            __state = __instance.ChefModel;
             ChefLoading.EnsureImmediate(ref chefData, __instance);
         }
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(ChefMeshReplacer), "SetChefData")]
-        public static void ReplacerSetDataComplete(ChefMeshReplacer __instance, GameSession.SelectedChefData chefData)
+        public static void ReplacerSetDataComplete(ChefMeshReplacer __instance, GameSession.SelectedChefData chefData,
+            GameObject __state)
         {
             ChefLoading.Track(__instance, chefData);
+            ModelTestCompatibility.ModelReplaced(__state, __instance.ChefModel);
         }
 
         [HarmonyPrefix]

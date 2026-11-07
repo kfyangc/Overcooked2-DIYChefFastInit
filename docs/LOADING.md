@@ -11,7 +11,7 @@
 dotnet build -c Release "-p:GameDir=D:/Games/Steam Games/steamapps/common/Overcooked! 2"
 ```
 
-也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.0.0。
+也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.1.0。
 
 Fetch-Lz4.ps1 获取并校验固定版本的官方 x86 LZ4 库，缓存在忽略提交的 lib 目录。构建将它及许可证嵌入插件 DLL；安装只需 DIYChefFastInit.dll。首次使用时自动释放到 BepInEx/cache/DIYChefFastInit/native。第三方声明见 THIRD_PARTY_NOTICES.md。
 
@@ -25,6 +25,8 @@ Fetch-Lz4.ps1 获取并校验固定版本的官方 x86 LZ4 库，缓存在忽略
 
 每个型号、渲染器持有独立绑定网格，纹理跨型号共享。缓存资源由实际实例引用保护；关闭或销毁显示对象后取消不再需要的工作。实例销毁时回收其材质副本。
 
+登记实例材质时，通过 Renderer.materials 取得当前渲染器独立的材质，再纳入销毁清单，不以名称中的 (Instance) 推断所有权。这样外部插件挂载的粒子也使用独立副本，销毁餐车厨师时保留 ModelTest 的共享预制体材质和其他厨师的材质。
+
 BepInEx 配置文件 dev.gua.overcooked.diychef.cfg：
 
 | [Loading] 项目 | x86 默认 | x64 默认 |
@@ -36,6 +38,32 @@ BepInEx 配置文件 dev.gua.overcooked.diychef.cfg：
 既有配置值保留。超过任一缓存目标时按最近使用情况回收闲置资源；正在加载、等待应用和被实例引用的资源暂时保留。估算预算不等于整个游戏的内存上限。
 
 Diagnostics=true 时记录资源准备、纹理解码上传、应用、首个相机绘制帧、帧 P95/最大值、Windows Private Bytes/Working Set、缓存估算和引用情况。相机绘制回调表示相机完成该帧绘制，不代表显示器扫描输出或 GPU 硬件计时。
+
+## ModelTest 粒子兼容
+
+安装插件 ID 包含 modeltest 字符串的 ModelTest 时（忽略大小写，不限制前缀和后缀），FastInit 在实际厨师实例更换后的下一帧调用其粒子挂载方法。检测到插件后仍检查字段和方法签名。同一帧的更换请求合并执行；资源尚未加载完时保留请求，等待就绪后执行。首次加载和内存缓存命中的切换共用此路径，覆盖前端、关卡和 UI 型号。没有更换实例时不会持续扫描场景。
+
+兼容层只读取 ModelTest 的 resourcesLoaded、particleReplacer 字段，并调用无参数、返回 void 的 Execute 方法，不调用模型替换、不修改 ModelTest DLL。ModelTest 的配置仍按名称、父节点和祖父节点匹配，自定义厨师节点名包含 Chef_ 前缀。
+
+日志中的 ModelTest particle compatibility enabled 表示接口检测通过，并附上实际匹配的插件 ID。若内部接口改变或调用异常，会记录一次 ModelTest particle compatibility disabled 并停用补挂，厨师加载继续运行。未安装 ModelTest 时保持静默。
+
+离线回归命令（不加载 Unity、不启动游戏）：
+
+```powershell
+dotnet run --project tests/ModelTestCompatibilityRegression.csproj -c Release
+```
+
+回归覆盖可选插件缺席、资源延迟就绪、同帧合并、同实例不重复触发、切回后重新触发、接口变化、调用异常与关闭清理。实际特效显示仍需在游戏中验证。
+
+2.1.0 发布验证：Release 构建 0 警告、0 错误；45 项兼容回归在 .NET 和实际游戏的 x86 Mono 下均通过，包括 modeltest 字符串出现在不同位置、大小写混合，以及不包含该字符串的插件 ID 的排除。Mono 探针确认当前安装的 ModelTest 字段与方法签名匹配，并确认产物不引用 OC2ModelTest 程序集。此探针不启动 Unity，尚未完成游戏内特效画面复测。对未来 ModelTest 的支持仍以内部字段和方法兼容为前提。
+
+材质生命周期回归命令：
+
+```powershell
+dotnet run --project tests/ResourceUseRegression.csproj -c Release
+```
+
+该回归使用托管渲染器替身区分共享与独立材质。旧代码会在销毁餐车厨师后误销毁共享花粉材质；修复后 16 项检查在 .NET 和实际游戏 x86 Mono 下均通过，覆盖进入关卡后已有和后续生成的粒子、延后挂入的特效、材质替换、重复捕获、资源引用及旧材质清理。不启动 Unity，游戏内紫块消除效果需重启后复测。
 
 ## 1.3.0.1 验证记录
 
