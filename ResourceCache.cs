@@ -202,44 +202,4 @@ namespace OC2DIYChef
             return false;
         }
     }
-
-    // Attached to actual instances, never to cache prefabs. Inactive instances also pin resources.
-    public sealed class ResourceUse : MonoBehaviour
-    {
-        readonly List<ResourceCache> resources = new List<ResourceCache>();
-        readonly HashSet<Material> materials = new HashSet<Material>();
-
-        internal static void Attach(GameObject model, ResourceCache resource)
-        {
-            if (model == null) return;
-            var use = model.GetComponent<ResourceUse>() ?? model.AddComponent<ResourceUse>();
-            if (resource != null && !use.resources.Contains(resource))
-            {
-                use.resources.Add(resource);
-                resource.References++;
-                resource.LastUsed = Time.realtimeSinceStartup;
-            }
-            use.CaptureMaterials();
-        }
-
-        internal void CaptureMaterials()
-        {
-            foreach (var renderer in GetComponentsInChildren<Renderer>(true))
-                foreach (var material in renderer.sharedMaterials)
-                    if (material != null && material.name.EndsWith(" (Instance)", StringComparison.Ordinal) &&
-                        !ResourceCache.OwnsMaterial(material))
-                        materials.Add(material);
-        }
-
-        void OnDestroy()
-        {
-            // Renderers might already be destroyed by the game; capture during setters as well.
-            foreach (var material in materials) if (material != null) Object.Destroy(material);
-            foreach (var resource in resources)
-            {
-                resource.References--;
-                resource.LastUsed = Time.realtimeSinceStartup;
-            }
-        }
-    }
 }

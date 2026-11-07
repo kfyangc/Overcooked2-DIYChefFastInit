@@ -2,7 +2,7 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.0.0**
+**Current version: 2.1.0**
 
 This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248/Overcooked2-DIYChef) to reduce startup waits when many custom chefs and hats are installed, and to speed up loading previously cached resources. Existing chef resources, `prefer.txt` and BepInEx configuration remain compatible.
 
@@ -12,6 +12,7 @@ This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248
 - **Reuse resources in memory:** Cache recently used resources and reclaim idle entries according to the cache budget.
 - **Persistent disk cache:** Reuse processed meshes and textures after a game restart or memory cache eviction. Changed source files automatically rebuild their cache entries.
 - **Lossless texture compression:** Compress texture caches with LZ4HC in the background, reducing disk usage while preserving pixels, image quality and mipmaps.
+- **ModelTest particle compatibility:** Reapply particle effects after chef replacement without modifying the ModelTest DLL. The bridge stays inactive when ModelTest is absent.
 
 ## Installation and upgrades
 
@@ -149,6 +150,13 @@ Add a line `LOBBYSWITCHCHEF=TRUE` to `prefer.txt` to switch chefs at the lobby b
   
 
 ## Update Log
+
+#### v2.1.0
+
+- Reapply ModelTest particle effects after initial chef loading and when switching back to a cached chef.
+- Discover plugin IDs containing `modeltest`, ignoring case. Disable the optional bridge with one warning if its required interface is incompatible.
+- Fix chef destruction reclaiming external shared particle materials, preserving materials used by prefabs and other chefs.
+- Keep existing resources, configuration and caches; no ModelTest DLL changes are required.
 
 #### v2.0.0
 
