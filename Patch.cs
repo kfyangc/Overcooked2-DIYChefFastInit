@@ -405,20 +405,13 @@ namespace OC2DIYChef
             return true;
         }
 
-        private static readonly MethodInfo methodInfo_ClientMessengerChefAvatar = AccessTools.Method("ClientMessenger:ChefAvatar");
-
         [HarmonyPrefix]
         [HarmonyPatch(typeof(NetworkUtils), "SelectRandomAvatar")]
         public static bool NetworkUtilsSelectRandomAvatarPatch()
         {
             if (!DIYChefCustomisation.Enabled)
                 return true;
-            for (int i = 0; i < ClientUserSystem.m_Users.Count; i++)
-            {
-                User user = ClientUserSystem.m_Users._items[i];
-                if (user.IsLocal && user.SelectedChefAvatar == 127U)
-                    methodInfo_ClientMessengerChefAvatar.Invoke(null, new object[] { DIYChefCustomisation.defaultChefID, user });
-            }
+            DIYChefCustomisation.ApplyDefaultChefSelection();
             return false;
         }
 
