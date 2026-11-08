@@ -11,7 +11,7 @@
 dotnet build -c Release "-p:GameDir=D:/Games/Steam Games/steamapps/common/Overcooked! 2"
 ```
 
-也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.1.0。
+也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.2.0。测试版版本号迭代用第四位。
 
 Fetch-Lz4.ps1 获取并校验固定版本的官方 x86 LZ4 库，缓存在忽略提交的 lib 目录。构建将它及许可证嵌入插件 DLL；安装只需 DIYChefFastInit.dll。首次使用时自动释放到 BepInEx/cache/DIYChefFastInit/native。第三方声明见 THIRD_PARTY_NOTICES.md。
 
@@ -38,6 +38,29 @@ BepInEx 配置文件 dev.gua.overcooked.diychef.cfg：
 既有配置值保留。超过任一缓存目标时按最近使用情况回收闲置资源；正在加载、等待应用和被实例引用的资源暂时保留。估算预算不等于整个游戏的内存上限。
 
 Diagnostics=true 时记录资源准备、纹理解码上传、应用、首个相机绘制帧、帧 P95/最大值、Windows Private Bytes/Working Set、缓存估算和引用情况。相机绘制回调表示相机完成该帧绘制，不代表显示器扫描输出或 GPU 硬件计时。
+
+## 默认厨师与联机替代外观（2.2.0）
+
+**测试状态：新增的自定义默认厨师功能未经游戏内测试，联机表现尚未验证。**
+
+`prefer.txt` 中第一个有效且可用的厨师作为默认外观，允许是额外厨师。先完成资源登记和无效条目过滤，再确定默认外观；首次显示仍走现有按需加载流程。
+
+联机替代外观取列表中第一个已解锁的官方厨师，按 `prefer.txt` 的顺序查找。没有可用的官方厨师时弹出“默认厨师不可用”，并按名称查找 `Chef_Snowman`。有效的纯额外厨师列表保持原有顺序和条目数；如果登记后没有任何可选条目，则补入替代厨师供正常切换。
+
+进入游戏或添加本地玩家时，只为尚未选择厨师的本地玩家设置默认外观。先写入额外厨师 ID，再发送官方替代 ID 和额外厨师 ID，沿用现有联机协议；已经选好的本地玩家和远端玩家不会被重置。
+
+离线回归命令（不加载 Unity、不启动游戏）：
+
+```powershell
+dotnet run --project tests/ChefDefaultsRegression.csproj -c Release
+dotnet run --project tests/ChefSelectionRegression.csproj -c Release
+```
+
+回归执行实际默认选择和消息派发代码，覆盖官方/额外厨师排在首位、按列表顺序选择联机替代、纯额外厨师列表、无效资源过滤、未解锁厨师、新增本地玩家、分屏玩家和现有选择保留。游戏内显示及联机效果需实际游戏验证。
+
+2.1.0.1 测试版离线验证：Release 构建 0 警告、0 错误；49 项默认厨师检查在 .NET 和游戏自带的 x86 Mono 下均通过，29 项菜单取消检查在 .NET 下通过。未启动游戏进行画面或联机验证。
+
+2.2.0 发布构建：0 警告、0 错误；文件版本为 `2.2.0`，程序集版本为 `2.2.0.0`。默认厨师功能的实际游戏内表现和联机兼容性仍未经测试。
 
 ## ModelTest 粒子兼容
 

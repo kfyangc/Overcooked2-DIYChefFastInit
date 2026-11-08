@@ -2,7 +2,7 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.1.0**
+**Current version: 2.2.0**
 
 This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248/Overcooked2-DIYChef) to reduce startup waits when many custom chefs and hats are installed, and to speed up loading previously cached resources. Existing chef resources, `prefer.txt` and BepInEx configuration remain compatible.
 
@@ -13,6 +13,7 @@ This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248
 - **Persistent disk cache:** Reuse processed meshes and textures after a game restart or memory cache eviction. Changed source files automatically rebuild their cache entries.
 - **Lossless texture compression:** Compress texture caches with LZ4HC in the background, reducing disk usage while preserving pixels, image quality and mipmaps.
 - **ModelTest particle compatibility:** Reapply particle effects after chef replacement without modifying the ModelTest DLL. The bridge stays inactive when ModelTest is absent.
+- **Custom default chefs:** Put a custom chef first to select it automatically when entering the game or adding a local player. The official online fallback is selected separately. This feature has not been tested in-game, and online behavior has not been verified.
 
 ## Installation and upgrades
 
@@ -60,7 +61,9 @@ See the [loading and build guide](docs/LOADING.md) for build instructions, cache
   
 - You can sort the chefs in `prefer.txt`. 
 
-  The first chef is the default chef. The default chef is automatically chosen every time when you enter the game or add a local player. If you use a DIY chef when playing online, the default chef will be shown to other players who do not have this mod installed.
+  The first valid, available chef is the default chef and can be a DIY chef. It is automatically chosen when entering the game or adding a local player.
+
+- Online players who cannot display your DIY chef see the first unlocked official chef in `prefer.txt`. If the list has no available official chef, the mod shows "Invalid default chef" and uses `Chef_Snowman` as the online fallback.
 
 - This mod does not change the unlocked status of chefs, including chefs that need to be unlocked by beating levels or purchasing DLCs.
 
@@ -72,11 +75,11 @@ See the [loading and build guide](docs/LOADING.md) for build instructions, cache
 
 - DIY chefs that are in the `OC2DIYChef/Resources` folder but not added to `prefer.txt` will not be loaded.
 
-- DIY chefs cannot be used as the default chef.
+- DIY chefs can be used as the default chef by putting them first in `prefer.txt`. A valid list containing only DIY chefs does not get a snowman entry added to its selection order.
 
 - How DIY chefs are shown to other online players: 
 
-  When the host has this mod installed and another player has added the same DIY chef, the DIY chef will be shown to the player. Otherwise, your default chef is shown to the player.
+  When the host has this mod installed and another player has added the same DIY chef, the DIY chef will be shown to the player. Otherwise, the official online fallback described above is shown.
 
 - Some AYCE chef resources are available on [Baidu Netdisk](https://pan.baidu.com/s/1EWneQ8k8-P0v49UKs5UpRg?pwd=iu9i).
 
@@ -150,6 +153,13 @@ Add a line `LOBBYSWITCHCHEF=TRUE` to `prefer.txt` to switch chefs at the lobby b
   
 
 ## Update Log
+
+#### v2.2.0
+
+**Testing status: The new custom default chef feature has not been tested in-game. Online behavior has not been verified.**
+
+- Allow a DIY chef as the default and synchronize its custom ID when entering the game or adding a local player.
+- Use the first unlocked official chef in `prefer.txt` as the online fallback. If none is available, show "Invalid default chef" and use `Chef_Snowman`.
 
 #### v2.1.0
 

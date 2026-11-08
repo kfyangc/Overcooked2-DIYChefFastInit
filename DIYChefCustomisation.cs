@@ -14,7 +14,7 @@ using System.Collections;
 
 namespace OC2DIYChef
 {
-    public static class DIYChefCustomisation
+    public static partial class DIYChefCustomisation
     {
         public static KeyValuePair<string, string>[] preferredChefs;
         public static uint defaultChefID = 127;
@@ -139,11 +139,13 @@ namespace OC2DIYChef
             if (registered) return;
             var timer = System.Diagnostics.Stopwatch.StartNew();
             defaultTemplate = metaGameProgress.AvatarDirectory.Avatars[15];
-            LoadPreferredChefs(metaGameProgress);
+            LoadPreferredChefs();
+            bool hasPreferences = preferredChefs.Length != 0;
             var hats = LoadAllDIYHat();
             while (hats.MoveNext()) { }
             var chefs = LoadAllDIYChef(metaGameProgress);
             while (chefs.MoveNext()) { }
+            ConfigureChefDefaults(metaGameProgress, hasPreferences);
             registered = true;
             DIYChefPlugin.Log("Register chefs=" + diyChefs.Count + " hats=" + diyHats.Count +
                 " elapsedMs=" + timer.Elapsed.TotalMilliseconds.ToString("F2") + " (metadata only)");
@@ -161,7 +163,7 @@ namespace OC2DIYChef
             subscribed = false;
         }
 
-        private static void LoadPreferredChefs(MetaGameProgress metaGameProgress)
+        private static void LoadPreferredChefs()
         {
             preferredChefs = new KeyValuePair<string, string>[0];
             enableLobbySwitchChef = false;
@@ -194,22 +196,6 @@ namespace OC2DIYChef
                 if (!preferredChefs.Any(x => x.Key == pair.Key))
                 {
                     preferredChefs = preferredChefs.AddToArray(pair);
-                    if (preferredChefs.Length == 1)
-                    {
-                        ChefAvatarData[] unlocked = metaGameProgress.GetUnlockedAvatars();
-                        int num = unlocked.FindIndex_Predicate(x => x.HeadName.Equals(pair.Key));
-                        if (num < 0)
-                        {
-                            preferredChefs = preferredChefs.AddItem(
-                                new KeyValuePair<string, string>("Chef_Male_Asian", "")).ToArray();
-                            defaultChefID = 15;
-                            ShowWarningDialog(dialogText["DefaultInvalid"]);
-                        }
-                        else
-                        {
-                            defaultChefID = (uint)metaGameProgress.AvatarDirectory.Avatars.FindIndex_Predicate(x => x == unlocked[num]);
-                        }
-                    }
                 }
             }
 
@@ -223,7 +209,7 @@ namespace OC2DIYChef
         static IEnumerator LoadAllDIYHat()
         {
             diyHats.Clear();
-            if (!Enabled)
+            if (preferredChefs.Length == 0)
                 yield break;
             diyHats.Add(HatData.Create("Santa"));
             diyHats.Add(HatData.Create("Baseballcap"));
@@ -266,7 +252,7 @@ namespace OC2DIYChef
         {
             var newPreferredChefs = new List<KeyValuePair<string, string>>();
             diyChefs.Clear();
-            if (!Enabled)
+            if (preferredChefs.Length == 0)
                 yield break;
             string dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             string conflictMessage = string.Empty;
