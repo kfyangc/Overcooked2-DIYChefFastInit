@@ -124,6 +124,13 @@ namespace OC2DIYChef
             if (active != null && !Wants(active)) CancelWork();
         }
 
+        internal static bool HasPendingExcept(ChefMeshReplacer replacer)
+        {
+            foreach (var request in pending.Values)
+                if (request.Replacer != replacer) return true;
+            return false;
+        }
+
         internal static void EnsureImmediate(ref GameSession.SelectedChefData data, ChefMeshReplacer replacer)
         {
             if (data == null) return;

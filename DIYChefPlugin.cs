@@ -15,10 +15,12 @@ namespace OC2DIYChef
         {
             pluginInstance = this;
             ChefLoading.Configure(Config);
+            ChefGridMenu.Configure(Config);
             Log("Version " + PluginVersion.Value + "; " + typeof(DIYChefPlugin).Assembly.Location);
             patcher = new Harmony("dev.gua.overcooked.diychef");
             patcher.PatchAll(typeof(Patch));
             patcher.PatchAll(typeof(Patch.FrontendChefCustomisationPatch));
+            patcher.PatchAll(typeof(ChefGridPatches));
             OnlinePatch.Patch(patcher);
             Patch.PatchInternal(patcher);
             foreach (var patched in patcher.GetPatchedMethods())
@@ -36,6 +38,7 @@ namespace OC2DIYChef
 
         void OnDestroy()
         {
+            if (ChefGridMenu.Active != null) ChefGridMenu.Active.CloseGrid();
             ModelTestCompatibility.Shutdown();
             ChefLoading.Shutdown();
         }

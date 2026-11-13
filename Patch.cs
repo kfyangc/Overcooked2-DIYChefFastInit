@@ -196,7 +196,8 @@ namespace OC2DIYChef
             GameObject __state)
         {
             ChefLoading.Track(__instance, chefData);
-            ModelTestCompatibility.ModelReplaced(__state, __instance.ChefModel);
+            if (__instance.GetComponent<ChefGridPortraitActor>() == null)
+                ModelTestCompatibility.ModelReplaced(__state, __instance.ChefModel);
         }
 
         [HarmonyPrefix]
@@ -486,6 +487,7 @@ namespace OC2DIYChef
             [HarmonyPatch(typeof(FrontendChefCustomisation), "OnClickLeftButton")]
             public static bool OnClickLeftButtonPrefix(FrontendChefCustomisation __instance)
             {
+                if (ChefGridMenu.Active != null && ChefGridMenu.Active.Owns(__instance)) return false;
                 OnClickLeftOrRightButtonPrefix(__instance, -1);
                 return true;
             }
@@ -494,6 +496,7 @@ namespace OC2DIYChef
             [HarmonyPatch(typeof(FrontendChefCustomisation), "OnClickRightButton")]
             public static bool OnClickRightButtonPrefix(FrontendChefCustomisation __instance)
             {
+                if (ChefGridMenu.Active != null && ChefGridMenu.Active.Owns(__instance)) return false;
                 OnClickLeftOrRightButtonPrefix(__instance, 1);
                 return true;
             }
