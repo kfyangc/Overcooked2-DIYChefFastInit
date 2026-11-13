@@ -2,6 +2,7 @@ using BepInEx;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
@@ -32,6 +33,8 @@ namespace OC2DIYChef
         readonly List<Vector3> bakedVertices = new List<Vector3>();
         readonly ChefColourData colour;
         readonly HashSet<ChefGridEntry> failedDetails = new HashSet<ChefGridEntry>();
+        readonly ChefGridCacheWarmup<ChefGridEntry> thumbnailCache = new ChefGridCacheWarmup<ChefGridEntry>();
+        readonly ChefGridCacheWarmup<ChefGridEntry> detailCache = new ChefGridCacheWarmup<ChefGridEntry>();
         Texture2D detailImage;
         ChefGridEntry detailEntry;
         ChefGridEntry pending;
@@ -126,11 +129,13 @@ namespace OC2DIYChef
             texture.filterMode = FilterMode.Bilinear;
             if (size == DetailSize)
             {
+                detailCache.Available(entry);
                 if (detailImage != null) Object.Destroy(detailImage);
                 detailEntry = entry;
                 detailImage = texture;
                 return;
             }
+            thumbnailCache.Available(entry);
             images[entry] = texture;
             recent.AddLast(entry);
             while (images.Count > capacity)
@@ -180,6 +185,12 @@ namespace OC2DIYChef
         {
             capacity = Math.Max(96, wanted.Count);
             ChefGridEntry selected = wanted.Count == 0 ? null : wanted[0];
+            // Cache IO does not need the studio or the original menu's camera animation.
+            // Fill several cells per frame even when a real player's model is still loading.
+            var warmup = Stopwatch.StartNew();
+            thumbnailCache.Warm(wanted, ThumbnailReady, LoadThumbnail, () => warmup.Elapsed.TotalMilliseconds < 6);
+            if (selected != null && detailEntry != selected && !failed.Contains(selected) && !failedDetails.Contains(selected))
+                detailCache.TryLoad(selected, LoadDetail);
             // User-facing previews take priority over background thumbnail work.
             if (ChefLoading.HasPendingExcept(replacer))
             {
@@ -229,18 +240,25 @@ namespace OC2DIYChef
             // A selected chef gets its own high-resolution render, never an enlarged thumbnail.
             if (selected != null && detailEntry != selected && !failed.Contains(selected) && !failedDetails.Contains(selected))
             {
-                if (!TryLoad(selected, DetailSize)) Begin(selected, DetailSize);
+                Begin(selected, DetailSize);
                 return;
             }
             foreach (var entry in wanted)
             {
                 if (images.ContainsKey(entry) || failed.Contains(entry)) continue;
-                if (!TryLoad(entry, Size)) Begin(entry, Size);
+                // Entries not reached within this frame's IO budget may already be cached.
+                // Probe them next frame before spending time constructing a model.
+                if (!thumbnailCache.Missing(entry)) continue;
+                Begin(entry, Size);
                 return;
             }
             // Stop drawing the studio between requests; at most one extra model remains pinned.
             if (replacer.ChefModel != null && replacer.ChefModel.activeSelf) replacer.ChefModel.SetActive(false);
         }
+
+        bool ThumbnailReady(ChefGridEntry entry) { return images.ContainsKey(entry) || failed.Contains(entry); }
+        bool LoadThumbnail(ChefGridEntry entry) { return TryLoad(entry, Size); }
+        bool LoadDetail(ChefGridEntry entry) { return TryLoad(entry, DetailSize); }
 
         void Fail(ChefGridEntry entry, string reason)
         {

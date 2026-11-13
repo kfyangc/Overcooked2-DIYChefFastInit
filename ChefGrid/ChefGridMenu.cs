@@ -19,7 +19,7 @@ namespace OC2DIYChef
             new[] { typeof(PlayerInputLookup.LogicalValueID), typeof(PlayerGameInput) });
         internal static ChefGridMenu Active;
         static readonly Color Ink = new Color(0.16f, 0.28f, 0.36f);
-        static readonly Color Paper = new Color(0.92f, 0.9f, 0.82f);
+        static readonly Color Paper = new Color(0.96f, 0.9f, 0.91f);
         static readonly Color[] PlayerColours = { new Color(0.15f, 0.72f, 1), new Color(1, 0.36f, 0.3f),
             new Color(0.3f, 0.85f, 0.4f), new Color(1, 0.78f, 0.15f) };
 
@@ -39,7 +39,9 @@ namespace OC2DIYChef
         {
             internal GameObject Root;
             internal Image[] Highlight;
+            internal Image Shade;
             internal RawImage Portrait;
+            internal int PlayerMask;
         }
 
         FrontendChefMenu owner;
@@ -55,9 +57,11 @@ namespace OC2DIYChef
         readonly Image[] playerTabs = new Image[4];
         GameObject canvasObject;
         RectTransform frame;
+        RectTransform gridLayer;
         Font font;
         Text pageLabel, detailName, detailKind, detailPosition, detailStatus;
         RawImage detailPortrait;
+        Image previousPage, nextPage;
         float detailReadyAt;
         ChefGridPortraits portraits;
         Cursor focused;
@@ -114,6 +118,7 @@ namespace OC2DIYChef
             openedFrame = Time.frameCount;
             open = true;
             Active = this;
+            PreparePortraits();
             Refresh();
             DIYChefPlugin.Log("Chef grid opened entries=" + entries.Count + " layout=" + layout.Columns + "x" + layout.Rows +
                 " pages=" + ChefGridNavigation.PageCount(entries.Count, PageSize));
@@ -180,6 +185,8 @@ namespace OC2DIYChef
                 (T17FrontendFlow.Instance != null && T17FrontendFlow.Instance.IsCameraTransitioning()))
             {
                 foreach (var cursor in cursors) foreach (var button in cursor.Buttons) Claim(button);
+                PreparePortraits();
+                Refresh();
                 return;
             }
             // Read all press events before claiming them: shared keyboard/split-pad bindings can overlap.
@@ -220,7 +227,13 @@ namespace OC2DIYChef
             }
             Mouse();
             if (!open) return;
-            if (portraits != null)
+            PreparePortraits();
+            Refresh();
+        }
+
+        void PreparePortraits()
+        {
+            if (portraits != null && focused != null)
             {
                 wanted.Clear();
                 wanted.Add(entries[focused.Index]);
@@ -229,7 +242,6 @@ namespace OC2DIYChef
                     if (i != focused.Index) wanted.Add(entries[i]);
                 portraits.Tick(wanted);
             }
-            Refresh();
         }
 
         static void Claim(ILogicalButton button)
@@ -324,24 +336,26 @@ namespace OC2DIYChef
                 playerTabs[i] = Box(frame, "Player " + i, 48 + i * 164, 114, 156, 34, Ink);
                 playerLabels[i] = Label(playerTabs[i].transform, "Label", "P" + (i + 1), 6, 0, 144, 34, 19, Color.white);
             }
+            gridLayer = Rect(frame, "Chef grid", 0, 0, 1280, 720);
             for (int i = 0; i < PageSize; i++)
             {
                 var rect = layout.Cell(i);
                 float side = rect.Size;
                 var cell = cells[i] = new Cell();
-                cell.Root = Box(frame, "Chef " + i, rect.X, rect.Y, side, side, Ink).gameObject;
-                Box(cell.Root.transform, "Card", 1, 1, side - 2, side - 2, new Color(0.98f, 0.97f, 0.93f));
+                cell.Root = Box(gridLayer, "Chef " + i, rect.X, rect.Y, side, side, Ink).gameObject;
+                Box(cell.Root.transform, "Card", 1, 1, side - 2, side - 2, Paper);
                 cell.Portrait = Rect(cell.Root.transform, "Portrait", 1, 1, side - 2, side - 2).gameObject.AddComponent<RawImage>();
                 cell.Portrait.raycastTarget = false;
-                // Overlay the thicker frame so selection never resizes the portrait.
+                cell.Shade = Box(cell.Root.transform, "Selection shade", 1, 1, side - 2, side - 2, Color.clear);
+                // Extend outward so the selected thumbnail remains completely inside the frame.
                 float stroke = Math.Min(6, side * 0.1f);
                 cell.Highlight = new[] {
-                    Box(cell.Root.transform, "Selected top", 0, 0, side, stroke, Ink),
-                    Box(cell.Root.transform, "Selected right", side - stroke, stroke, stroke, side - stroke * 2, Ink),
-                    Box(cell.Root.transform, "Selected bottom", 0, side - stroke, side, stroke, Ink),
-                    Box(cell.Root.transform, "Selected left", 0, stroke, stroke, side - stroke * 2, Ink) };
+                    Box(cell.Root.transform, "Selected top", -stroke, -stroke, side + stroke * 2, stroke, Ink),
+                    Box(cell.Root.transform, "Selected right", side, 0, stroke, side, Ink),
+                    Box(cell.Root.transform, "Selected bottom", -stroke, side, side + stroke * 2, stroke, Ink),
+                    Box(cell.Root.transform, "Selected left", -stroke, 0, stroke, side, Ink) };
             }
-            Box(frame, "Preview panel", 952, 114, 280, 486, new Color(0.98f, 0.97f, 0.93f));
+            Box(frame, "Preview panel", 952, 114, 280, 486, Paper);
             detailPortrait = Rect(frame, "Selected portrait", 964, 126, 256, 256).gameObject.AddComponent<RawImage>();
             detailPortrait.raycastTarget = false;
             detailStatus = Label(frame, "Preview status", "", 964, 230, 256, 48, 20, Ink);
@@ -351,8 +365,8 @@ namespace OC2DIYChef
             detailName.resizeTextMaxSize = 26;
             detailKind = Label(frame, "Selected kind", "", 964, 500, 256, 36, 20, Ink);
             detailPosition = Label(frame, "Selected index", "", 964, 548, 256, 36, 22, Ink);
-            ButtonVisual(frame, "Previous page", L("< 上一页", "< PREV"), 48, 608, 136, 32);
-            ButtonVisual(frame, "Next page", L("下一页 >", "NEXT >"), 800, 608, 136, 32);
+            previousPage = ButtonVisual(frame, "Previous page", L("< 上一页", "< PREV"), 48, 608, 136, 32);
+            nextPage = ButtonVisual(frame, "Next page", L("下一页 >", "NEXT >"), 800, 608, 136, 32);
             pageLabel = Label(frame, "Page", "", 200, 608, 584, 32, 19, Ink);
             Label(frame, "Help", L("方向键 / 摇杆移动　滚轮 / PgUp PgDn 翻页　点击头像选择", "D-pad / stick: move   Wheel / PgUp PgDn: page   Click: choose"), 48, 650, 840, 36, 18, Ink);
             ButtonVisual(frame, "Back", L("返回 / B", "BACK / B"), 904, 650, 152, 36);
@@ -369,12 +383,18 @@ namespace OC2DIYChef
                 playerTabs[i].color = cursor == focused ? PlayerColours[i] : Ink;
                 playerLabels[i].text = "P" + (i + 1) + (cursor == focused ? L("  正在选择", "  SELECTING") : "");
             }
+            bool reorder = false;
             for (int slot = 0; slot < PageSize; slot++)
             {
                 int index = page * PageSize + slot;
                 var cell = cells[slot];
                 cell.Root.SetActive(index < entries.Count);
-                if (index >= entries.Count) continue;
+                if (index >= entries.Count)
+                {
+                    reorder |= cell.PlayerMask != 0;
+                    cell.PlayerMask = 0;
+                    continue;
+                }
                 var entry = entries[index];
                 var texture = portraits == null ? null : portraits.Get(entry);
                 cell.Portrait.texture = texture;
@@ -382,8 +402,11 @@ namespace OC2DIYChef
                 int players = 0;
                 foreach (var cursor in cursors)
                     if (cursor.Index == index) players |= 1 << cursor.Player;
+                reorder |= cell.PlayerMask != players;
+                cell.PlayerMask = players;
                 int count = 0;
                 for (int player = 0; player < 4; player++) if ((players & (1 << player)) != 0) count++;
+                cell.Shade.color = count == 0 ? new Color(0, 0, 0, 0.22f) : new Color(1, 1, 1, 0.06f);
                 for (int edge = 0; edge < cell.Highlight.Length; edge++)
                 {
                     cell.Highlight[edge].enabled = count != 0;
@@ -397,6 +420,15 @@ namespace OC2DIYChef
                             break;
                         }
                 }
+            }
+            if (reorder)
+                foreach (var cell in cells)
+                    if (cell.PlayerMask != 0) cell.Root.transform.SetAsLastSibling();
+            // Lift the focused thumbnail with its exterior frame above neighboring cells.
+            if (focused.Index / PageSize == page)
+            {
+                var selectedRoot = cells[focused.Index % PageSize].Root.transform;
+                if (selectedRoot.GetSiblingIndex() != gridLayer.childCount - 1) selectedRoot.SetAsLastSibling();
             }
             var selected = entries[focused.Index];
             var detail = portraits == null ? null : portraits.GetDetail(selected);
@@ -412,6 +444,8 @@ namespace OC2DIYChef
             detailPosition.text = (focused.Index + 1) + " / " + entries.Count;
             pageLabel.text = L("第 ", "PAGE ") + (page + 1) + " / " + ChefGridNavigation.PageCount(entries.Count, PageSize) +
                 "     ·     " + L("光标移动时自动翻页", "AUTO PAGE ON MOVE");
+            previousPage.color = page > 0 ? Ink : new Color(Ink.r, Ink.g, Ink.b, 0.35f);
+            nextPage.color = page + 1 < ChefGridNavigation.PageCount(entries.Count, PageSize) ? Ink : new Color(Ink.r, Ink.g, Ink.b, 0.35f);
         }
 
         static RectTransform Rect(Transform parent, string name, float x, float y, float w, float h)
@@ -448,10 +482,11 @@ namespace OC2DIYChef
             return text;
         }
 
-        void ButtonVisual(Transform parent, string name, string value, float x, float y, float w, float h)
+        Image ButtonVisual(Transform parent, string name, string value, float x, float y, float w, float h)
         {
             var background = Box(parent, name, x, y, w, h, Ink);
             Label(background.transform, "Label", value, 0, 0, w, h, 19, Color.white);
+            return background;
         }
 
         internal void CloseGrid()

@@ -20,6 +20,8 @@
 
 2.2.0.9 改为零间距连续方格，去掉头像上的玩家编号，以加粗彩色边框标记选择。右侧取消裁剪缩略图回退，等待独立高清图加载并短暂淡入。沿用 2.2.0.8 头像缓存；全部 91 种行列布局的共享边界与命中在 .NET 11 和游戏 x86 Mono 下通过验证，实际界面待复测。
 
+2.2.0.10 将头像准备与开场输入锁分开，打开时及镜头动画期间即批量读取图片缓存，已缓存图片不再等待实际玩家模型；冷模型生成仍按原有优先级逐位执行。导航不循环，首末页按钮置灰；选框改为外延式，选中提亮、未选中压暗，统一淡粉底色。缓存与导航常规回归在 .NET 11 和游戏 x86 Mono 下通过；实际界面与耗时待复测。
+
 ## 构建与安装
 
 安装 .NET SDK，然后执行：
@@ -29,7 +31,7 @@
 dotnet build -c Release "-p:GameDir=D:/Games/Steam Games/steamapps/common/Overcooked! 2"
 ```
 
-也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.2.0.9。测试版版本号迭代用第四位。
+也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.2.0.10。测试版版本号迭代用第四位。
 
 Fetch-Lz4.ps1 获取并校验固定版本的官方 x86 LZ4 库，缓存在忽略提交的 lib 目录。构建将它及许可证嵌入插件 DLL；安装只需 DIYChefFastInit.dll。首次使用时自动释放到 BepInEx/cache/DIYChefFastInit/native。第三方声明见 THIRD_PARTY_NOTICES.md。
 

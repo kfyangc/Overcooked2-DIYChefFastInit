@@ -10,9 +10,9 @@ namespace OC2DIYChef
             if (count <= 0) return -1;
             columns = Math.Max(1, columns);
             index = Math.Max(0, Math.Min(index, count - 1));
-            if (dx != 0) return (index + Math.Sign(dx) + count) % count;
+            if (dx != 0) return Math.Max(0, Math.Min(count - 1, index + Math.Sign(dx)));
             int rows = (count + columns - 1) / columns;
-            int row = (index / columns + Math.Sign(dy) + rows) % rows;
+            int row = Math.Max(0, Math.Min(rows - 1, index / columns + Math.Sign(dy)));
             return Math.Min(row * columns + index % columns, count - 1);
         }
 
@@ -24,7 +24,7 @@ namespace OC2DIYChef
         internal static int TurnPage(int page, int delta, int count, int pageSize)
         {
             int pages = PageCount(count, pageSize);
-            return ((page + delta) % pages + pages) % pages;
+            return (int)Math.Max(0L, Math.Min(pages - 1L, (long)page + delta));
         }
 
         internal static long PlayerKey(int engagement, int split)
