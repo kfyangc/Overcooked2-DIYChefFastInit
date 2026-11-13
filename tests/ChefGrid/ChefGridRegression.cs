@@ -20,6 +20,8 @@ static class ChefGridRegression
         checks += ChefGridFramingRegression.Run();
         checks += ChefGridTransparencyRegression.Run();
         checks += ChefGridLayoutRegression.Run();
+        checks += ChefGridVisibilityRegression.Run();
+        checks += ChefGridPoseRegression.Run();
         Check(ChefGridNavigation.Move(0, 0, 10, 1, 0) == -1, "empty roster");
         Check(ChefGridNavigation.Move(0, 1, 10, 0, -1) == 0, "single entry");
         Check(ChefGridNavigation.Move(39, 81, 10, 1, 0) == 40, "right crosses a page");
@@ -122,6 +124,10 @@ namespace HarmonyLib
                 ?? throw new MissingFieldException(type.FullName, name);
         }
         public static MethodInfo Method(string name) { return typeof(TestMessenger).GetMethod("ChefAvatar"); }
+        public static MethodInfo Method(Type type, string name)
+        {
+            return type.GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+        }
     }
 }
 
@@ -137,7 +143,7 @@ namespace Team17.Online
     static class ClientUserSystem { public static UserList m_Users; public static Action usersChanged; }
 }
 
-class ChefAvatarData { public string HeadName; }
+class ChefAvatarData { public string HeadName; public UnityEngine.GameObject FrontendModelPrefab; }
 sealed class DIYChefAvatarData : ChefAvatarData { public byte id; }
 sealed class AvatarDirectoryData { public ChefAvatarData[] Avatars; }
 static class GameUtils
