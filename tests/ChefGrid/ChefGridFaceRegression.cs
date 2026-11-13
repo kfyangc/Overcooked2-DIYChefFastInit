@@ -69,6 +69,31 @@ static class ChefGridFaceRegression
         Check(ChefGridVisibility.VertexRole(0.1f, 0, 0) == ChefGridVertexRole.None &&
             (ChefGridVisibility.VertexRole(0.5f, 0, 0) & ChefGridVertexRole.Head) != 0,
             "minor head influences along a blended torso do not count as a face");
+        // Exact projected extents from the installed native Chef_Crocodile frontend mesh.
+        var crocodile = Box(-0.442749f, 0.554288f, 0.442749f, 1.319805f);
+        var crocodileEyes = Box(-0.111417f, 1.145028f, 0.111417f, 1.234785f);
+        var crocodileFrame = ChefGridFraming.Calculate(all, crocodile, crocodileEyes, anchors, true);
+        var normalHeadFrame = ChefGridFraming.Calculate(all, crocodile, new ChefPortraitBounds(), anchors, true);
+        Check(crocodileFrame.X - crocodileFrame.HalfSize <= crocodile.MinX &&
+            crocodileFrame.X + crocodileFrame.HalfSize >= crocodile.MaxX &&
+            crocodileFrame.Y - crocodileFrame.HalfSize <= crocodile.MinY &&
+            crocodileFrame.Y + crocodileFrame.HalfSize >= crocodile.MaxY,
+            "close-set forehead eyes do not crop the crocodile's muzzle or lower jaw");
+        Check(Near(crocodileFrame.X, normalHeadFrame.X) && Near(crocodileFrame.Y, normalHeadFrame.Y) &&
+            Near(crocodileFrame.HalfSize, normalHeadFrame.HalfSize), "forehead eyes retain the established full-head framing");
+        var crocodileDetail = ChefGridFraming.Calculate(all, crocodile, crocodileEyes, anchors, false);
+        var normalDetail = ChefGridFraming.Calculate(all, crocodile, new ChefPortraitBounds(), anchors, false);
+        Check(Near(crocodileDetail.X, normalDetail.X) && Near(crocodileDetail.Y, normalDetail.Y) &&
+            Near(crocodileDetail.HalfSize, normalDetail.HalfSize), "the forehead rule does not change the right-hand full model");
+        var miku = ChefGridFraming.Calculate(all, Box(-0.807524f, 0.54f, 0.807524f, 1.316747f),
+            Box(-0.167537f, 0.824955f, 0.167537f, 0.938888f), anchors, true);
+        Check(Near(miku.HalfSize, 0.335074f * 1.4f), "long twin tails still use the established face zoom");
+        var movedCrocodile = ChefGridFraming.Calculate(Box(2.4f, -2, 5.6f, 1.6f),
+            Box(4 + crocodile.MinX * 2, -2 + crocodile.MinY * 2, 4 + crocodile.MaxX * 2, -2 + crocodile.MaxY * 2),
+            Box(4 + crocodileEyes.MinX * 2, -2 + crocodileEyes.MinY * 2, 4 + crocodileEyes.MaxX * 2, -2 + crocodileEyes.MaxY * 2),
+            new ChefPortraitAnchors { Valid = true, CenterX = 4, NeckY = anchors.NeckY * 2 - 2, EyeY = anchors.EyeY * 2 - 2 }, true);
+        Check(Near(movedCrocodile.X, crocodileFrame.X * 2 + 4) && Near(movedCrocodile.Y, crocodileFrame.Y * 2 - 2) &&
+            Near(movedCrocodile.HalfSize, crocodileFrame.HalfSize * 2), "forehead detection follows translated and scaled geometry");
         string fixture = Environment.GetEnvironmentVariable("DIY_CHEF_FACE_FIXTURE");
         if (!string.IsNullOrEmpty(fixture)) RealFaces(fixture);
         return checks;
@@ -118,8 +143,12 @@ static class ChefGridFaceRegression
                     Check(frame.HalfSize < before.HalfSize * 0.85f, name + ": the full-body thumbnail becomes a substantially larger face");
                 if (name == "16-Squirrel_Grey" || name == "17-Turtle_pale" || name == "Chef_FemalePirate")
                     Check(Near(frame.X, anchors.CenterX) && frame.HalfSize > 0.35f, name + ": one eye cannot pull the crop onto one side");
-                Console.WriteLine("Face fixture " + name + ": half-size " + frame.HalfSize.ToString("F3") +
-                    " (previous " + before.HalfSize.ToString("F3") + "), center " + frame.X.ToString("F3") + "," + frame.Y.ToString("F3"));
+                if (name == "Chef_Crocodile")
+                    Check(frame.X - frame.HalfSize <= head.MinX && frame.X + frame.HalfSize >= head.MaxX &&
+                        frame.Y - frame.HalfSize <= head.MinY && frame.Y + frame.HalfSize >= head.MaxY,
+                        name + ": the real forehead eyes leave the muzzle and lower jaw visible");
+                Console.WriteLine("Face fixture " + name + ": half-size " + frame.HalfSize.ToString("R") +
+                    " (previous " + before.HalfSize.ToString("R") + "), center " + frame.X.ToString("R") + "," + frame.Y.ToString("R"));
             }
             Check(input.BaseStream.Position == input.BaseStream.Length, "all face fixtures were consumed");
         }

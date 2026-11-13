@@ -16,6 +16,8 @@
 
 2.2.0.7 将头部/眼睛标记随蒙皮快照顶点重排保留，结合颈部平面与骨骼标尺处理含全身的 Head.obj 和宽胡须；单眼/眼罩角色按脸部中线取景，右侧仍保留完整模型。使用 53 位原版及额外厨师的实际几何完成离线构图验证，并更新头像缓存版本；实际画面待复测。
 
+2.2.0.8 区分头顶近距眼睛与长发外轮廓，修正原版鳄鱼缩略图裁掉长嘴的问题。扩展到 61 位原版及 48 位额外厨师，109 组几何取景参数对比只有鳄鱼改变；更新头像缓存版本，实际画面待复测。
+
 ## 构建与安装
 
 安装 .NET SDK，然后执行：
@@ -25,7 +27,7 @@
 dotnet build -c Release "-p:GameDir=D:/Games/Steam Games/steamapps/common/Overcooked! 2"
 ```
 
-也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.2.0.7。测试版版本号迭代用第四位。
+也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.2.0.8。测试版版本号迭代用第四位。
 
 Fetch-Lz4.ps1 获取并校验固定版本的官方 x86 LZ4 库，缓存在忽略提交的 lib 目录。构建将它及许可证嵌入插件 DLL；安装只需 DIYChefFastInit.dll。首次使用时自动释放到 BepInEx/cache/DIYChefFastInit/native。第三方声明见 THIRD_PARTY_NOTICES.md。
 

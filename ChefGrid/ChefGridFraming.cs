@@ -72,10 +72,13 @@ namespace OC2DIYChef
             float x = head.CenterX;
             float midline = anchors.Valid ? anchors.CenterX : head.CenterX;
             bool pairedEyes = eyes.Valid && eyes.MinX < midline && eyes.MaxX > midline;
+            // Close-set eyes on the forehead do not imply oversized hair. Keep the full
+            // head framing for long muzzles such as the crocodile's, including its mouth.
+            bool eyesBelowForehead = eyes.Valid && eyes.CenterY <= head.MinY + head.Height * 0.75f;
             if (eyes.Valid && !pairedEyes) x = midline;
             // Long twin tails can make the head mesh many times wider than the actual face.
             // Keep normal heads unchanged, but anchor oversized silhouettes to their open eyes.
-            if (thumbnail && pairedEyes && eyes.Width > 0.0001f &&
+            if (thumbnail && pairedEyes && eyesBelowForehead && eyes.Width > 0.0001f &&
                 (head.Width > eyes.Width * 4 || head.Height > eyes.Width * 3.2f))
                 return Limit(new ChefPortraitFrame { X = eyes.CenterX, Y = eyes.CenterY + eyes.Width * 0.2f,
                     HalfSize = Math.Max(0.01f, Math.Max(eyes.Width * 1.4f, eyes.Height * 2.6f)) }, eyes, anchors, pairedEyes);

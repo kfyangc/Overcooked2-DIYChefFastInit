@@ -142,7 +142,7 @@ namespace OC2DIYChef
         {
             string path;
             if (paths.TryGetValue(entry, out path)) return size == Size ? path : Path.ChangeExtension(path, ".512.png");
-            var key = new StringBuilder("portrait-v7|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
+            var key = new StringBuilder("portrait-v8|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
                 stage.transform.GetChild(0).localEulerAngles.y + "|" + colour.name);
             var game = new FileInfo(typeof(ChefAvatarData).Assembly.Location);
             key.Append('|').Append(game.Length).Append('|').Append(game.LastWriteTimeUtc.Ticks);
