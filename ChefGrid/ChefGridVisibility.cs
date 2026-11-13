@@ -3,6 +3,9 @@ using System.Collections.Generic;
 
 namespace OC2DIYChef
 {
+    [Flags]
+    internal enum ChefGridVertexRole : byte { None = 0, Head = 1, Eyes = 2, Blink = 4 }
+
     // Pure index processing shared by snapshot rendering and offline regression fixtures.
     internal static class ChefGridVisibility
     {
@@ -12,9 +15,19 @@ namespace OC2DIYChef
             return name != null && name.StartsWith("Eyes2_Blinks", StringComparison.OrdinalIgnoreCase);
         }
 
-        internal static bool IsHidden(int bone, float weight, bool[] blinkBones)
+        internal static ChefGridVertexRole BoneRole(string name)
         {
-            return weight > 0 && bone >= 0 && bone < blinkBones.Length && blinkBones[bone];
+            if (IsBlink(name)) return ChefGridVertexRole.Blink;
+            if (IsOpenEye(name)) return ChefGridVertexRole.Head | ChefGridVertexRole.Eyes;
+            return name == "Head" || name == "Eyebrows" || name == "Hair" ? ChefGridVertexRole.Head : ChefGridVertexRole.None;
+        }
+
+        internal static ChefGridVertexRole VertexRole(float headWeight, float eyeWeight, float blinkWeight)
+        {
+            // Small neck/torso blend weights must not turn an entire merged body into a head.
+            return (headWeight >= 0.5f ? ChefGridVertexRole.Head : ChefGridVertexRole.None) |
+                (eyeWeight > 0 ? ChefGridVertexRole.Eyes : ChefGridVertexRole.None) |
+                (blinkWeight > 0 ? ChefGridVertexRole.Blink : ChefGridVertexRole.None);
         }
 
         internal static int[] FilterTriangles(int[] indices, bool[] hidden)

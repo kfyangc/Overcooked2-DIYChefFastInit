@@ -19,15 +19,17 @@ namespace OC2DIYChef
         readonly List<Part> parts = new List<Part>();
         readonly MaterialPropertyBlock properties = new MaterialPropertyBlock();
 
-        internal Renderer Freeze(Renderer source)
+        internal Renderer Freeze(Renderer source, out ChefGridVertexRole[] roles)
         {
+            roles = null;
             var skin = source as SkinnedMeshRenderer;
             if (skin == null || skin.sharedMesh == null) return source;
             var part = new Part { Source = skin, Mesh = new Mesh {
                 name = "DIYChef portrait snapshot", hideFlags = HideFlags.HideAndDontSave } };
             parts.Add(part);
             skin.BakeMesh(part.Mesh);
-            RemoveBlinks(skin, part.Mesh);
+            roles = VertexRoles(skin, part.Mesh.vertexCount);
+            RemoveBlinks(part.Mesh, ref roles);
             part.Mesh.RecalculateBounds();
             part.Proxy = new GameObject(source.name + " portrait", typeof(MeshFilter), typeof(MeshRenderer));
             part.Proxy.hideFlags = HideFlags.HideAndDontSave;
@@ -47,26 +49,46 @@ namespace OC2DIYChef
             return renderer;
         }
 
-        static void RemoveBlinks(SkinnedMeshRenderer skin, Mesh mesh)
+        static void AddInfluence(int bone, float weight, ChefGridVertexRole[] bones,
+            ref float head, ref float eyes, ref float blink)
+        {
+            if (weight <= 0 || bone < 0 || bone >= bones.Length) return;
+            var role = bones[bone];
+            if ((role & ChefGridVertexRole.Head) != 0) head += weight;
+            if ((role & ChefGridVertexRole.Eyes) != 0) eyes += weight;
+            if ((role & ChefGridVertexRole.Blink) != 0) blink += weight;
+        }
+
+        static ChefGridVertexRole[] VertexRoles(SkinnedMeshRenderer skin, int vertexCount)
         {
             var bones = skin.bones;
-            var blinkBones = new bool[bones.Length];
-            bool hasBlink = false;
+            var boneRoles = new ChefGridVertexRole[bones.Length];
             for (int i = 0; i < bones.Length; i++)
-                if (bones[i] != null && ChefGridVisibility.IsBlink(bones[i].name))
-                    hasBlink = blinkBones[i] = true;
-            if (!hasBlink) return;
+                if (bones[i] != null) boneRoles[i] = ChefGridVisibility.BoneRole(bones[i].name);
             var weights = skin.sharedMesh.boneWeights;
-            if (weights.Length != mesh.vertexCount) return;
-            var hidden = new bool[weights.Length];
-            bool anyHidden = false;
+            if (weights.Length != vertexCount) return null;
+            var roles = new ChefGridVertexRole[weights.Length];
             for (int i = 0; i < weights.Length; i++)
             {
                 var w = weights[i];
-                hidden[i] = ChefGridVisibility.IsHidden(w.boneIndex0, w.weight0, blinkBones) ||
-                    ChefGridVisibility.IsHidden(w.boneIndex1, w.weight1, blinkBones) ||
-                    ChefGridVisibility.IsHidden(w.boneIndex2, w.weight2, blinkBones) ||
-                    ChefGridVisibility.IsHidden(w.boneIndex3, w.weight3, blinkBones);
+                float head = 0, eyes = 0, blink = 0;
+                AddInfluence(w.boneIndex0, w.weight0, boneRoles, ref head, ref eyes, ref blink);
+                AddInfluence(w.boneIndex1, w.weight1, boneRoles, ref head, ref eyes, ref blink);
+                AddInfluence(w.boneIndex2, w.weight2, boneRoles, ref head, ref eyes, ref blink);
+                AddInfluence(w.boneIndex3, w.weight3, boneRoles, ref head, ref eyes, ref blink);
+                roles[i] = ChefGridVisibility.VertexRole(head, eyes, blink);
+            }
+            return roles;
+        }
+
+        static void RemoveBlinks(Mesh mesh, ref ChefGridVertexRole[] roles)
+        {
+            if (roles == null) return;
+            var hidden = new bool[roles.Length];
+            bool anyHidden = false;
+            for (int i = 0; i < hidden.Length; i++)
+            {
+                hidden[i] = (roles[i] & ChefGridVertexRole.Blink) != 0;
                 anyHidden |= hidden[i];
             }
             if (!anyHidden) return;
@@ -76,6 +98,7 @@ namespace OC2DIYChef
             for (int i = 0; i < submeshes.Length; i++)
                 submeshes[i] = ChefGridVisibility.FilterTriangles(mesh.GetTriangles(i), hidden);
             var used = ChefGridVisibility.CompactIndices(submeshes, mesh.vertexCount);
+            roles = ChefGridVisibility.Compact(roles, used);
             var vertices = ChefGridVisibility.Compact(mesh.vertices, used);
             var normals = ChefGridVisibility.Compact(mesh.normals, used);
             var tangents = ChefGridVisibility.Compact(mesh.tangents, used);

@@ -25,12 +25,12 @@ static class ChefGridVisibilityRegression
             "native eyelid bone suffixes are recognised");
         Check(!ChefGridVisibility.IsBlink("Eyes") && !ChefGridVisibility.IsBlink("Eyebrows") &&
             !ChefGridVisibility.IsBlink(null), "open eyes and eyebrows are never treated as eyelids");
-        var blinkBones = new[] { false, false, true };
-        Check(ChefGridVisibility.IsHidden(2, 1, blinkBones) && ChefGridVisibility.IsHidden(2, 0.01f, blinkBones),
+        Check((ChefGridVisibility.VertexRole(0, 0, 1) & ChefGridVertexRole.Blink) != 0 &&
+            (ChefGridVisibility.VertexRole(0, 0, 0.01f) & ChefGridVertexRole.Blink) != 0,
             "any positive eyelid influence marks a vertex");
-        Check(!ChefGridVisibility.IsHidden(2, 0, blinkBones) && !ChefGridVisibility.IsHidden(0, 1, blinkBones) &&
-            !ChefGridVisibility.IsHidden(-1, 1, blinkBones) && !ChefGridVisibility.IsHidden(3, 1, blinkBones),
-            "zero-weight, open-eye and invalid bone slots cannot hide vertices");
+        Check(ChefGridVisibility.VertexRole(0, 0, 0) == ChefGridVertexRole.None &&
+            (ChefGridVisibility.VertexRole(1, 1, 0) & ChefGridVertexRole.Blink) == 0,
+            "zero-weight and open-eye influences cannot hide vertices");
         // One merged renderer: open eyes, eyebrows, closed eyes, and a mixed triangle.
         var hidden = new[] { false, false, false, false, false, false, true, true, true };
         var original = new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 1, 6, 2 };
@@ -63,17 +63,24 @@ static class ChefGridVisibilityRegression
             for (int part = 0; part < count; part++)
             {
                 string name = Encoding.UTF8.GetString(input.ReadBytes(input.ReadInt32()));
-                var bones = new bool[input.ReadInt32()];
+                var bones = new ChefGridVertexRole[input.ReadInt32()];
                 for (int i = 0; i < bones.Length; i++)
-                    bones[i] = ChefGridVisibility.IsBlink(Encoding.UTF8.GetString(input.ReadBytes(input.ReadInt32())));
+                    bones[i] = ChefGridVisibility.BoneRole(Encoding.UTF8.GetString(input.ReadBytes(input.ReadInt32())));
                 var hidden = new bool[input.ReadInt32()];
                 for (int i = 0; i < hidden.Length; i++)
+                {
+                    float head = 0, eyes = 0, blink = 0;
                     for (int slot = 0; slot < 4; slot++)
                     {
                         int bone = input.ReadInt32();
                         float weight = input.ReadSingle();
-                        hidden[i] |= ChefGridVisibility.IsHidden(bone, weight, bones);
+                        if (weight <= 0 || bone < 0 || bone >= bones.Length) continue;
+                        if ((bones[bone] & ChefGridVertexRole.Head) != 0) head += weight;
+                        if ((bones[bone] & ChefGridVertexRole.Eyes) != 0) eyes += weight;
+                        if ((bones[bone] & ChefGridVertexRole.Blink) != 0) blink += weight;
                     }
+                    hidden[i] = (ChefGridVisibility.VertexRole(head, eyes, blink) & ChefGridVertexRole.Blink) != 0;
+                }
                 var submeshes = new int[input.ReadInt32()][];
                 int triangles = 0;
                 for (int i = 0; i < submeshes.Length; i++)

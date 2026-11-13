@@ -2,7 +2,7 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.2.0.6 (test build)**
+**Current version: 2.2.0.7 (test build)**
 
 This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248/Overcooked2-DIYChef) to reduce startup waits when many custom chefs and hats are installed, and to speed up loading previously cached resources. Existing chef resources, `prefer.txt` and BepInEx configuration remain compatible.
 
@@ -14,7 +14,7 @@ This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248
 - **Lossless texture compression:** Compress texture caches with LZ4HC in the background, reducing disk usage while preserving pixels, image quality and mipmaps.
 - **ModelTest particle compatibility:** Reapply particle effects after chef replacement without modifying the ModelTest DLL. The bridge stays inactive when ModelTest is absent.
 - **Custom default chefs:** Put a custom chef first to select it automatically when entering the game or adding a local player. The official online fallback is selected separately. This feature has not been tested in-game, and online behavior has not been verified.
-- **Chef selection grid:** Defaults to 10×5 (50 chefs per page), with configurable rows and columns, keyboard, controller, mouse and local player cursors. Left thumbnails are transparent and nameless; the right panel retains the name and a separate 512-pixel portrait. Long hairstyles use eye-based framing. Following MOD Manager's static preview approach, version 2.2.0.6 restores the full prefab pose, activates separate open-eye objects and removes closed-eye triangles from merged meshes using bone weights. See the [grid research and usage guide](docs/CHEF_GRID.md) (Chinese) for settings. These changes still need in-game verification.
+- **Chef selection grid:** Defaults to 10×5 (50 chefs per page), with configurable rows and columns, keyboard, controller, mouse and local player cursors. Left thumbnails are transparent and nameless; the right panel retains the name and a separate 512-pixel full-model portrait. Static poses and eyelid filtering follow MOD Manager's preview approach. Version 2.2.0.7 uses skeletal landmarks and a neck plane to frame merged body/head meshes, limits oversized decorations and centers one-eyed/eyepatch characters on the face midline. See the [grid research and usage guide](docs/CHEF_GRID.md) (Chinese) for settings. The framing changes still need in-game verification.
 
 ## Installation and upgrades
 

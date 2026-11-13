@@ -142,7 +142,7 @@ namespace OC2DIYChef
         {
             string path;
             if (paths.TryGetValue(entry, out path)) return size == Size ? path : Path.ChangeExtension(path, ".512.png");
-            var key = new StringBuilder("portrait-v6|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
+            var key = new StringBuilder("portrait-v7|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
                 stage.transform.GetChild(0).localEulerAngles.y + "|" + colour.name);
             var game = new FileInfo(typeof(ChefAvatarData).Assembly.Location);
             key.Append('|').Append(game.Length).Append('|').Append(game.LastWriteTimeUtc.Ticks);
@@ -343,17 +343,23 @@ namespace OC2DIYChef
                 var all = new ChefPortraitBounds();
                 var head = new ChefPortraitBounds();
                 var eyes = new ChefPortraitBounds();
+                var upper = new ChefPortraitBounds();
+                var anchors = FaceAnchors();
                 float front = 0;
                 var renderers = view.ChefModel.GetComponentsInChildren<Renderer>();
                 foreach (var renderer in renderers)
                 {
                     if (!renderer.enabled || !renderer.gameObject.activeInHierarchy || renderer is ParticleSystemRenderer) continue;
-                    var part = Measure(snapshot.Freeze(renderer), ref front);
+                    ChefGridVertexRole[] roles;
+                    bool headPart = renderer.name == headName || renderer.name == "Head1" || renderer.name == "Head2";
+                    bool fallbackPart = !renderer.name.StartsWith("Hat", StringComparison.OrdinalIgnoreCase) &&
+                        !renderer.name.StartsWith("Knife", StringComparison.OrdinalIgnoreCase);
+                    var part = Measure(snapshot.Freeze(renderer, out roles), roles, headPart,
+                        ChefGridPose.IsOpenEye(renderer.name), fallbackPart, anchors, ref head, ref eyes, ref upper, ref front);
                     all.Include(part);
-                    if (renderer.name == headName || renderer.name == "Head1" || renderer.name == "Head2") head.Include(part);
-                    if (ChefGridPose.IsOpenEye(renderer.name)) eyes.Include(part);
                 }
-                var framing = ChefGridFraming.Calculate(all, head, eyes, size == Size);
+                if (!head.Valid) head = upper;
+                var framing = ChefGridFraming.Calculate(all, head, eyes, anchors, size == Size);
                 camera.transform.localPosition = new Vector3(framing.X, framing.Y, front + 8);
                 camera.transform.localRotation = Quaternion.Euler(0, 180, 0);
                 camera.orthographicSize = framing.HalfSize;
@@ -393,7 +399,21 @@ namespace OC2DIYChef
             }
         }
 
-        ChefPortraitBounds Measure(Renderer renderer, ref float front)
+        ChefPortraitAnchors FaceAnchors()
+        {
+            var skeleton = view.ChefModel.transform.Find("Skeleton");
+            var head = skeleton == null ? null : skeleton.FindChildRecursive("Head");
+            var eyes = head == null ? null : head.FindChildRecursive("Eyes");
+            if (head == null || eyes == null) return new ChefPortraitAnchors();
+            var neck = stage.transform.InverseTransformPoint(head.position);
+            var eye = stage.transform.InverseTransformPoint(eyes.position);
+            return new ChefPortraitAnchors { Valid = Math.Abs(eye.y - neck.y) > 0.0001f,
+                CenterX = eye.x, NeckY = neck.y, EyeY = eye.y };
+        }
+
+        ChefPortraitBounds Measure(Renderer renderer, ChefGridVertexRole[] roles, bool headPart, bool eyePart,
+            bool fallbackPart, ChefPortraitAnchors anchors, ref ChefPortraitBounds head, ref ChefPortraitBounds eyes,
+            ref ChefPortraitBounds upper, ref float front)
         {
             Mesh mesh = null;
             var filter = renderer.GetComponent<MeshFilter>();
@@ -404,10 +424,15 @@ namespace OC2DIYChef
                 bakedVertices.Clear();
                 mesh.GetVertices(bakedVertices);
                 var matrix = stage.transform.worldToLocalMatrix * renderer.localToWorldMatrix;
-                foreach (var vertex in bakedVertices)
+                for (int i = 0; i < bakedVertices.Count; i++)
                 {
-                    var point = matrix.MultiplyPoint3x4(vertex);
+                    var point = matrix.MultiplyPoint3x4(bakedVertices[i]);
                     bounds.Include(point.x, point.y);
+                    var role = roles != null && i < roles.Length ? roles[i] : ChefGridVertexRole.None;
+                    if (headPart && (roles == null || (role & ChefGridVertexRole.Head) != 0))
+                        ChefGridFraming.IncludeHead(ref head, point.x, point.y, anchors);
+                    if (eyePart || (role & ChefGridVertexRole.Eyes) != 0) eyes.Include(point.x, point.y);
+                    if (fallbackPart) ChefGridFraming.IncludeHead(ref upper, point.x, point.y, anchors);
                     front = Mathf.Max(front, point.z);
                 }
             }
@@ -416,6 +441,13 @@ namespace OC2DIYChef
                 var min = stage.transform.InverseTransformPoint(renderer.bounds.min);
                 var max = stage.transform.InverseTransformPoint(renderer.bounds.max);
                 bounds.Include(min.x, min.y); bounds.Include(max.x, max.y);
+                float clippedMinY = anchors.Valid ? Math.Max(min.y, anchors.ChinY) : min.y;
+                if (max.y >= clippedMinY)
+                {
+                    if (headPart) { head.Include(min.x, clippedMinY); head.Include(max.x, max.y); }
+                    if (fallbackPart) { upper.Include(min.x, clippedMinY); upper.Include(max.x, max.y); }
+                }
+                if (eyePart) eyes.Include(bounds);
                 front = Mathf.Max(front, max.z);
             }
             return bounds;
