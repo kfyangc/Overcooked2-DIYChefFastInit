@@ -30,6 +30,8 @@
 
 2.2.0.14 在街机大厅右上角增加“切换厨师”按钮，支持鼠标、F2 及原版多人菜单手柄键。复用现有网格，绑定大厅已有的 UI 厨师；使用原版头像缓存／还原和现有 DIY 同步路径，仅编辑本地玩家。打开时持有各本地玩家的原版事件系统屏蔽令牌，消费大厅独立的退出／换队按键，暂停表情及旧版上下换人快捷键；关闭当帧及按键松开前保留输入保护。关卡加载前交还大厅输入配置，再由原版构建游戏输入。大厅生命周期与还原的 110 项检查、原有网格 669,842 项回归在 .NET 11 和游戏自带 x86 Mono 下通过；尚未启动游戏验证大厅布局、操作和联机表现。
 
+2.2.0.15 撤回上一版独立按钮和 F2／手柄全局快捷入口，改为点击本地玩家名字栏，在菜单内选择“切换厨师”。参考本机 HostUtilities v1.9.9 的 `UI_PlayerActionsMenu`，有该插件时通过可选注册复用其排版、焦点与导航；否则克隆原版菜单项。只激活所点击玩家的输入视图，取消只恢复这一位，分屏身份和索引变化均按本地输入身份跟踪。新增代码仍在 `ChefGrid/`，保留前端多人顺序选择、头像缓存及大厅输入保护。120 项名字菜单／单人编辑回归和原有 669,842 项网格回归在 .NET 11 与游戏自带 Mono 下通过；菜单实际画面及联机仍待复测。
+
 ## 构建与安装
 
 安装 .NET SDK，然后执行：
@@ -39,7 +41,7 @@
 dotnet build -c Release "-p:GameDir=D:/Games/Steam Games/steamapps/common/Overcooked! 2"
 ```
 
-也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.2.0.14。测试版版本号迭代用第四位。
+也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.2.0.15。测试版版本号迭代用第四位。
 
 Fetch-Lz4.ps1 获取并校验固定版本的官方 x86 LZ4 库，缓存在忽略提交的 lib 目录。构建将它及许可证嵌入插件 DLL；安装只需 DIYChefFastInit.dll。首次使用时自动释放到 BepInEx/cache/DIYChefFastInit/native。第三方声明见 THIRD_PARTY_NOTICES.md。
 

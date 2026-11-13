@@ -22,13 +22,18 @@ namespace OC2DIYChef
             patcher.PatchAll(typeof(Patch.FrontendChefCustomisationPatch));
             patcher.PatchAll(typeof(ChefGridPatches));
             patcher.PatchAll(typeof(ChefGridLobbyPatches));
+            patcher.PatchAll(typeof(ChefGridPlayerMenu));
             OnlinePatch.Patch(patcher);
             Patch.PatchInternal(patcher);
             foreach (var patched in patcher.GetPatchedMethods())
                 Log("Patched: " + patched.FullDescription());
         }
 
-        void Start() { ModelTestCompatibility.Initialize(); }
+        void Start()
+        {
+            ModelTestCompatibility.Initialize();
+            ChefGridPlayerMenu.Initialize(patcher);
+        }
 
         void Update()
         {

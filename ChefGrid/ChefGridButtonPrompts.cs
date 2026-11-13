@@ -44,11 +44,6 @@ namespace OC2DIYChef
             Back = Resolve(lookup, style, cancel, ControlPadInput.Button.B);
         }
 
-        internal static ChefGridButtonPrompt Button(PlayerGameInput input, ILogicalButton logical, ControlPadInput.Button fallback)
-        {
-            return Resolve(GameUtils.RequestManager<ControllerIconLookup>(), Style(input), logical, fallback);
-        }
-
         static ChefGridPromptStyle Style(PlayerGameInput input)
         {
             var actions = getActionSet == null ? null : (StandardActionSet)getActionSet.Invoke(null, new object[] { input.Pad });

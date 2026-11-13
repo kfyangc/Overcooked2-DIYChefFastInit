@@ -109,35 +109,7 @@ public sealed class FrontendChefCustomisation : UnityEngine.MonoBehaviour
     public void SetChefMeshReplacer(ChefMeshReplacer value) { m_chef = value; }
     public void SetChefAnimator(UnityEngine.Animator animator) { }
 }
-public sealed class ChefCustomiser
-{
-    FrontendChefCustomisation[] m_chefCustomisations;
-    readonly Dictionary<long, uint> avatars = new Dictionary<long, uint>();
-    public void SetChefs(FrontendChefCustomisation[] views) { m_chefCustomisations = views; }
-    static long Key(User user) { return ((long)user.Engagement << 32) | (uint)user.Split; }
-    public void CacheCurrentAvatars()
-    {
-        avatars.Clear();
-        foreach (var user in ClientUserSystem.m_Users._items) if (user.IsLocal) avatars[Key(user)] = user.SelectedChefAvatar;
-        ChefSelectionMenu.Capture(this); // Installed CacheCurrentAvatars postfix.
-    }
-    public void RevertAvatars()
-    {
-        bool restored = ChefSelectionMenu.RestoreBeforeAvatars(this); // Installed RevertAvatars prefix.
-        foreach (var user in ClientUserSystem.m_Users._items)
-        {
-            uint value;
-            if (user.IsLocal && avatars.TryGetValue(Key(user), out value)) user.SelectedChefAvatar = value;
-        }
-        if (restored) ChefSelectionMenu.SynchronizeRestoredChoices(); // Installed postfix.
-    }
-}
-public sealed class FrontendChefMenu
-{
-#pragma warning disable CS0414 // Read by the production reflection adapter.
-    readonly ChefCustomiser m_customiser = null;
-#pragma warning restore CS0414
-}
+public sealed class UIPlayerMenuBehaviour { public User UserInfo; }
 namespace Team17.Online
 {
     public sealed class User
@@ -218,7 +190,7 @@ namespace OC2DIYChef
             grid.cancel = close;
             grid.owner = menu;
         }
-        public void Tick() { if (FailTick) IsOpen = false; }
+        public void Tick() { if (FailTick || !Array.Exists(Views, x => x.IsActive())) IsOpen = false; }
         public void CloseGrid() { IsOpen = false; }
         public void Cancel() { cancel(); }
         public void Accept() { owner.Hide(); }
@@ -234,5 +206,20 @@ namespace OC2DIYChef
     {
         public static readonly List<ChefMeshReplacer> Cancelled = new List<ChefMeshReplacer>();
         public static void Cancel(ChefMeshReplacer replacer) { Cancelled.Add(replacer); }
+    }
+    sealed class ChefGridEntry { internal uint OfficialID; internal byte CustomID; }
+    static class ChefGridRoster
+    {
+        internal static readonly List<int> Selected = new List<int>();
+        internal static bool Select(ChefGridEntry entry, int player, FrontendChefCustomisation view)
+        {
+            var user = ClientUserSystem.m_Users._items[player];
+            if (!user.IsLocal || !view.IsActive()) return false;
+            Selected.Add(player);
+            DIYChefCustomisation.userDIYChefID[player] = entry.CustomID;
+            user.SelectedChefAvatar = entry.OfficialID;
+            if (ClientUserSystem.usersChanged != null) ClientUserSystem.usersChanged();
+            return true;
+        }
     }
 }
