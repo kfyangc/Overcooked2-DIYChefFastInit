@@ -15,7 +15,7 @@
     <OutputPath>../../artifacts/texture-cache-converter/bin/$(Configuration)/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="TextureCacheConverter.cs;../../AssetDiskCache.cs;../../TextureCacheCompression.cs;../../Lz4Codec.cs;../../AssetHash.cs;../../NativePixelBuffer.cs;../../ObjImporter.cs;../../MeshCacheCodec.cs" />
+    <Compile Include="TextureCacheConverter.cs;../../AssetPipeline/Native/Lz4Codec.cs;../../AssetPipeline/Native/AssetHash.cs;../../AssetPipeline/Native/NativePixelBuffer.cs;../../AssetPipeline/Import/ObjImporter.cs;../../AssetPipeline/Cache/*.cs" />
     <EmbeddedResource Include="../../lib/lz4-win-x86.dll" LogicalName="OC2DIYChef.Native.LZ4.x86" />
     <EmbeddedResource Include="../../third_party/lz4/LICENSE" LogicalName="OC2DIYChef.Native.LZ4.LICENSE" />
     <Reference Include="$(ManagedDir)/mscorlib.dll;$(ManagedDir)/System.dll;$(ManagedDir)/System.Core.dll;$(ManagedDir)/UnityEngine*.dll" Private="false" />

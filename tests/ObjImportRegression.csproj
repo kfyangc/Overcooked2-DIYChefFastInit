@@ -6,7 +6,7 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ObjImportRegression.cs;../ObjImporter.cs;../SkinWeights.cs;obj/BaselineObjImporter.cs" />
+    <Compile Include="ObjImportRegression.cs;../AssetPipeline/Import/ObjImporter.cs;../AssetPipeline/Models/SkinWeights.cs;obj/BaselineObjImporter.cs" />
     <Reference Include="$(GameDir)/Overcooked2_Data/Managed/UnityEngine*.dll" />
   </ItemGroup>
 </Project>

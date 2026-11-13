@@ -7,6 +7,6 @@
     <LangVersion>7.3</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ChefGridLobby/*.cs;../ChefGrid/ChefGridLobbyMenu.cs;../ChefGrid/ChefGridLobbyView.cs;../ChefGrid/ChefGridLobbySession.cs;../ChefGrid/ChefGridLobbySelection.cs;../ChefGrid/ChefGridPlayerContext.cs;../ChefGrid/ChefGridPauseGuard.cs;../ChefGrid/ChefGridWorldMap.cs" />
+    <Compile Include="ChefGridLobby/*.cs;../ChefGrid/Lobby/ChefGridLobbyMenu.cs;../ChefGrid/Lobby/ChefGridLobbyView.cs;../ChefGrid/Lobby/ChefGridLobbySession.cs;../ChefGrid/Lobby/ChefGridLobbySelection.cs;../ChefGrid/Lobby/ChefGridPlayerContext.cs;../ChefGrid/Lobby/ChefGridPauseGuard.cs;../ChefGrid/Lobby/ChefGridWorldMap.cs" />
   </ItemGroup>
 </Project>

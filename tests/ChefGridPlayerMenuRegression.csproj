@@ -7,6 +7,6 @@
     <OutputPath>bin/chef-grid-player-menu/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ChefGridPlayerMenu/*.cs;../ChefGrid/ChefGridPlayerMenu.cs" />
+    <Compile Include="ChefGridPlayerMenu/*.cs;../ChefGrid/Lobby/ChefGridPlayerMenu.cs" />
   </ItemGroup>
 </Project>

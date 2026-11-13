@@ -6,6 +6,6 @@
     <OutputPath>bin/selection/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ChefSelectionRegression.cs;../ChefSelectionSnapshot.cs;../ChefSelectionMenu.cs" />
+    <Compile Include="ChefSelectionRegression.cs;../Customisation/ChefSelectionSnapshot.cs;../Customisation/ChefSelectionMenu.cs" />
   </ItemGroup>
 </Project>
