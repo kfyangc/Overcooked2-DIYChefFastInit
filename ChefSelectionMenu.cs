@@ -62,7 +62,11 @@ namespace OC2DIYChef
 
         internal static void Release(FrontendChefMenu menu)
         {
-            var customiser = (ChefCustomiser)customiserField.GetValue(menu);
+            Release((ChefCustomiser)customiserField.GetValue(menu));
+        }
+
+        internal static void Release(ChefCustomiser customiser)
+        {
             if (customiser != null) snapshots.Remove(customiser);
         }
 

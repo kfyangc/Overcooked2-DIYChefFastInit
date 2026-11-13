@@ -44,16 +44,10 @@ static class ChefGridMapRegression
         var mapPlayers = new UIPlayerRootMenu();
         pause.SetPlayers(mapPlayers);
         T17InGameFlow.Instance = new T17InGameFlow(pause);
-        Check(ChefGridPlayerContext.CurrentPlayers() == mapPlayers && ChefGridPlayerContext.PausePlayers(pause) == mapPlayers,
-            "A paused DLC world map resolves the actual pause-player root without an external service");
+        Check(ChefGridPlayerContext.CurrentPlayers() == null && ChefGridPlayerContext.PausePlayers(pause) == mapPlayers,
+            "A paused DLC world map retains the native root but adds no name-menu entry");
         Check(ChefGridPlayerContext.CurrentPlayers() != arcade.m_uiPlayerRoot,
             "An old arcade root cannot redirect a world-map name click");
-        ChefGridPlayerContext.FinishFor(arcade.m_uiPlayerRoot);
-        Check(T17InGameFlow.Instance.CloseRequests == 0, "Arcade confirmation cannot dismiss an unrelated map pause");
-        ChefGridPlayerContext.FinishFor(mapPlayers);
-        Check(T17InGameFlow.Instance.CloseRequests == 1 && !pauseObject.activeSelf,
-            "Confirmation of the map player dismisses the native pause through its own flow");
-        pauseObject.SetActive(true);
         pauseObject.SetActive(false);
         Check(ChefGridPlayerContext.CurrentPlayers() == null, "Unpausing hides the world-map action");
         pauseObject.SetActive(true);

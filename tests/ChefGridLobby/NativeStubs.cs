@@ -149,6 +149,10 @@ namespace Team17.Online
 }
 namespace HarmonyLib
 {
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true)]
+    sealed class HarmonyPatch : Attribute { public HarmonyPatch() { } public HarmonyPatch(Type type, string name) { } }
+    [AttributeUsage(AttributeTargets.Method)] sealed class HarmonyPrefix : Attribute { }
+    [AttributeUsage(AttributeTargets.Method)] sealed class HarmonyPostfix : Attribute { }
     static class AccessTools
     {
         internal static Type Inner(Type type, string name)
@@ -195,8 +199,14 @@ namespace OC2DIYChef
     }
     public sealed class ChefGridLobby
     {
+        internal static ChefGridLobby Attached;
+        UIPlayerRootMenu root;
+        internal static ChefGridLobby Attach(UIPlayerRootMenu players)
+        {
+            return Attached = new ChefGridLobby { root = players };
+        }
         public readonly LobbyFlowController Flow = new LobbyFlowController();
-        public UIPlayerRootMenu Players { get { return Flow.m_uiPlayerRoot; } }
+        public UIPlayerRootMenu Players { get { return root ?? Flow.m_uiPlayerRoot; } }
         internal readonly ChefGridLobbySession Session = new ChefGridLobbySession();
         public int Begins, Ends, Commits;
         internal void BeginInput(FrontendChefCustomisation[] views) { Begins++; Session.Begin(); }
@@ -205,12 +215,14 @@ namespace OC2DIYChef
     }
     public sealed class ChefGridMenu : UnityEngine.MonoBehaviour
     {
+        public static bool Enabled = true;
         public static bool FailOpen, ThrowOpen;
         public bool IsOpen, FailTick;
+        public int Ticks;
         public FrontendChefCustomisation[] Views;
         Action cancel;
-        ChefGridLobbyMenu owner;
-        internal static void Show(ChefGridLobbyMenu menu, FrontendChefCustomisation[] views, Action close)
+        BaseMenuBehaviour owner;
+        internal static void Show(BaseMenuBehaviour menu, FrontendChefCustomisation[] views, Action close)
         {
             if (ThrowOpen) throw new InvalidOperationException("Simulated native failure");
             var grid = menu.GetComponent<ChefGridMenu>() ?? menu.gameObject.AddComponent<ChefGridMenu>();
@@ -220,10 +232,20 @@ namespace OC2DIYChef
             grid.cancel = close;
             grid.owner = menu;
         }
-        public void Tick() { if (FailTick || !Array.Exists(Views, x => x.IsActive())) IsOpen = false; }
+        public void Tick() { Ticks++; if (FailTick || !Array.Exists(Views, x => x.IsActive())) IsOpen = false; }
         public void CloseGrid() { IsOpen = false; }
         public void Cancel() { cancel(); }
-        public void Accept() { owner.Commit(); }
+        public void Accept()
+        {
+            var scoped = owner as ChefGridLobbyMenu;
+            if (scoped != null) scoped.Commit();
+            else ChefGridWorldMap.Commit((InGameCustomisation)owner);
+        }
+    }
+    static class ChefSelectionMenu
+    {
+        internal static ChefCustomiser Released;
+        internal static void Release(ChefCustomiser value) { Released = value; }
     }
     static class DIYChefCustomisation
     {

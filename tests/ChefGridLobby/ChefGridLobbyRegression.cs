@@ -50,6 +50,7 @@ static class ChefGridLobbyRegression
             "Target identity distinguishes split sides and excludes remote users even with the same pad key");
 
         checks += ChefGridMapRegression.Run();
+        checks += ChefGridWorldMapRegression.Run();
 
         var lobby = new ChefGridLobby();
         foreach (var user in ClientUserSystem.m_Users._items) lobby.Flow.m_uiPlayerRoot.Add(user);

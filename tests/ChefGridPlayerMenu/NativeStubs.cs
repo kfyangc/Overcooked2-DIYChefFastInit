@@ -209,7 +209,11 @@ static class MenuHooks
 }
 namespace OC2DIYChef
 {
-    static class ChefGridPlayerContext { internal static UIPlayerRootMenu PausePlayers(InGamePauseMenu menu) { return menu.Players; } }
+    static class ChefGridPlayerContext
+    {
+        internal static UIPlayerRootMenu CurrentPlayers() { return ChefGridLobby.Root; }
+        internal static UIPlayerRootMenu PausePlayers(InGamePauseMenu menu) { return menu.Players; }
+    }
     static class ChefGridLobby
     {
         internal static UIPlayerRootMenu Root;

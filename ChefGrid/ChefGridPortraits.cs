@@ -44,7 +44,9 @@ namespace OC2DIYChef
 
         internal ChefGridPortraits(FrontendChefCustomisation source, float yaw)
         {
-            colour = source.GetCurrentSelection().Colour;
+            // A single neutral outfit shares both portrait sizes across players,
+            // teams and scenes. Keep the native colour name in the v8 cache key.
+            colour = ChefGridPortraitColour.Get();
             stage = new GameObject("DIYChef portrait studio");
             stage.transform.position = new Vector3(10000, -10000, 10000);
             try

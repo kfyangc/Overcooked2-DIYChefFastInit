@@ -100,7 +100,7 @@ namespace OC2DIYChef
                 options.Add(new UIPlayerMenuBehaviour.MenuOption { m_button = button, m_type = Option });
                 buttons[card] = button;
             }
-            bool visible = ChefGridLobby.CanShowFor(card.UserInfo);
+            bool visible = card.m_rootMenu == ChefGridPlayerContext.CurrentPlayers() && ChefGridLobby.CanShowFor(card.UserInfo);
             int index = options.FindIndex(x => x.m_button == button);
             var option = options[index];
             option.m_platformsActiveOn = visible ? int.MaxValue : 0;
@@ -162,7 +162,7 @@ namespace OC2DIYChef
         [HarmonyPostfix, HarmonyPatch(typeof(UIPlayerMenuBehaviour), "HasMenuOptions")]
         static void HasOptions(UIPlayerMenuBehaviour __instance, ref bool __result)
         {
-            __result |= ChefGridLobby.CanShowFor(__instance.UserInfo);
+            __result |= __instance.m_rootMenu == ChefGridPlayerContext.CurrentPlayers() && ChefGridLobby.CanShowFor(__instance.UserInfo);
         }
 
         [HarmonyPostfix, HarmonyPatch(typeof(UIPlayerMenuBehaviour), "set_UserInfo")]

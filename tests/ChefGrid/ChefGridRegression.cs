@@ -29,6 +29,7 @@ static class ChefGridRegression
         checks += ChefGridScrollBarRegression.Run();
         checks += ChefGridMouseRegression.Run();
         checks += ChefGridPromptRegression.Run();
+        checks += ChefGridPortraitColourRegression.Run();
         Check(ChefGridNavigation.Move(0, 0, 10, 1, 0) == -1, "empty roster");
         Check(ChefGridNavigation.Move(0, 1, 10, 0, -1) == 0, "single entry");
         Check(ChefGridNavigation.Move(39, 81, 10, 1, 0) == 40, "right crosses a page");
@@ -186,7 +187,7 @@ namespace Team17.Online
 
 class ChefAvatarData { public string HeadName; public UnityEngine.GameObject FrontendModelPrefab; }
 sealed class DIYChefAvatarData : ChefAvatarData { public byte id; }
-sealed class AvatarDirectoryData { public ChefAvatarData[] Avatars; }
+sealed class AvatarDirectoryData { public ChefAvatarData[] Avatars; public ChefColourData[] Colours; }
 static class GameUtils
 {
     public static AvatarDirectoryData Directory;

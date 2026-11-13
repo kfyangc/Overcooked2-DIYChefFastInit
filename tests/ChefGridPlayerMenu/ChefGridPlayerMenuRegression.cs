@@ -70,22 +70,26 @@ static class ChefGridPlayerMenuRegression
         var arcade = Card(arcadeRoot);
         Check(!Chef(arcade).gameObject.activeSelf, "A card created before its lobby is ready starts with a hidden action");
         LobbyFlowController.Instance = new LobbyFlowController { m_uiPlayerRoot = arcadeRoot };
+        ChefGridLobby.Root = arcadeRoot;
         ChefGridLobby.Visible = true;
         MenuHooks.Call("LobbyChanged");
         Check(Chef(arcade).gameObject.activeSelf && Chef(arcade).interactable,
             "Entering native arcade Setup refreshes cards that started in PreSetup");
         arcade.ShowMenu();
         Check(arcade.Options.Count == 2 && Chef(arcade).GetComponent<T17Text>().text == chef.GetComponent<T17Text>().text,
-            "Arcade and map use the identical production menu adapter and native row label");
+            "Arcade entries retain the shared native row label");
 
         ChefGridLobby.Visible = false;
         var mapRoot = new UIPlayerRootMenu();
         var map = Card(mapRoot);
         Check(!Chef(map).gameObject.activeSelf, "Map cards can be initialized while the pause menu is hidden");
-        ChefGridLobby.Visible = true;
         MenuHooks.Call("PauseShown", new InGamePauseMenu { Players = mapRoot }, true);
-        Check(Chef(map).gameObject.activeSelf && Chef(map).interactable,
-            "Showing map pause uses the same refresh path as an arcade state transition");
+        Check(!Chef(map).gameObject.activeSelf,
+            "Map pause has no extra name action; its native Change Chef action is used instead");
+        ChefGridLobby.Visible = true;
+        ChefGridPlayerMenu.Refresh(mapRoot);
+        Check(!Chef(map).gameObject.activeSelf,
+            "An active arcade context cannot inject its action into an unrelated pause root");
 
         var remote = Card(mapRoot);
         remote.UserInfo.IsLocal = false;
@@ -98,6 +102,7 @@ static class ChefGridPlayerMenuRegression
         ChefGridPlayerMenu.Refresh(root);
         Check(card.HideCalls == hides, "Inactive pause roots are cleaned without starting a native coroutine on an inactive card");
         card.gameObject.SetActive(true);
+        ChefGridLobby.Root = root;
         Localization.Language = SupportedLanguages.English;
         ChefGridPlayerMenu.Refresh(root);
         Check(chef.GetComponent<T17Text>().text == "CHANGE CHEF", "Both contexts retain the same localized native label path");

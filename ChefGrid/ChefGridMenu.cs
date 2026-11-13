@@ -356,6 +356,7 @@ namespace OC2DIYChef
             {
                 var playerMenu = owner as ChefGridLobbyMenu;
                 if (playerMenu != null) playerMenu.Commit();
+                else if (owner is InGameCustomisation) ChefGridWorldMap.Commit((InGameCustomisation)owner);
                 else owner.Hide();
             }
         }

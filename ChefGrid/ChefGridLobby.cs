@@ -10,7 +10,7 @@ using Object = UnityEngine.Object;
 
 namespace OC2DIYChef
 {
-    // Input ownership only: entry is in the existing player name menu.
+    // Shared input ownership for arcade name menus and native map customisation.
     public sealed class ChefGridLobby : MonoBehaviour
     {
         static readonly FieldInfo leave = AccessTools.Field(typeof(ClientLobbyFlowController), "m_leaveButton");
@@ -30,12 +30,13 @@ namespace OC2DIYChef
             return Blocking && current.Players == players;
         }
 
-        internal static void Attach(UIPlayerRootMenu players)
+        internal static ChefGridLobby Attach(UIPlayerRootMenu players)
         {
-            if (players == null) return;
+            if (players == null) return null;
             var entry = players.GetComponent<ChefGridLobby>() ?? players.gameObject.AddComponent<ChefGridLobby>();
             entry.Players = players;
             current = entry;
+            return entry;
         }
 
         internal static bool CanShowFor(User user)
@@ -118,7 +119,6 @@ namespace OC2DIYChef
         internal void Committed()
         {
             ChefGridPlayerMenu.HideAll(Players);
-            ChefGridPlayerContext.FinishFor(Players);
         }
 
         internal static void BeforeLevelLoad()

@@ -15,6 +15,7 @@
     <Compile Include="ChefGrid/ChefGridScrollBarRegression.cs;../ChefGrid/ChefGridScrollBar.cs" />
     <Compile Include="ChefGrid/ChefGridMouseRegression.cs;../ChefGrid/ChefGridDoubleClick.cs" />
     <Compile Include="ChefGrid/ChefGridPromptRegression.cs;../ChefGrid/ChefGridButtonPrompts.cs;../ChefGrid/ChefGridPromptRules.cs" />
+    <Compile Include="ChefGrid/ChefGridPortraitColourRegression.cs;../ChefGrid/ChefGridPortraitColour.cs" />
     <Compile Include="ChefGrid/ChefGridRegression.cs;ChefGrid/ChefGridFramingRegression.cs;ChefGrid/ChefGridTransparencyRegression.cs;ChefGrid/ChefGridLayoutRegression.cs;../ChefGrid/ChefGridNavigation.cs;../ChefGrid/ChefGridRoster.cs;../ChefGrid/ChefGridFraming.cs;../ChefGrid/ChefGridTransparency.cs;../ChefGrid/ChefGridLayout.cs" />
   </ItemGroup>
 </Project>

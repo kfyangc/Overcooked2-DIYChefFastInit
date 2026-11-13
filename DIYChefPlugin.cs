@@ -23,6 +23,7 @@ namespace OC2DIYChef
             patcher.PatchAll(typeof(ChefGridPatches));
             patcher.PatchAll(typeof(ChefGridLobbyPatches));
             patcher.PatchAll(typeof(ChefGridPlayerMenu));
+            patcher.PatchAll(typeof(ChefGridWorldMap));
             OnlinePatch.Patch(patcher);
             Patch.PatchInternal(patcher);
             foreach (var patched in patcher.GetPatchedMethods())
