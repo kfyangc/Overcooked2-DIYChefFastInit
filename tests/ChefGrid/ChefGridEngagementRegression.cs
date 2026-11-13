@@ -165,4 +165,4 @@ sealed class GamepadEngagementManager
     }
 }
 
-namespace UnityEngine { static class Time { internal static int frameCount; } }
+namespace UnityEngine { static class Time { internal static int frameCount; internal static float unscaledTime; } }

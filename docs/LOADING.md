@@ -26,6 +26,8 @@
 
 2.2.0.12 为厨师网格注册原版手动加入/退出屏蔽令牌，修复 Esc／B 把副玩家移除的问题；更新并消费原版独立取消按键，关闭当帧和长按期间仍受保护，松开后恢复。`UnselectedDimOpacity` 默认值改为 0.4。滚动条支持鼠标拖动及点击轨道，扩大操作区；拖动只浏览列表，点击头像后改变选择。生产逻辑在 .NET 11 和游戏自带 x86 Mono 下通过按键与屏蔽器替身、滚动条几何回归，真实输入及画面待复测。
 
+2.2.0.13 移除上移／下移按钮，加入单击选择、双击厨师确认；鼠标选择保持列表位置，避免双击过程中目标换行。确认／返回提示跟随当前玩家，键盘显示 Enter／Esc，手柄按原版映射及 Xbox／PS／Switch 资源显示图标；缺失图标显示对应键名。原版 PC 公开图标查询固定 Xbox，新增设备识别和其他图标包读取，XInput 虚拟设备遵循游戏报告的 Xbox 身份。生产双击与提示逻辑在 .NET 11 和游戏自带 Mono 下通过替身验证；真实设备与画面待复测。
+
 ## 构建与安装
 
 安装 .NET SDK，然后执行：
@@ -35,7 +37,7 @@
 dotnet build -c Release "-p:GameDir=D:/Games/Steam Games/steamapps/common/Overcooked! 2"
 ```
 
-也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.2.0.12。测试版版本号迭代用第四位。
+也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.2.0.13。测试版版本号迭代用第四位。
 
 Fetch-Lz4.ps1 获取并校验固定版本的官方 x86 LZ4 库，缓存在忽略提交的 lib 目录。构建将它及许可证嵌入插件 DLL；安装只需 DIYChefFastInit.dll。首次使用时自动释放到 BepInEx/cache/DIYChefFastInit/native。第三方声明见 THIRD_PARTY_NOTICES.md。
 
