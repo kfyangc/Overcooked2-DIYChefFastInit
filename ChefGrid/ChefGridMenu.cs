@@ -352,7 +352,12 @@ namespace OC2DIYChef
             if (T17DialogBoxManager.HasAnyOpenDialogs()) return;
             if (owner is FrontendChefMenu && (flow == null || flow.IsCameraTransitioning())) return;
             if (exitRequest == ExitRequest.Cancel) cancel();
-            else if (exitRequest == ExitRequest.Accept) owner.Hide();
+            else if (exitRequest == ExitRequest.Accept)
+            {
+                var playerMenu = owner as ChefGridLobbyMenu;
+                if (playerMenu != null) playerMenu.Commit();
+                else owner.Hide();
+            }
         }
 
         void ShiftRows(int delta)

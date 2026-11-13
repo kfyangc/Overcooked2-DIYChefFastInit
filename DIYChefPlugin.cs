@@ -39,7 +39,11 @@ namespace OC2DIYChef
             ChefLoading.Update();
         }
 
-        void LateUpdate() { ModelTestCompatibility.LateUpdate(); }
+        void LateUpdate()
+        {
+            ChefGridLobby.UpdateFrame();
+            ModelTestCompatibility.LateUpdate();
+        }
 
         void OnDestroy()
         {

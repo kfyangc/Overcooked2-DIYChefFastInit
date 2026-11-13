@@ -17,6 +17,18 @@ namespace OC2DIYChef
 
         internal static UIPlayerRootMenu CurrentPlayers()
         {
+            // Arcade sessions can also use their lobby as TypeSettings.WorldMapScene.
+            // Resolve the active lobby first, including the setup states that already
+            // display the native theme-selection UI.
+            var lobby = LobbyFlowController.Instance;
+            var client = ClientLobbyFlowController.Instance;
+            if (lobby != null && client != null)
+            {
+                var value = (LobbyFlowController.LobbyState)state.GetValue(client);
+                if (value == LobbyFlowController.LobbyState.LocalSetup || value == LobbyFlowController.LobbyState.OnlineSetup ||
+                    value == LobbyFlowController.LobbyState.LocalThemeSelection || value == LobbyFlowController.LobbyState.OnlineThemeSelection ||
+                    value == LobbyFlowController.LobbyState.Matchmake) return lobby.m_uiPlayerRoot;
+            }
             var session = GameUtils.GetGameSession();
             if (session != null && session.TypeSettings != null &&
                 SceneManager.GetActiveScene().name == session.TypeSettings.WorldMapScene)
@@ -25,13 +37,15 @@ namespace OC2DIYChef
                 var pause = flow == null ? null : (InGamePauseMenu)pauseMenu.GetValue(flow);
                 return pause != null && pause.isActiveAndEnabled ? PausePlayers(pause) : null;
             }
-            var lobby = LobbyFlowController.Instance;
-            var client = ClientLobbyFlowController.Instance;
-            if (lobby == null || client == null) return null;
-            var value = (LobbyFlowController.LobbyState)state.GetValue(client);
-            if (value != LobbyFlowController.LobbyState.LocalThemeSelection &&
-                value != LobbyFlowController.LobbyState.OnlineThemeSelection && value != LobbyFlowController.LobbyState.Matchmake) return null;
-            return lobby.m_uiPlayerRoot;
+            return null;
+        }
+
+        internal static void FinishFor(UIPlayerRootMenu players)
+        {
+            var flow = T17InGameFlow.Instance;
+            var pause = flow == null ? null : (InGamePauseMenu)pauseMenu.GetValue(flow);
+            if (pause != null && pause.isActiveAndEnabled && PausePlayers(pause) == players)
+                flow.ClosePauseMenu();
         }
     }
 }

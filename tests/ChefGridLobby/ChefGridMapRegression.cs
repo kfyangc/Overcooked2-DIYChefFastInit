@@ -21,13 +21,19 @@ static class ChefGridMapRegression
         T17InGameFlow.Instance = null;
         Check(ChefGridPlayerContext.CurrentPlayers() == null, "Loading/title screens expose no player selection context");
         var arcade = LobbyFlowController.Instance = new LobbyFlowController();
-        foreach (var state in new[] { LobbyFlowController.LobbyState.Matchmake,
+        foreach (var state in new[] { LobbyFlowController.LobbyState.Matchmake, LobbyFlowController.LobbyState.LocalSetup,
+            LobbyFlowController.LobbyState.OnlineSetup,
             LobbyFlowController.LobbyState.LocalThemeSelection, LobbyFlowController.LobbyState.OnlineThemeSelection })
         {
             ClientLobbyFlowController.Instance = new ClientLobbyFlowController(state);
             Check(ChefGridPlayerContext.CurrentPlayers() == arcade.m_uiPlayerRoot,
                 "Local, online and matchmaking lobbies resolve their own native player root");
         }
+        GameUtils.Session = new GameSession { TypeSettings = new GameSession.Settings { WorldMapScene = "Lobbies" } };
+        SceneManager.Name = "Lobbies";
+        ClientLobbyFlowController.Instance = new ClientLobbyFlowController(LobbyFlowController.LobbyState.LocalSetup);
+        Check(ChefGridPlayerContext.CurrentPlayers() == arcade.m_uiPlayerRoot,
+            "An arcade session whose WorldMapScene is Lobbies must not be mistaken for a map pause");
         ClientLobbyFlowController.Instance = new ClientLobbyFlowController(LobbyFlowController.LobbyState.LocalThemeSelected);
         Check(ChefGridPlayerContext.CurrentPlayers() == null, "Level selection completion no longer exposes an arcade action");
         GameUtils.Session = new GameSession { TypeSettings = new GameSession.Settings { WorldMapScene = "DLCWorldMap" } };
@@ -42,6 +48,12 @@ static class ChefGridMapRegression
             "A paused DLC world map resolves the actual pause-player root without an external service");
         Check(ChefGridPlayerContext.CurrentPlayers() != arcade.m_uiPlayerRoot,
             "An old arcade root cannot redirect a world-map name click");
+        ChefGridPlayerContext.FinishFor(arcade.m_uiPlayerRoot);
+        Check(T17InGameFlow.Instance.CloseRequests == 0, "Arcade confirmation cannot dismiss an unrelated map pause");
+        ChefGridPlayerContext.FinishFor(mapPlayers);
+        Check(T17InGameFlow.Instance.CloseRequests == 1 && !pauseObject.activeSelf,
+            "Confirmation of the map player dismisses the native pause through its own flow");
+        pauseObject.SetActive(true);
         pauseObject.SetActive(false);
         Check(ChefGridPlayerContext.CurrentPlayers() == null, "Unpausing hides the world-map action");
         pauseObject.SetActive(true);
@@ -123,10 +135,12 @@ public sealed class InGamePauseMenu : MonoBehaviour
 public sealed class T17InGameFlow
 {
     public static T17InGameFlow Instance;
+    public int CloseRequests;
 #pragma warning disable CS0414
     readonly InGamePauseMenu m_pauseMenu;
 #pragma warning restore CS0414
     public T17InGameFlow(InGamePauseMenu pause) { m_pauseMenu = pause; }
+    public void ClosePauseMenu() { CloseRequests++; m_pauseMenu.gameObject.SetActive(false); }
 }
 namespace UnityEngine.SceneManagement
 {

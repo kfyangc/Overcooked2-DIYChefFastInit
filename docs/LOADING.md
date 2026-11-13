@@ -34,6 +34,8 @@
 
 2.2.0.16 删除 HostUtilities 可选注册桥接及全部检测／反射调用，菜单统一由本 mod 克隆原版按钮，接入原版事件、可见性和导航；是否安装其他插件不切换实现。世界地图暂停界面的自己的名字栏菜单也可打开同一网格。根据游戏会话的 WorldMapScene 和原版暂停界面的玩家根节点确定目标，保留暂停层，更新并消费原版暂停管理器的真实按键，避免 Esc／B 松开或 Start 触发底层退出。关闭时只恢复本功能仍持有的输入配置，保护新关卡已建立的映射。145 项独立菜单／世界地图／暂停输入回归和原有 669,842 项网格回归在 .NET 11 与游戏自带 Mono 下通过；实际画面与设备操作待复测。
 
+2.2.0.17 修正街机 Setup 状态已显示选图界面但被入口过滤的问题，优先解析有效街机根节点，补齐 LocalSetup／OnlineSetup，并在状态变化时刷新同一份玩家菜单。关闭网格时同步收起菜单、停止延迟隐藏协程、清除当前及待执行焦点请求，阻止头像更新缓存恢复旧菜单；关闭输入松开后统一恢复入口与名字栏的可用状态。确认会调用共享提交路径，地图中继续调用原版 ClosePauseMenu 返回地图，取消则保留暂停。输入保护由插件主循环推进，父界面隐藏后仍等到关闭键松开。新增直接编译生产菜单适配器的 24 项菜单创建／禁用恢复／同步关闭／重开回归，场景与选择回归增至 152 项，均通过 .NET 11 及游戏自带 x86 Mono；实际画面仍待复测。
+
 ## 构建与安装
 
 安装 .NET SDK，然后执行：
@@ -43,7 +45,7 @@
 dotnet build -c Release "-p:GameDir=D:/Games/Steam Games/steamapps/common/Overcooked! 2"
 ```
 
-也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.2.0.16。测试版版本号迭代用第四位。
+也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.2.0.17。测试版版本号迭代用第四位。
 
 Fetch-Lz4.ps1 获取并校验固定版本的官方 x86 LZ4 库，缓存在忽略提交的 lib 目录。构建将它及许可证嵌入插件 DLL；安装只需 DIYChefFastInit.dll。首次使用时自动释放到 BepInEx/cache/DIYChefFastInit/native。第三方声明见 THIRD_PARTY_NOTICES.md。
 

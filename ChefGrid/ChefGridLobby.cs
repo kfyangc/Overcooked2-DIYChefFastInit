@@ -25,6 +25,10 @@ namespace OC2DIYChef
         ChefGridLobbyMenu menu;
         internal UIPlayerRootMenu Players { get; private set; }
         internal static bool Blocking { get { return current != null && current.session.Blocking; } }
+        internal static bool BlocksMenus(UIPlayerRootMenu players)
+        {
+            return Blocking && current.Players == players;
+        }
 
         internal static void Attach(UIPlayerRootMenu players)
         {
@@ -73,8 +77,7 @@ namespace OC2DIYChef
             var gamer = card.UserInfo.GamepadUser;
             if (gamer != null && T17EventSystemsManager.Instance.GetEventSystemForGamepadUser(gamer) == null)
                 T17EventSystemsManager.Instance.AssignFreeEventSystemToGamepadUser(gamer);
-            Players.CloseAllPlayerMenus();
-            ChefGridPlayerMenu.Hide(card);
+            ChefGridPlayerMenu.HideAll(Players);
             // Return to the name bar instead of the hidden menu item.
             var events = gamer == null ? null : T17EventSystemsManager.Instance.GetEventSystemForGamepadUser(gamer);
             if (events != null && card.MenuButton != null) events.SetSelectedGameObject(card.MenuButton.gameObject);
@@ -106,7 +109,17 @@ namespace OC2DIYChef
             ConsumeLobbyButtons(ClientLobbyFlowController.Instance);
         }
 
-        internal void EndInput() { session.End(Time.frameCount); }
+        internal void EndInput()
+        {
+            session.End(Time.frameCount);
+            ChefGridPlayerMenu.HideAll(Players);
+        }
+
+        internal void Committed()
+        {
+            ChefGridPlayerMenu.HideAll(Players);
+            ChefGridPlayerContext.FinishFor(Players);
+        }
 
         internal static void BeforeLevelLoad()
         {
@@ -120,7 +133,9 @@ namespace OC2DIYChef
 
         internal static void ShutdownActive() { if (current != null) current.Shutdown(); }
 
-        void LateUpdate()
+        internal static void UpdateFrame() { if (current != null) current.Advance(); }
+
+        void Advance()
         {
             if (!session.Blocking) return;
             bool held = Input.GetMouseButton(0);
@@ -128,7 +143,12 @@ namespace OC2DIYChef
                 KeyCode.LeftArrow, KeyCode.RightArrow, KeyCode.UpArrow, KeyCode.DownArrow }) held |= Input.GetKey(code);
             foreach (var logical in watched) if (logical != null) held |= logical.IsDown();
             session.Advance(Time.frameCount, held);
-            if (!session.Blocking) ReleaseInput();
+            if (!session.Blocking)
+            {
+                ReleaseInput();
+                ChefGridPlayerMenu.HideAll(Players);
+                ChefGridPlayerMenu.Refresh(Players);
+            }
         }
 
         static void Claim(ILogicalButton logical)
@@ -160,7 +180,9 @@ namespace OC2DIYChef
         }
 
         void OnDestroy() { Shutdown(); }
-        void OnDisable() { Shutdown(); }
+        // The map pause root can deactivate on confirmation. The plugin continues
+        // advancing the guard until the closing keys are up, even for an inactive root.
+        void OnDisable() { if (menu != null) menu.Hide(false); }
     }
 
     [HarmonyPatch]

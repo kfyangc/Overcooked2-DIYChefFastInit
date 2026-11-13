@@ -14,6 +14,7 @@ namespace OC2DIYChef
         const string ButtonName = "DIYChef_ChangeChef";
         static readonly FieldInfo menuField = AccessTools.Field(typeof(UIPlayerMenuBehaviour), "m_menu");
         static readonly FieldInfo optionsField = AccessTools.Field(typeof(UIPlayerMenuBehaviour), "m_menuOptions");
+        static readonly FieldInfo hideField = AccessTools.Field(typeof(UIPlayerMenuBehaviour), "m_hideMenu");
         static readonly MethodInfo selected = AccessTools.Method(typeof(UIPlayerMenuBehaviour), "OnSelected");
         static readonly MethodInfo deselected = AccessTools.Method(typeof(UIPlayerMenuBehaviour), "OnDeselected");
         static readonly MethodInfo navigation = AccessTools.Method(typeof(UIPlayerMenuBehaviour), "UpdateNavigation");
@@ -23,9 +24,35 @@ namespace OC2DIYChef
 
         internal static void Hide(UIPlayerMenuBehaviour card)
         {
-            card.HideMenu(true);
+            if (card.isActiveAndEnabled) card.HideMenu(true);
             var menu = (GameObject)menuField.GetValue(card);
             if (menu != null) menu.SetActive(false);
+            var routine = (Coroutine)hideField.GetValue(card);
+            if (routine != null) card.StopCoroutine(routine);
+            hideField.SetValue(card, null);
+            if (card.isActiveAndEnabled) navigation.Invoke(card, null);
+        }
+
+        internal static void HideAll(UIPlayerRootMenu players)
+        {
+            if (players == null) return;
+            foreach (var card in players.UIPlayers) if (card != null) Hide(card);
+            if (players.CachedEventSystem != null)
+            {
+                players.CachedEventSystem.ForceDeselectSelectionObject();
+                players.CachedEventSystem.SetSelectedGameObject(null);
+            }
+        }
+
+        internal static void Refresh(UIPlayerRootMenu players)
+        {
+            if (players == null) return;
+            foreach (var card in players.UIPlayers)
+            {
+                if (card == null) continue;
+                Prepare(card);
+                if (card.MenuButton != null) card.MenuButton.interactable = card.CanBeInteractedWith();
+            }
         }
 
         static void SetLabel(T17Button button)
@@ -144,20 +171,28 @@ namespace OC2DIYChef
             if (buttons.ContainsKey(__instance)) Prepare(__instance);
         }
 
+        [HarmonyPrefix, HarmonyPatch(typeof(UIPlayerMenuBehaviour), "ShowMenu")]
+        static bool ShowMenu(UIPlayerMenuBehaviour __instance)
+        {
+            // Native avatar refreshes cache and restore submenu focus. Suppress that
+            // restoration while the grid owns the root, including its closing keys.
+            return !ChefGridLobby.BlocksMenus(__instance.m_rootMenu);
+        }
+
         [HarmonyPostfix, HarmonyPatch(typeof(InGamePauseMenu), "Show")]
         static void PauseShown(InGamePauseMenu __instance, bool __result)
         {
             if (!__result) return;
-            var players = ChefGridPlayerContext.PausePlayers(__instance);
-            if (players == null) return;
             // Cards may have started while the pause menu was hidden. Refresh their
             // available actions and name-bar interaction when the world map opens it.
-            foreach (var card in players.UIPlayers)
-            {
-                if (card == null) continue;
-                Prepare(card);
-                if (card.MenuButton != null) card.MenuButton.interactable = card.CanBeInteractedWith();
-            }
+            Refresh(ChefGridPlayerContext.PausePlayers(__instance));
+        }
+
+        [HarmonyPostfix, HarmonyPatch(typeof(ClientLobbyFlowController), "SetState")]
+        static void LobbyChanged()
+        {
+            var lobby = LobbyFlowController.Instance;
+            if (lobby != null) Refresh(lobby.m_uiPlayerRoot);
         }
 
         [HarmonyPostfix, HarmonyPatch(typeof(UIPlayerMenuBehaviour), "OnDestroy")]

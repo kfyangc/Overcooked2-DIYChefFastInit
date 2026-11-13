@@ -2,7 +2,7 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.2.0.16 (test build)**
+**Current version: 2.2.0.17 (test build)**
 
 This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248/Overcooked2-DIYChef) to reduce startup waits when many custom chefs and hats are installed, and to speed up loading previously cached resources. Existing chef resources, `prefer.txt` and BepInEx configuration remain compatible.
 
@@ -95,7 +95,7 @@ After each chef in `prefer.txt`, you can add `HAT=xxx` (separated by spaces) to 
 
 ### Switching chefs in the arcade lobby or world map
 
-In the arcade lobby's theme/matchmaking screen or the world-map pause screen, click your player name and select **CHANGE CHEF**. The item appears only for local players and edits only the clicked player. Confirmation returns to the previous screen; cancellation restores only that player's chef. The world map stays paused. Frontend multiplayer selection still confirms in order.
+In the arcade lobby's theme/matchmaking screen or the world-map pause screen, click your player name and select **CHANGE CHEF**. The item appears only for local players and edits only the clicked player. Confirmation closes the player submenu and, on the world map, closes the pause screen to return to the map. Cancellation restores only that player's chef and retains the pause screen. The action becomes available again when the closing input is released. Frontend multiplayer selection still confirms in order.
 
 Chef selection runs entirely in this mod using the game's native menu template, events and navigation. There is no hard or soft HostUtilities dependency, detection, registration or invocation. Installing that plugin does not switch this implementation. No prefer.txt changes are required. The item follows `[ChefSelection] GridEnabled`. Actual menu appearance, input and online synchronization still need in-game testing.
 

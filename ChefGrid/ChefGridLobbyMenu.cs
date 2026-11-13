@@ -100,6 +100,14 @@ namespace OC2DIYChef
             Hide();
         }
 
+        internal void Commit()
+        {
+            if (!showing) return;
+            var source = lobby;
+            Hide();
+            if (source != null) source.Committed();
+        }
+
         public override bool Hide(bool restoreInvokerState = true, bool isTabSwitch = false)
         {
             if (showing)

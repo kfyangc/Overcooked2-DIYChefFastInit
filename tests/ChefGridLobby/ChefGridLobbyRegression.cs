@@ -98,6 +98,9 @@ static class ChefGridLobbyRegression
         grid.Accept();
         Check(left.SelectedChefAvatar == 27 && DIYChefCustomisation.userDIYChefID[2] == 88 && PlayerInputLookup.Config == initial,
             "One player's confirmation retains the choice and returns directly to the lobby");
+        Check(lobby.Commits == 1, "Confirmation reaches the shared parent-menu completion callback");
+        grid.Accept();
+        Check(lobby.Commits == 1, "A repeated confirmation cannot close the parent twice");
         Check(menu.Open(lobby, new GamepadUser(), ChefGridLobbySelection.Capture(left)), "Accepted choices can be edited again");
         left.SelectedChefAvatar = 32; DIYChefCustomisation.userDIYChefID[2] = 101;
         menu.Close();

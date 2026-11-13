@@ -166,7 +166,7 @@ namespace OC2DIYChef
 {
     public sealed class LobbyFlowController
     {
-        public enum LobbyState { PreSetup, Matchmake, LocalThemeSelection, OnlineThemeSelection, LocalThemeSelected }
+        public enum LobbyState { PreSetup, Matchmake, LocalSetup, OnlineSetup, LocalThemeSelection, OnlineThemeSelection, LocalThemeSelected }
         public static LobbyFlowController Instance;
         public readonly UIPlayerRootMenu m_uiPlayerRoot = new UIPlayerRootMenu();
     }
@@ -198,9 +198,10 @@ namespace OC2DIYChef
         public readonly LobbyFlowController Flow = new LobbyFlowController();
         public UIPlayerRootMenu Players { get { return Flow.m_uiPlayerRoot; } }
         internal readonly ChefGridLobbySession Session = new ChefGridLobbySession();
-        public int Begins, Ends;
+        public int Begins, Ends, Commits;
         internal void BeginInput(FrontendChefCustomisation[] views) { Begins++; Session.Begin(); }
         internal void EndInput() { Ends++; Session.End(UnityEngine.Time.frameCount); }
+        internal void Committed() { Commits++; }
     }
     public sealed class ChefGridMenu : UnityEngine.MonoBehaviour
     {
@@ -222,7 +223,7 @@ namespace OC2DIYChef
         public void Tick() { if (FailTick || !Array.Exists(Views, x => x.IsActive())) IsOpen = false; }
         public void CloseGrid() { IsOpen = false; }
         public void Cancel() { cancel(); }
-        public void Accept() { owner.Hide(); }
+        public void Accept() { owner.Commit(); }
     }
     static class DIYChefCustomisation
     {
