@@ -24,6 +24,8 @@
 
 2.2.0.11 将网格固定为 10 列 × 5 行，取消行列配置，改为逐行滚动并让光标保持在中间三行，首末行例外。新增 `UnselectedDimOpacity`（0–1，默认 0.22）。本地玩家按顺序确认，只绘制当前玩家选框，顶部显示等待、选择中或已确认；点击已确认玩家可从该位重新选择。确认改为检测映射按键的按下沿，防止事件被消费或按住共用按键连带确认下一位；最后提交若遇原版镜头切换则保留请求直到允许关闭。方向输入取消镜头动画等待。构建及 .NET 11 / 游戏 x86 Mono 的滚动、顺序输入回归通过，实际 UI 仍待复测。
 
+2.2.0.12 为厨师网格注册原版手动加入/退出屏蔽令牌，修复 Esc／B 把副玩家移除的问题；更新并消费原版独立取消按键，关闭当帧和长按期间仍受保护，松开后恢复。`UnselectedDimOpacity` 默认值改为 0.4。滚动条支持鼠标拖动及点击轨道，扩大操作区；拖动只浏览列表，点击头像后改变选择。生产逻辑在 .NET 11 和游戏自带 x86 Mono 下通过按键与屏蔽器替身、滚动条几何回归，真实输入及画面待复测。
+
 ## 构建与安装
 
 安装 .NET SDK，然后执行：
@@ -33,7 +35,7 @@
 dotnet build -c Release "-p:GameDir=D:/Games/Steam Games/steamapps/common/Overcooked! 2"
 ```
 
-也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.2.0.11。测试版版本号迭代用第四位。
+也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.2.0.12。测试版版本号迭代用第四位。
 
 Fetch-Lz4.ps1 获取并校验固定版本的官方 x86 LZ4 库，缓存在忽略提交的 lib 目录。构建将它及许可证嵌入插件 DLL；安装只需 DIYChefFastInit.dll。首次使用时自动释放到 BepInEx/cache/DIYChefFastInit/native。第三方声明见 THIRD_PARTY_NOTICES.md。
 

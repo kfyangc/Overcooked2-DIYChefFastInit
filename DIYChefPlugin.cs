@@ -39,6 +39,7 @@ namespace OC2DIYChef
         void OnDestroy()
         {
             if (ChefGridMenu.Active != null) ChefGridMenu.Active.CloseGrid();
+            ChefGridEngagementGuard.Shutdown();
             ModelTestCompatibility.Shutdown();
             ChefLoading.Shutdown();
         }

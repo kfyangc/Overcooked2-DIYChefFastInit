@@ -62,6 +62,7 @@ namespace OC2DIYChef
         Text rangeLabel, detailName, detailKind, detailPosition, detailStatus, acceptLabel;
         RawImage detailPortrait;
         Image scrollUp, scrollDown;
+        readonly ChefGridScrollBar scrollBar = new ChefGridScrollBar();
         RectTransform scrollThumb;
         float detailReadyAt;
         ChefGridPortraits portraits;
@@ -78,7 +79,7 @@ namespace OC2DIYChef
         {
             configured = config.Bind("ChefSelection", "GridEnabled", true,
                 "Show a scrolling 10-column, 5-row chef grid. Disable to use the original carousel.");
-            unselectedDimOpacity = config.Bind("ChefSelection", "UnselectedDimOpacity", 0.22f,
+            unselectedDimOpacity = config.Bind("ChefSelection", "UnselectedDimOpacity", 0.4f,
                 new ConfigDescription("Black overlay opacity for unselected chefs: 0 disables dimming, 1 is fully dark. 未选中厨师的压暗比例。",
                     new AcceptableValueRange<float>(0f, 1f)));
             portraitYaw = config.Bind("ChefSelection", "PortraitYaw", 0f,
@@ -120,6 +121,7 @@ namespace OC2DIYChef
             openedFrame = Time.frameCount;
             open = true;
             Active = this;
+            ChefGridEngagementGuard.Open();
             // Observe the menu-opening confirm/mouse input without accepting it again.
             PollControls(false);
             PreparePortraits();
@@ -184,6 +186,7 @@ namespace OC2DIYChef
         void Focus(Cursor cursor)
         {
             if (focused == cursor) return;
+            scrollBar.End();
             focused = cursor;
             if (focused != null) firstVisibleRow = ChefGridNavigation.Follow(firstVisibleRow, focused.Index, entries.Count);
         }
@@ -299,6 +302,7 @@ namespace OC2DIYChef
         bool Select(Cursor cursor, int index)
         {
             if (cursor == null || turns.Current != cursor.Key || index < 0 || index >= entries.Count) return false;
+            scrollBar.End();
             firstVisibleRow = ChefGridNavigation.Follow(firstVisibleRow, index, entries.Count);
             if (cursor.Index == index && cursor.Chosen) return true;
             if (ChefGridRoster.Select(entries[index], cursor.Player, cursor.View))
@@ -338,13 +342,25 @@ namespace OC2DIYChef
 
         void Mouse()
         {
+            if (!Input.GetMouseButton(0)) scrollBar.End();
             Vector2 point;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(frame, Input.mousePosition, null, out point)) return;
             float x = point.x + 640, y = 360 - point.y;
+            // Retain the drag even if the pointer leaves the narrow track or panel.
+            if (scrollBar.Dragging)
+            {
+                firstVisibleRow = scrollBar.Drag(y, entries.Count);
+                return;
+            }
             if (x < 0 || x > 1280 || y < 0 || y > 720) return;
             if (x < 944 && Input.mouseScrollDelta.y != 0)
                 ShiftRows(Input.mouseScrollDelta.y > 0 ? -1 : 1);
             if (!Input.GetMouseButtonDown(0)) return;
+            if (scrollBar.Begin(x, y, firstVisibleRow, entries.Count))
+            {
+                firstVisibleRow = scrollBar.Drag(y, entries.Count);
+                return;
+            }
             if (y >= 114 && y < 148)
             {
                 foreach (var cursor in cursors)
@@ -423,8 +439,11 @@ namespace OC2DIYChef
                     Box(cell.Root.transform, "Selected bottom", -stroke, side, side + stroke * 2, stroke, Ink),
                     Box(cell.Root.transform, "Selected left", -stroke, 0, stroke, side, Ink) };
             }
-            Box(frame, "Scroll track", 942, 160, 4, 440, new Color(Ink.r, Ink.g, Ink.b, 0.15f));
-            scrollThumb = (RectTransform)Box(frame, "Scroll thumb", 942, 160, 4, 440, Ink).transform;
+            float scrollLeft = ChefGridScrollBar.CentreX - ChefGridScrollBar.Width / 2;
+            Box(frame, "Scroll track", scrollLeft, ChefGridScrollBar.Top, ChefGridScrollBar.Width,
+                ChefGridScrollBar.Height, new Color(Ink.r, Ink.g, Ink.b, 0.15f));
+            scrollThumb = (RectTransform)Box(frame, "Scroll thumb", scrollLeft, ChefGridScrollBar.Top,
+                ChefGridScrollBar.Width, ChefGridScrollBar.Height, Ink).transform;
             Box(frame, "Preview panel", 952, 114, 280, 486, Paper);
             detailPortrait = Rect(frame, "Selected portrait", 964, 126, 256, 256).gameObject.AddComponent<RawImage>();
             detailPortrait.raycastTarget = false;
@@ -438,7 +457,7 @@ namespace OC2DIYChef
             scrollUp = ButtonVisual(frame, "Scroll up", L("↑ 上移", "↑ UP"), 48, 608, 136, 32);
             scrollDown = ButtonVisual(frame, "Scroll down", L("下移 ↓", "DOWN ↓"), 800, 608, 136, 32);
             rangeLabel = Label(frame, "Visible rows", "", 200, 608, 584, 32, 19, Ink);
-            Label(frame, "Help", L("方向键 / 摇杆移动　滚轮滚动　空格 / Enter 确认", "D-pad / stick: move   Wheel: scroll   Space / Enter: confirm"), 48, 650, 840, 36, 18, Ink);
+            Label(frame, "Help", L("方向键 / 摇杆移动　滚轮 / 拖动滚动条　空格 / Enter 确认", "D-pad / stick: move   Wheel / drag bar: scroll   Space / Enter: confirm"), 48, 650, 840, 36, 18, Ink);
             ButtonVisual(frame, "Back", L("返回 / B", "BACK / B"), 904, 650, 152, 36);
             acceptLabel = ButtonVisual(frame, "Accept", "", 1072, 650, 160, 36).GetComponentInChildren<Text>();
         }
@@ -504,10 +523,11 @@ namespace OC2DIYChef
                 " / " + rows + L(" 行　·　依次确认厨师", "   ·   CONFIRM IN PLAYER ORDER");
             scrollUp.color = focused.Index >= Columns ? Ink : new Color(Ink.r, Ink.g, Ink.b, 0.35f);
             scrollDown.color = focused.Index / Columns < rows - 1 ? Ink : new Color(Ink.r, Ink.g, Ink.b, 0.35f);
-            float thumbHeight = Math.Max(20, ChefGridLayout.Height * Math.Min(1f, (float)ChefGridLayout.Rows / rows));
-            float progress = rows <= ChefGridLayout.Rows ? 0 : (float)firstVisibleRow / ChefGridNavigation.LastFirstRow(entries.Count);
-            scrollThumb.sizeDelta = new Vector2(4, thumbHeight);
-            scrollThumb.anchoredPosition = new Vector2(944, -160 - thumbHeight / 2 - (ChefGridLayout.Height - thumbHeight) * progress);
+            float thumbHeight = scrollBar.ThumbHeight(entries.Count);
+            scrollThumb.sizeDelta = new Vector2(ChefGridScrollBar.Width, thumbHeight);
+            scrollThumb.anchoredPosition = new Vector2(ChefGridScrollBar.CentreX,
+                -scrollBar.ThumbTop(firstVisibleRow, entries.Count) - thumbHeight / 2);
+            scrollThumb.GetComponent<Image>().color = scrollBar.Dragging ? PlayerColours[focused.Player] : Ink;
             acceptLabel.text = exitRequest != ExitRequest.None ? L("正在返回…", "FINISHING…") :
                 L("确认 P", "CONFIRM P") + (focused.Player + 1) + " / A";
         }
@@ -555,8 +575,13 @@ namespace OC2DIYChef
 
         internal void CloseGrid()
         {
+            scrollBar.End();
             open = false;
-            if (Active == this) Active = null;
+            if (Active == this)
+            {
+                ChefGridEngagementGuard.Close();
+                Active = null;
+            }
             if (portraits != null) { portraits.Dispose(); portraits = null; }
             if (canvasObject != null) { canvasObject.SetActive(false); Object.Destroy(canvasObject); canvasObject = null; }
             if (ownsFont && font != null) Object.Destroy(font);
@@ -578,6 +603,12 @@ namespace OC2DIYChef
     [HarmonyPatch]
     internal static class ChefGridPatches
     {
+        [HarmonyPrefix, HarmonyPatch(typeof(GamepadEngagementManager), "Update")]
+        static void GuardEngagement(GamepadEngagementManager __instance, ILogicalButton[] ___m_cancelButtons)
+        {
+            ChefGridEngagementGuard.BeforeUpdate(__instance, ___m_cancelButtons);
+        }
+
         [HarmonyPostfix, HarmonyPatch(typeof(FrontendChefMenu), "Show")]
         static void Show(FrontendChefMenu __instance, bool __result)
         {

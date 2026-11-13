@@ -2,7 +2,7 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.2.0.11 (test build)**
+**Current version: 2.2.0.12 (test build)**
 
 This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248/Overcooked2-DIYChef) to reduce startup waits when many custom chefs and hats are installed, and to speed up loading previously cached resources. Existing chef resources, `prefer.txt` and BepInEx configuration remain compatible.
 
@@ -14,7 +14,7 @@ This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248
 - **Lossless texture compression:** Compress texture caches with LZ4HC in the background, reducing disk usage while preserving pixels, image quality and mipmaps.
 - **ModelTest particle compatibility:** Reapply particle effects after chef replacement without modifying the ModelTest DLL. The bridge stays inactive when ModelTest is absent.
 - **Custom default chefs:** Put a custom chef first to select it automatically when entering the game or adding a local player. The official online fallback is selected separately. This feature has not been tested in-game, and online behavior has not been verified.
-- **Chef selection grid:** A fixed 10-column, 5-row viewport scrolls by row, keeping the cursor in visible rows 2–4 except at the list ends. Local players confirm in order; only the current player controls the view and owns a colored selection frame. Portrait loading and movement work during the original camera animation. Controller, Space, Enter and mouse confirmation advance to the next player, then commit after the last player. Unselected portrait dimming is configurable. The right panel retains the name and an independent 512-pixel preview, and existing portrait caches are reused. See the [grid research and usage guide](docs/CHEF_GRID.md) (Chinese). Input and appearance still need in-game verification.
+- **Chef selection grid:** A fixed 10-column, 5-row viewport scrolls by row, keeping the cursor in visible rows 2–4 except at the list ends. Local players confirm in order; only the current player controls the view and owns a colored selection frame. Portrait loading and movement work during the original camera animation. Controller, Space, Enter and mouse confirmation advance to the next player, then commit after the last player. Esc/B cancellation retains local players, and the scrollbar supports dragging and track clicks. Unselected portrait dimming defaults to 40% and is configurable. The right panel retains the name and an independent 512-pixel preview, and existing portrait caches are reused. See the [grid research and usage guide](docs/CHEF_GRID.md) (Chinese). Input and appearance still need in-game verification.
 
 ## Installation and upgrades
 

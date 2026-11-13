@@ -25,6 +25,8 @@ static class ChefGridRegression
         checks += ChefGridFaceRegression.Run();
         checks += ChefGridCacheWarmupRegression.Run();
         checks += ChefGridInteractionRegression.Run();
+        checks += ChefGridEngagementRegression.Run();
+        checks += ChefGridScrollBarRegression.Run();
         Check(ChefGridNavigation.Move(0, 0, 10, 1, 0) == -1, "empty roster");
         Check(ChefGridNavigation.Move(0, 1, 10, 0, -1) == 0, "single entry");
         Check(ChefGridNavigation.Move(39, 81, 10, 1, 0) == 40, "right crosses a page");
@@ -182,6 +184,7 @@ static class GameUtils
 {
     public static AvatarDirectoryData Directory;
     public static AvatarDirectoryData GetAvatarDirectoryData() { return Directory; }
+    public static T RequestManager<T>() where T : class { return GamepadEngagementManager.Instance as T; }
 }
 sealed class SelectedChefData { public ChefAvatarData Character; }
 sealed class FrontendChefCustomisation
