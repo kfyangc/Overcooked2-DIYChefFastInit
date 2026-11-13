@@ -54,6 +54,22 @@ static class ChefGridFramingRegression
         try { ChefGridFraming.Calculate(new ChefPortraitBounds(), head, true); }
         catch (InvalidOperationException) { rejected = true; }
         Check(rejected, "invisible geometry does not generate a bogus portrait");
+        // Widths/heights measured from installed 69-MikuFufu and 01-ArcticFox OBJ resources.
+        var mikuHead = Box(-0.807524f, -0.6f, 0.807524f, 0.586519f);
+        var mikuEyes = Box(-0.167537f, 0.2f, 0.167537f, 0.313933f);
+        var mikuBefore = ChefGridFraming.Calculate(all, mikuHead, true);
+        var mikuFace = ChefGridFraming.Calculate(all, mikuHead, mikuEyes, true);
+        Check(mikuFace.HalfSize < mikuBefore.HalfSize * 0.6f, "long twin tails cannot shrink Miku's face");
+        Check(Near(mikuFace.X, mikuEyes.CenterX) && mikuFace.Y > mikuEyes.CenterY,
+            "oversized hair uses the eyes to locate the face");
+        Check(mikuEyes.MinX > mikuFace.X - mikuFace.HalfSize && mikuEyes.MaxX < mikuFace.X + mikuFace.HalfSize,
+            "corrected crop retains both eyes");
+        var foxHead = Box(-0.446945f, 0, 0.446945f, 0.733831f);
+        var foxEyes = Box(-0.254805f, 0.3f, 0.254805f, 0.420174f);
+        var foxBefore = ChefGridFraming.Calculate(all, foxHead, true);
+        var foxAfter = ChefGridFraming.Calculate(all, foxHead, foxEyes, true);
+        Check(Near(foxBefore.HalfSize, foxAfter.HalfSize) && Near(foxBefore.Y, foxAfter.Y),
+            "normal head proportions retain their previous framing");
         return checks;
     }
 }

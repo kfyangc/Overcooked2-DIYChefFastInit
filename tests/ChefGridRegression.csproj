@@ -6,6 +6,6 @@
     <OutputPath>bin/chef-grid/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ChefGrid/ChefGridRegression.cs;ChefGrid/ChefGridFramingRegression.cs;ChefGrid/ChefGridTransparencyRegression.cs;../ChefGrid/ChefGridNavigation.cs;../ChefGrid/ChefGridRoster.cs;../ChefGrid/ChefGridFraming.cs;../ChefGrid/ChefGridTransparency.cs" />
+    <Compile Include="ChefGrid/ChefGridRegression.cs;ChefGrid/ChefGridFramingRegression.cs;ChefGrid/ChefGridTransparencyRegression.cs;ChefGrid/ChefGridLayoutRegression.cs;../ChefGrid/ChefGridNavigation.cs;../ChefGrid/ChefGridRoster.cs;../ChefGrid/ChefGridFraming.cs;../ChefGrid/ChefGridTransparency.cs;../ChefGrid/ChefGridLayout.cs" />
   </ItemGroup>
 </Project>

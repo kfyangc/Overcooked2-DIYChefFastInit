@@ -2,7 +2,7 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.2.0.4 (test build)**
+**Current version: 2.2.0.5 (test build)**
 
 This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248/Overcooked2-DIYChef) to reduce startup waits when many custom chefs and hats are installed, and to speed up loading previously cached resources. Existing chef resources, `prefer.txt` and BepInEx configuration remain compatible.
 
@@ -14,7 +14,7 @@ This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248
 - **Lossless texture compression:** Compress texture caches with LZ4HC in the background, reducing disk usage while preserving pixels, image quality and mipmaps.
 - **ModelTest particle compatibility:** Reapply particle effects after chef replacement without modifying the ModelTest DLL. The bridge stays inactive when ModelTest is absent.
 - **Custom default chefs:** Put a custom chef first to select it automatically when entering the game or adding a local player. The official online fallback is selected separately. This feature has not been tested in-game, and online behavior has not been verified.
-- **Chef selection grid:** Preview up to 32 chefs per page with keyboard, controller, mouse and local player cursors. Left thumbnails have transparent backgrounds and no names; the right panel retains the name and a separate 512-pixel portrait. Version 2.2.0.4 renders static skinned snapshots to address missing heads in closeups. See the [grid research and usage guide](docs/CHEF_GRID.md) (Chinese) for controls and caching. These changes still need in-game verification.
+- **Chef selection grid:** Defaults to 10×5 (50 chefs per page), with configurable rows and columns, keyboard, controller, mouse and local player cursors. Left thumbnails are transparent and nameless; the right panel retains the name and a separate 512-pixel portrait. Version 2.2.0.5 uses an open-eye snapshot pose and eye-based framing for long hairstyles. See the [grid research and usage guide](docs/CHEF_GRID.md) (Chinese) for settings. These changes still need in-game verification.
 
 ## Installation and upgrades
 

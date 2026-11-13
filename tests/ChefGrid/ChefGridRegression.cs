@@ -19,6 +19,7 @@ static class ChefGridRegression
     {
         checks += ChefGridFramingRegression.Run();
         checks += ChefGridTransparencyRegression.Run();
+        checks += ChefGridLayoutRegression.Run();
         Check(ChefGridNavigation.Move(0, 0, 10, 1, 0) == -1, "empty roster");
         Check(ChefGridNavigation.Move(0, 1, 10, 0, -1) == 0, "single entry");
         Check(ChefGridNavigation.Move(39, 81, 10, 1, 0) == 40, "right crosses a page");

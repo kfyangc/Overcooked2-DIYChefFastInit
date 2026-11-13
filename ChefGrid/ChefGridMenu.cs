@@ -12,10 +12,8 @@ namespace OC2DIYChef
 {
     public sealed class ChefGridMenu : MonoBehaviour
     {
-        const int Columns = 8, Rows = 4, PageSize = Columns * Rows;
-        const float GridX = 48, GridY = 160, CellStepX = 112, CellStepY = 112;
-        const float CellWidth = 104, CellHeight = 104;
         static ConfigEntry<bool> configured;
+        static ConfigEntry<int> configuredColumns, configuredRows;
         static ConfigEntry<float> portraitYaw;
         static readonly MethodInfo fixedValue = AccessTools.Method(typeof(PlayerInputLookup), "GetFixedValue",
             new[] { typeof(PlayerInputLookup.LogicalValueID), typeof(PlayerGameInput) });
@@ -50,7 +48,10 @@ namespace OC2DIYChef
         readonly List<Cursor> cursors = new List<Cursor>();
         readonly HashSet<long> alive = new HashSet<long>();
         readonly List<ChefGridEntry> wanted = new List<ChefGridEntry>();
-        readonly Cell[] cells = new Cell[PageSize];
+        ChefGridLayout layout;
+        Cell[] cells;
+        int Columns { get { return layout.Columns; } }
+        int PageSize { get { return layout.PageSize; } }
         readonly Text[] playerLabels = new Text[4];
         readonly Image[] playerTabs = new Image[4];
         GameObject canvasObject;
@@ -70,6 +71,12 @@ namespace OC2DIYChef
         {
             configured = config.Bind("ChefSelection", "GridEnabled", true,
                 "Show a paged portrait grid in the frontend chef menu. Disable to use the original carousel.");
+            configuredColumns = config.Bind("ChefSelection", "GridColumns", 10,
+                new ConfigDescription("Chef grid columns. Applied next time the chef menu opens.",
+                    new AcceptableValueRange<int>(ChefGridLayout.MinColumns, ChefGridLayout.MaxColumns)));
+            configuredRows = config.Bind("ChefSelection", "GridRows", 5,
+                new ConfigDescription("Chef grid rows. Applied next time the chef menu opens.",
+                    new AcceptableValueRange<int>(ChefGridLayout.MinRows, ChefGridLayout.MaxRows)));
             portraitYaw = config.Bind("ChefSelection", "PortraitYaw", 0f,
                 "Rotation in degrees of generated portraits; changing this rebuilds their visual cache.");
         }
@@ -92,6 +99,8 @@ namespace OC2DIYChef
         {
             CloseGrid();
             owner = menu;
+            layout = new ChefGridLayout(configuredColumns.Value, configuredRows.Value);
+            cells = new Cell[PageSize];
             var progress = GameUtils.GetMetaGameProgress();
             if (progress == null) return;
             entries = ChefGridRoster.Build(GameUtils.GetAvatarDirectoryData().Avatars, progress.GetUnlockedAvatars());
@@ -106,7 +115,8 @@ namespace OC2DIYChef
             open = true;
             Active = this;
             Refresh();
-            DIYChefPlugin.Log("Chef grid opened entries=" + entries.Count + " pages=" + ChefGridNavigation.PageCount(entries.Count, PageSize));
+            DIYChefPlugin.Log("Chef grid opened entries=" + entries.Count + " layout=" + layout.Columns + "x" + layout.Rows +
+                " pages=" + ChefGridNavigation.PageCount(entries.Count, PageSize));
         }
 
         void SyncPlayers()
@@ -264,15 +274,8 @@ namespace OC2DIYChef
                     if (x >= 48 + cursor.Player * 164 && x < 204 + cursor.Player * 164)
                     { focused = cursor; page = cursor.Index / PageSize; }
             }
-            if (x >= GridX && x < GridX + Columns * CellStepX && y >= GridY && y < GridY + Rows * CellStepY)
-            {
-                int col = (int)((x - GridX) / CellStepX), row = (int)((y - GridY) / CellStepY);
-                if ((x - GridX) % CellStepX < CellWidth && (y - GridY) % CellStepY < CellHeight)
-                {
-                    int index = page * PageSize + row * Columns + col;
-                    if (index < entries.Count) Select(focused, index);
-                }
-            }
+            int hit = layout.HitTest(x, y, page, entries.Count);
+            if (hit >= 0) Select(focused, hit);
             if (y >= 608 && y < 640)
             {
                 if (x >= 48 && x < 184) page = ChefGridNavigation.TurnPage(page, -1, entries.Count, PageSize);
@@ -323,14 +326,15 @@ namespace OC2DIYChef
             }
             for (int i = 0; i < PageSize; i++)
             {
-                float x = GridX + i % Columns * CellStepX, y = GridY + i / Columns * CellStepY;
+                var rect = layout.Cell(i);
+                float side = rect.Size;
                 var cell = cells[i] = new Cell();
-                cell.Border = Box(frame, "Chef " + i, x, y, CellWidth, CellHeight, Ink);
+                cell.Border = Box(frame, "Chef " + i, rect.X, rect.Y, side, side, Ink);
                 cell.Root = cell.Border.gameObject;
-                cell.Background = Box(cell.Root.transform, "Card", 3, 3, CellWidth - 6, CellHeight - 6, new Color(0.98f, 0.97f, 0.93f));
-                cell.Portrait = Rect(cell.Root.transform, "Portrait", 4, 4, 96, 96).gameObject.AddComponent<RawImage>();
+                cell.Background = Box(cell.Root.transform, "Card", 2, 2, side - 4, side - 4, new Color(0.98f, 0.97f, 0.93f));
+                cell.Portrait = Rect(cell.Root.transform, "Portrait", 3, 3, side - 6, side - 6).gameObject.AddComponent<RawImage>();
                 cell.Portrait.raycastTarget = false;
-                cell.Players = Label(cell.Root.transform, "Cursors", "", 6, 6, 92, 22, 16, Color.white);
+                cell.Players = Label(cell.Root.transform, "Cursors", "", 3, 3, side - 6, 22, Math.Min(16, (int)(side * 0.24f)), Color.white);
                 cell.Players.GetComponent<Text>().fontStyle = FontStyle.Bold;
             }
             Box(frame, "Preview panel", 952, 114, 280, 486, new Color(0.98f, 0.97f, 0.93f));

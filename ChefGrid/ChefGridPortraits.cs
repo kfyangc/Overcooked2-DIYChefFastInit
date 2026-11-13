@@ -18,7 +18,7 @@ namespace OC2DIYChef
     {
         const int Size = 128;
         const int DetailSize = 512;
-        const int Capacity = 96;
+        int capacity = 96;
         readonly Dictionary<ChefGridEntry, Texture2D> images = new Dictionary<ChefGridEntry, Texture2D>();
         readonly LinkedList<ChefGridEntry> recent = new LinkedList<ChefGridEntry>();
         readonly HashSet<ChefGridEntry> failed = new HashSet<ChefGridEntry>();
@@ -129,7 +129,7 @@ namespace OC2DIYChef
             }
             images[entry] = texture;
             recent.AddLast(entry);
-            while (images.Count > Capacity)
+            while (images.Count > capacity)
             {
                 var oldest = recent.First.Value;
                 recent.RemoveFirst();
@@ -142,7 +142,7 @@ namespace OC2DIYChef
         {
             string path;
             if (paths.TryGetValue(entry, out path)) return size == Size ? path : Path.ChangeExtension(path, ".512.png");
-            var key = new StringBuilder("portrait-v4|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
+            var key = new StringBuilder("portrait-v5|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
                 stage.transform.GetChild(0).localEulerAngles.y + "|" + colour.name);
             var game = new FileInfo(typeof(ChefAvatarData).Assembly.Location);
             key.Append('|').Append(game.Length).Append('|').Append(game.LastWriteTimeUtc.Ticks);
@@ -174,6 +174,7 @@ namespace OC2DIYChef
 
         internal void Tick(List<ChefGridEntry> wanted)
         {
+            capacity = Math.Max(96, wanted.Count);
             ChefGridEntry selected = wanted.Count == 0 ? null : wanted[0];
             // User-facing previews take priority over background thumbnail work.
             if (ChefLoading.HasPendingExcept(replacer))
@@ -333,19 +334,15 @@ namespace OC2DIYChef
         Texture2D Capture(int size, string headName)
         {
             view.ChefModel.SetActive(true);
+            SilenceModel();
+            ChefGridPose.Prepare(replacer, replacer.GetChefData().Character);
             view.SetChefHat(HatMeshVisibility.VisState.Fancy);
             ChefLoading.Capture(view);
-            SilenceModel();
-            foreach (var animator in view.ChefModel.GetComponentsInChildren<Animator>(true))
-            {
-                animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
-                animator.Update(0);
-                animator.enabled = false;
-            }
             using (var snapshot = new ChefGridSnapshot())
             {
                 var all = new ChefPortraitBounds();
                 var head = new ChefPortraitBounds();
+                var eyes = new ChefPortraitBounds();
                 float front = 0;
                 var renderers = view.ChefModel.GetComponentsInChildren<Renderer>();
                 foreach (var renderer in renderers)
@@ -354,8 +351,9 @@ namespace OC2DIYChef
                     var part = Measure(snapshot.Freeze(renderer), ref front);
                     all.Include(part);
                     if (renderer.name == headName || renderer.name == "Head1" || renderer.name == "Head2") head.Include(part);
+                    if (ChefGridPose.IsOpenEye(renderer.name)) eyes.Include(part);
                 }
-                var framing = ChefGridFraming.Calculate(all, head, size == Size);
+                var framing = ChefGridFraming.Calculate(all, head, eyes, size == Size);
                 camera.transform.localPosition = new Vector3(framing.X, framing.Y, front + 8);
                 camera.transform.localRotation = Quaternion.Euler(0, 180, 0);
                 camera.orthographicSize = framing.HalfSize;
