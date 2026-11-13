@@ -260,7 +260,9 @@ namespace OC2DIYChef
                     var nav = outer;
                     nav.mode = Navigation.Mode.Explicit;
                     float column = rows[i].Count > 1 ? (float)j / (rows[i].Count - 1) : 0.5f;
-                    nav.selectOnUp = Adjacent(rows, i - 1, column, name);
+                    // The top action is an endpoint. Linking it back to the
+                    // name bar would loop, because the name enters the last row.
+                    nav.selectOnUp = Adjacent(rows, i - 1, column, null);
                     nav.selectOnDown = Adjacent(rows, i + 1, column, name);
                     nav.selectOnLeft = j > 0 ? rows[i][j - 1] : outer.selectOnLeft;
                     nav.selectOnRight = j + 1 < rows[i].Count ? rows[i][j + 1] : outer.selectOnRight;

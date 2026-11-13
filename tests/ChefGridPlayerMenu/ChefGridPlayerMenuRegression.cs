@@ -181,6 +181,44 @@ static class ChefGridPlayerMenuRegression
         }
     }
 
+    static void StopAtProfile()
+    {
+        foreach (int scenario in new[] { 0, 1, 2 })
+        {
+            var root = Root();
+            var card = Card(root);
+            var profile = card.Options[0].m_button;
+            if (scenario > 0)
+            {
+                var extension = new ExtensionRows(card);
+                card.OtherRunsAfter = scenario == 2;
+                card.OtherStructure = extension.Refresh;
+            }
+            Time.frameCount++;
+            card.MenuButton.Click();
+            Selectable cursor = card.MenuButton;
+            int opens = ChefGridLobby.Opens, messages = ChefGridLobby.AvatarMessages;
+            uint avatar = card.UserInfo.SelectedChefAvatar;
+            int stepsToTop = scenario == 0 ? 2 : 4;
+            for (int press = 1; press <= 32; press++)
+            {
+                // Native refresh and another extension may rewrite links between
+                // held-key repeats; final navigation must still terminate above.
+                card.Structure();
+                ChefGridPlayerMenu.UpdateFrame();
+                cursor = cursor.navigation.selectOnUp ?? cursor;
+                if (press >= stepsToTop)
+                    Check(cursor == profile, "Repeated Up stops at Profile instead of wrapping through the name bar");
+            }
+            Check(card.Menu.activeSelf && profile.navigation.selectOnUp == null,
+                "The upper menu endpoint stays open and has no upward destination");
+            Check(ChefGridLobby.Opens == opens && ChefGridLobby.AvatarMessages == messages &&
+                card.ProfileClicks == 0 && card.UserInfo.SelectedChefAvatar == avatar,
+                "Held menu navigation neither opens an action nor changes a chef");
+            ChefGridPlayerMenu.HideAll(root);
+        }
+    }
+
     static void CoexistingLayouts()
     {
         foreach (bool after in new[] { false, true })
@@ -358,7 +396,7 @@ static class ChefGridPlayerMenuRegression
 
     static void Main()
     {
-        NameAndAction(); PointerAndSelection(); CoexistingLayouts(); FocusRestore(); ParentLayouts(); VisibilityAndOwnership();
+        NameAndAction(); PointerAndSelection(); StopAtProfile(); CoexistingLayouts(); FocusRestore(); ParentLayouts(); VisibilityAndOwnership();
         Console.WriteLine("PASS: " + checks + " production standalone-menu event, pointer, focus, layout-order and modal-ownership assertions; no Unity/game process used.");
     }
 }
