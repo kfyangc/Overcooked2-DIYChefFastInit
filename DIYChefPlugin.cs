@@ -21,6 +21,7 @@ namespace OC2DIYChef
             patcher.PatchAll(typeof(Patch));
             patcher.PatchAll(typeof(Patch.FrontendChefCustomisationPatch));
             patcher.PatchAll(typeof(ChefGridPatches));
+            patcher.PatchAll(typeof(ChefGridLobbyPatches));
             OnlinePatch.Patch(patcher);
             Patch.PatchInternal(patcher);
             foreach (var patched in patcher.GetPatchedMethods())
@@ -38,6 +39,8 @@ namespace OC2DIYChef
 
         void OnDestroy()
         {
+            var lobby = LobbyFlowController.Instance;
+            if (lobby != null && lobby.GetComponent<ChefGridLobby>() != null) lobby.GetComponent<ChefGridLobby>().Shutdown();
             if (ChefGridMenu.Active != null) ChefGridMenu.Active.CloseGrid();
             ChefGridEngagementGuard.Shutdown();
             ModelTestCompatibility.Shutdown();

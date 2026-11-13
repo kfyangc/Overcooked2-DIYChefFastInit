@@ -35,17 +35,27 @@ namespace OC2DIYChef
                 Back = new ChefGridButtonPrompt { Key = "Esc" };
                 return;
             }
-            var actions = getActionSet == null ? null : (StandardActionSet)getActionSet.Invoke(null, new object[] { input.Pad });
-            var device = actions == null ? null : actions.Device;
-            var unityDevice = device as UnityInputDevice;
-            string profile = unityDevice == null || unityDevice.Profile == null ? "" : unityDevice.Profile.GetType().Name;
-            var style = ChefGridPromptRules.Detect(device == null ? "" : device.Name, device == null ? "" : device.Meta, profile);
+            var style = Style(input);
             var lookup = GameUtils.RequestManager<ControllerIconLookup>();
             // UISelect also contains Start; show the primary confirm binding rather
             // than whichever node a composite input graph happens to enumerate first.
             var primaryConfirm = PlayerInputLookup.GetFixedButton(PlayerInputLookup.LogicalButtonID.UISelectNotStart, input);
             Accept = Resolve(lookup, style, primaryConfirm, ControlPadInput.Button.A);
             Back = Resolve(lookup, style, cancel, ControlPadInput.Button.B);
+        }
+
+        internal static ChefGridButtonPrompt Button(PlayerGameInput input, ILogicalButton logical, ControlPadInput.Button fallback)
+        {
+            return Resolve(GameUtils.RequestManager<ControllerIconLookup>(), Style(input), logical, fallback);
+        }
+
+        static ChefGridPromptStyle Style(PlayerGameInput input)
+        {
+            var actions = getActionSet == null ? null : (StandardActionSet)getActionSet.Invoke(null, new object[] { input.Pad });
+            var device = actions == null ? null : actions.Device;
+            var unityDevice = device as UnityInputDevice;
+            string profile = unityDevice == null || unityDevice.Profile == null ? "" : unityDevice.Profile.GetType().Name;
+            return ChefGridPromptRules.Detect(device == null ? "" : device.Name, device == null ? "" : device.Meta, profile);
         }
 
         static ChefGridButtonPrompt Resolve(ControllerIconLookup lookup, ChefGridPromptStyle style,

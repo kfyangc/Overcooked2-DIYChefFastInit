@@ -2,7 +2,7 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.2.0.13 (test build)**
+**Current version: 2.2.0.14 (test build)**
 
 This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248/Overcooked2-DIYChef) to reduce startup waits when many custom chefs and hats are installed, and to speed up loading previously cached resources. Existing chef resources, `prefer.txt` and BepInEx configuration remain compatible.
 
@@ -95,7 +95,9 @@ After each chef in `prefer.txt`, you can add `HAT=xxx` (separated by spaces) to 
 
 ### Switching chefs at the arcade lobby
 
-Add a line `LOBBYSWITCHCHEF=TRUE` to `prefer.txt` to switch chefs at the lobby by pressing up / down.
+While choosing a theme or matchmaking in the arcade lobby, click **CHANGE CHEF** in the top-right corner or press **F2** to open the same chef grid. Controllers can use the displayed native multichef-menu binding (Y on a full Xbox controller); prompts follow the device and split-pad mapping. Local players confirm in order, and cancelling restores their previous chefs. This entry is enabled with `[ChefSelection] GridEnabled` and requires no `prefer.txt` change. Its appearance, mouse/controller operation and online display still require in-game testing.
+
+The older up/down shortcut remains available through `LOBBYSWITCHCHEF=TRUE` in `prefer.txt`; it is suspended while the grid is open.
 
 ### Warning messages
 

@@ -43,7 +43,9 @@ namespace OC2DIYChef
             internal bool Selected;
         }
 
-        FrontendChefMenu owner;
+        BaseMenuBehaviour owner;
+        FrontendChefCustomisation[] playerViews;
+        Action cancel;
         List<ChefGridEntry> entries;
         readonly List<Cursor> cursors = new List<Cursor>();
         readonly HashSet<long> alive = new HashSet<long>();
@@ -76,6 +78,7 @@ namespace OC2DIYChef
         bool Chinese { get { return Localization.GetLanguage() == SupportedLanguages.Chinese; } }
         string L(string zh, string en) { return Chinese ? zh : en; }
         internal bool IsOpen { get { return open; } }
+        internal static bool Enabled { get { return configured != null && configured.Value; } }
 
         internal static void Configure(ConfigFile config)
         {
@@ -90,10 +93,15 @@ namespace OC2DIYChef
 
         internal static void Show(FrontendChefMenu menu)
         {
-            if (configured == null || !configured.Value) return;
+            Show(menu, menu.m_PlayerChefs, menu.Close);
+        }
+
+        internal static void Show(BaseMenuBehaviour menu, FrontendChefCustomisation[] views, Action onCancel)
+        {
+            if (!Enabled) return;
             var grid = menu.GetComponent<ChefGridMenu>() ?? menu.gameObject.AddComponent<ChefGridMenu>();
             if (grid.failed) return;
-            try { grid.Open(menu); }
+            try { grid.Open(menu, views, onCancel); }
             catch (Exception ex)
             {
                 grid.failed = true;
@@ -102,10 +110,12 @@ namespace OC2DIYChef
             }
         }
 
-        void Open(FrontendChefMenu menu)
+        void Open(BaseMenuBehaviour menu, FrontendChefCustomisation[] views, Action onCancel)
         {
             CloseGrid();
             owner = menu;
+            playerViews = views;
+            cancel = onCancel;
             layout = new ChefGridLayout();
             cells = new Cell[VisibleCount];
             turns = new ChefGridTurnOrder();
@@ -136,10 +146,10 @@ namespace OC2DIYChef
         {
             var users = ClientUserSystem.m_Users;
             alive.Clear();
-            for (int i = 0; i < users.Count && i < owner.m_PlayerChefs.Length && i < 4; i++)
+            for (int i = 0; i < users.Count && i < playerViews.Length && i < 4; i++)
             {
                 var user = users._items[i];
-                var view = owner.m_PlayerChefs[i];
+                var view = playerViews[i];
                 if (!user.IsLocal || view == null || !view.IsActive()) continue;
                 long key = ChefGridNavigation.PlayerKey((int)user.Engagement, (int)user.Split);
                 alive.Add(key);
@@ -339,8 +349,9 @@ namespace OC2DIYChef
             // Hide rejects requests during the original camera animation. Retain the request
             // and retry once allowed, rather than losing an early confirmation or cancellation.
             var flow = T17FrontendFlow.Instance;
-            if (flow == null || flow.IsCameraTransitioning() || T17DialogBoxManager.HasAnyOpenDialogs()) return;
-            if (exitRequest == ExitRequest.Cancel) owner.Close();
+            if (T17DialogBoxManager.HasAnyOpenDialogs()) return;
+            if (owner is FrontendChefMenu && (flow == null || flow.IsCameraTransitioning())) return;
+            if (exitRequest == ExitRequest.Cancel) cancel();
             else if (exitRequest == ExitRequest.Accept) owner.Hide();
         }
 
@@ -637,7 +648,7 @@ namespace OC2DIYChef
 
         internal bool Owns(FrontendChefCustomisation view)
         {
-            return owner != null && Array.IndexOf(owner.m_PlayerChefs, view) >= 0;
+            return owner != null && playerViews != null && Array.IndexOf(playerViews, view) >= 0;
         }
     }
 

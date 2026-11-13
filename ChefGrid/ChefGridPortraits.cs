@@ -61,7 +61,7 @@ namespace OC2DIYChef
                 replacer = actor.AddComponent<ChefMeshReplacer>();
                 templateField.SetValue(replacer, template);
                 AccessTools.Field(typeof(ChefMeshReplacer), "m_modelType").SetValue(replacer, ChefMeshReplacer.ChefModelType.FrontEnd);
-                var sourceHat = source.GetComponent<HatMeshVisibility>();
+                var sourceHat = source.GetComponent<HatMeshVisibility>() ?? sourceReplacer.GetComponent<HatMeshVisibility>();
                 if (sourceHat != null)
                 {
                     var hat = actor.AddComponent<HatMeshVisibility>();
@@ -69,7 +69,7 @@ namespace OC2DIYChef
                     hat.m_stateFlags = sourceHat.m_stateFlags;
                 }
                 view = actor.AddComponent<FrontendChef>();
-                var sourceView = source.GetComponent<FrontendChef>();
+                var sourceView = source.GetComponent<FrontendChef>() ?? sourceReplacer.GetComponent<FrontendChef>();
                 if (sourceView != null)
                     foreach (var name in new[] { "m_StandardSkinShader", "m_StandardClothesShader", "m_UISkinShader", "m_UIClothesShader" })
                     {
