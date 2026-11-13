@@ -38,9 +38,8 @@ namespace OC2DIYChef
         sealed class Cell
         {
             internal GameObject Root;
-            internal Image Border, Background;
+            internal Image[] Highlight;
             internal RawImage Portrait;
-            internal Text Players;
         }
 
         FrontendChefMenu owner;
@@ -57,8 +56,9 @@ namespace OC2DIYChef
         GameObject canvasObject;
         RectTransform frame;
         Font font;
-        Text pageLabel, detailName, detailKind, detailPosition;
+        Text pageLabel, detailName, detailKind, detailPosition, detailStatus;
         RawImage detailPortrait;
+        float detailReadyAt;
         ChefGridPortraits portraits;
         Cursor focused;
         int page, openedFrame;
@@ -329,17 +329,22 @@ namespace OC2DIYChef
                 var rect = layout.Cell(i);
                 float side = rect.Size;
                 var cell = cells[i] = new Cell();
-                cell.Border = Box(frame, "Chef " + i, rect.X, rect.Y, side, side, Ink);
-                cell.Root = cell.Border.gameObject;
-                cell.Background = Box(cell.Root.transform, "Card", 2, 2, side - 4, side - 4, new Color(0.98f, 0.97f, 0.93f));
-                cell.Portrait = Rect(cell.Root.transform, "Portrait", 3, 3, side - 6, side - 6).gameObject.AddComponent<RawImage>();
+                cell.Root = Box(frame, "Chef " + i, rect.X, rect.Y, side, side, Ink).gameObject;
+                Box(cell.Root.transform, "Card", 1, 1, side - 2, side - 2, new Color(0.98f, 0.97f, 0.93f));
+                cell.Portrait = Rect(cell.Root.transform, "Portrait", 1, 1, side - 2, side - 2).gameObject.AddComponent<RawImage>();
                 cell.Portrait.raycastTarget = false;
-                cell.Players = Label(cell.Root.transform, "Cursors", "", 3, 3, side - 6, 22, Math.Min(16, (int)(side * 0.24f)), Color.white);
-                cell.Players.GetComponent<Text>().fontStyle = FontStyle.Bold;
+                // Overlay the thicker frame so selection never resizes the portrait.
+                float stroke = Math.Min(6, side * 0.1f);
+                cell.Highlight = new[] {
+                    Box(cell.Root.transform, "Selected top", 0, 0, side, stroke, Ink),
+                    Box(cell.Root.transform, "Selected right", side - stroke, stroke, stroke, side - stroke * 2, Ink),
+                    Box(cell.Root.transform, "Selected bottom", 0, side - stroke, side, stroke, Ink),
+                    Box(cell.Root.transform, "Selected left", 0, stroke, stroke, side - stroke * 2, Ink) };
             }
             Box(frame, "Preview panel", 952, 114, 280, 486, new Color(0.98f, 0.97f, 0.93f));
             detailPortrait = Rect(frame, "Selected portrait", 964, 126, 256, 256).gameObject.AddComponent<RawImage>();
             detailPortrait.raycastTarget = false;
+            detailStatus = Label(frame, "Preview status", "", 964, 230, 256, 48, 20, Ink);
             detailName = Label(frame, "Selected name", "", 964, 398, 256, 84, 26, Ink);
             detailName.resizeTextForBestFit = true;
             detailName.resizeTextMinSize = 20;
@@ -374,19 +379,34 @@ namespace OC2DIYChef
                 var texture = portraits == null ? null : portraits.Get(entry);
                 cell.Portrait.texture = texture;
                 cell.Portrait.enabled = texture != null;
-                cell.Players.text = "";
-                cell.Border.color = Ink;
+                int players = 0;
                 foreach (var cursor in cursors)
-                    if (cursor.Index == index)
-                    {
-                        cell.Players.text += "P" + (cursor.Player + 1) + " ";
-                        cell.Border.color = PlayerColours[cursor.Player];
-                    }
-                if (focused.Index == index) cell.Border.color = PlayerColours[focused.Player];
+                    if (cursor.Index == index) players |= 1 << cursor.Player;
+                int count = 0;
+                for (int player = 0; player < 4; player++) if ((players & (1 << player)) != 0) count++;
+                for (int edge = 0; edge < cell.Highlight.Length; edge++)
+                {
+                    cell.Highlight[edge].enabled = count != 0;
+                    if (count == 0) continue;
+                    // Shared selections retain each player's color without text over faces.
+                    int ordinal = edge % count;
+                    for (int player = 0; player < 4; player++)
+                        if ((players & (1 << player)) != 0 && ordinal-- == 0)
+                        {
+                            cell.Highlight[edge].color = PlayerColours[player];
+                            break;
+                        }
+                }
             }
             var selected = entries[focused.Index];
-            detailPortrait.texture = portraits == null ? null : portraits.GetDetail(selected);
-            detailPortrait.enabled = detailPortrait.texture != null;
+            var detail = portraits == null ? null : portraits.GetDetail(selected);
+            if (detail != detailPortrait.texture) detailReadyAt = Time.unscaledTime;
+            detailPortrait.texture = detail;
+            detailPortrait.enabled = detail != null;
+            if (detail != null) detailPortrait.color = new Color(1, 1, 1, Mathf.Clamp01((Time.unscaledTime - detailReadyAt) / 0.15f));
+            detailStatus.enabled = detail == null;
+            detailStatus.text = portraits == null ? L("预览暂不可用", "PREVIEW UNAVAILABLE") : portraits.DetailFailed(selected) ?
+                L("预览加载失败", "PREVIEW FAILED") : L("正在加载预览…", "LOADING PREVIEW…");
             detailName.text = selected.Label;
             detailKind.text = selected.CustomID == 255 ? L("官方厨师", "ORIGINAL CHEF") : L("额外厨师", "CUSTOM CHEF");
             detailPosition.text = (focused.Index + 1) + " / " + entries.Count;

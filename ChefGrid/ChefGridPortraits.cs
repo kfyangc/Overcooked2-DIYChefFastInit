@@ -114,8 +114,12 @@ namespace OC2DIYChef
 
         internal Texture2D GetDetail(ChefGridEntry entry)
         {
-            return detailEntry == entry && detailImage != null ? detailImage : Get(entry);
+            // Grid portraits have a cropped headshot composition. Never enlarge them into
+            // the full-model panel while its independently framed detail image loads.
+            return detailEntry == entry ? detailImage : null;
         }
+
+        internal bool DetailFailed(ChefGridEntry entry) { return failed.Contains(entry) || failedDetails.Contains(entry); }
 
         void Store(ChefGridEntry entry, Texture2D texture, int size)
         {

@@ -2,7 +2,7 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.2.0.8 (test build)**
+**Current version: 2.2.0.9 (test build)**
 
 This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248/Overcooked2-DIYChef) to reduce startup waits when many custom chefs and hats are installed, and to speed up loading previously cached resources. Existing chef resources, `prefer.txt` and BepInEx configuration remain compatible.
 
@@ -14,7 +14,7 @@ This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248
 - **Lossless texture compression:** Compress texture caches with LZ4HC in the background, reducing disk usage while preserving pixels, image quality and mipmaps.
 - **ModelTest particle compatibility:** Reapply particle effects after chef replacement without modifying the ModelTest DLL. The bridge stays inactive when ModelTest is absent.
 - **Custom default chefs:** Put a custom chef first to select it automatically when entering the game or adding a local player. The official online fallback is selected separately. This feature has not been tested in-game, and online behavior has not been verified.
-- **Chef selection grid:** Defaults to 10×5 (50 chefs per page), with configurable rows and columns, keyboard, controller, mouse and local player cursors. Left thumbnails are transparent and nameless; the right panel retains the name and a separate 512-pixel full-model portrait. Static poses and eyelid filtering follow MOD Manager's preview approach. Skeletal landmarks and a neck plane frame merged body/head meshes and center eyepatch characters. Version 2.2.0.8 prevents close-set forehead eyes from cropping the crocodile's muzzle; geometry comparisons leave the other 108 portraits unchanged. See the [grid research and usage guide](docs/CHEF_GRID.md) (Chinese) for settings. The change still needs in-game verification.
+- **Chef selection grid:** Defaults to 10×5 (50 chefs per page), with configurable rows and columns, keyboard, controller, mouse and local player cursors. Version 2.2.0.9 packs square cells with zero spacing and replaces player text over portraits with thicker colored selection borders. The right panel retains the name and a separate 512-pixel portrait, showing a loading message and a short fade-in instead of briefly enlarging the cropped thumbnail. Existing portrait caches are reused. See the [grid research and usage guide](docs/CHEF_GRID.md) (Chinese) for settings. The UI changes still need in-game verification.
 
 ## Installation and upgrades
 
