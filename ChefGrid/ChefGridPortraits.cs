@@ -17,6 +17,7 @@ namespace OC2DIYChef
     internal sealed class ChefGridPortraits : IDisposable
     {
         const int Size = 128;
+        const int DetailSize = 512;
         const int Capacity = 96;
         readonly Dictionary<ChefGridEntry, Texture2D> images = new Dictionary<ChefGridEntry, Texture2D>();
         readonly LinkedList<ChefGridEntry> recent = new LinkedList<ChefGridEntry>();
@@ -27,8 +28,13 @@ namespace OC2DIYChef
         readonly ChefMeshReplacer replacer;
         readonly Camera camera;
         readonly RenderTexture target;
+        readonly RenderTexture detailTarget;
         readonly ChefColourData colour;
+        readonly HashSet<ChefGridEntry> failedDetails = new HashSet<ChefGridEntry>();
+        Texture2D detailImage;
+        ChefGridEntry detailEntry;
         ChefGridEntry pending;
+        int pendingSize;
         float started;
         int readyFrame;
 
@@ -80,6 +86,8 @@ namespace OC2DIYChef
                 camera.cullingMask = (1 << actor.layer) | (1 << HatData.hatLayer);
                 target = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32);
                 target.Create();
+                detailTarget = new RenderTexture(DetailSize, DetailSize, 24, RenderTextureFormat.ARGB32);
+                detailTarget.Create();
                 camera.targetTexture = target;
                 var lamp = new GameObject("Portrait light");
                 lamp.transform.SetParent(stage.transform, false);
@@ -102,9 +110,21 @@ namespace OC2DIYChef
             return value;
         }
 
-        void Store(ChefGridEntry entry, Texture2D texture)
+        internal Texture2D GetDetail(ChefGridEntry entry)
+        {
+            return detailEntry == entry && detailImage != null ? detailImage : Get(entry);
+        }
+
+        void Store(ChefGridEntry entry, Texture2D texture, int size)
         {
             texture.filterMode = FilterMode.Bilinear;
+            if (size == DetailSize)
+            {
+                if (detailImage != null) Object.Destroy(detailImage);
+                detailEntry = entry;
+                detailImage = texture;
+                return;
+            }
             images[entry] = texture;
             recent.AddLast(entry);
             while (images.Count > Capacity)
@@ -116,11 +136,11 @@ namespace OC2DIYChef
             }
         }
 
-        string CachePath(ChefGridEntry entry)
+        string CachePath(ChefGridEntry entry, int size)
         {
             string path;
-            if (paths.TryGetValue(entry, out path)) return path;
-            var key = new StringBuilder("portrait-v1|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
+            if (paths.TryGetValue(entry, out path)) return size == Size ? path : Path.ChangeExtension(path, ".512.png");
+            var key = new StringBuilder("portrait-v2|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
                 stage.transform.GetChild(0).localEulerAngles.y + "|" + colour.name);
             var game = new FileInfo(typeof(ChefAvatarData).Assembly.Location);
             key.Append('|').Append(game.Length).Append('|').Append(game.LastWriteTimeUtc.Ticks);
@@ -135,7 +155,7 @@ namespace OC2DIYChef
             path = Path.Combine(Path.Combine(Paths.CachePath, "DIYChefFastInit/portraits"),
                 BitConverter.ToString(hash).Replace("-", "") + ".png");
             paths[entry] = path;
-            return path;
+            return size == Size ? path : Path.ChangeExtension(path, ".512.png");
         }
 
         static void AppendFiles(StringBuilder key, string directory)
@@ -152,13 +172,15 @@ namespace OC2DIYChef
 
         internal void Tick(List<ChefGridEntry> wanted)
         {
+            ChefGridEntry selected = wanted.Count == 0 ? null : wanted[0];
             // User-facing previews take priority over background thumbnail work.
             if (ChefLoading.HasPendingExcept(replacer))
             {
                 if (pending != null) { ChefLoading.Cancel(replacer); pending = null; }
                 return;
             }
-            if (pending != null && !wanted.Contains(pending))
+            if (pending != null && (!wanted.Contains(pending) ||
+                (pendingSize == DetailSize && pending != selected)))
             {
                 ChefLoading.Cancel(replacer);
                 pending = null;
@@ -182,15 +204,9 @@ namespace OC2DIYChef
                     if (Time.frameCount < readyFrame) return;
                     try
                     {
-                        var texture = Capture();
-                        Store(pending, texture);
-                        try
-                        {
-                            string path = CachePath(pending);
-                            Directory.CreateDirectory(Path.GetDirectoryName(path));
-                            File.WriteAllBytes(path, texture.EncodeToPNG());
-                        }
-                        catch (Exception ex) { DIYChefPlugin.Warn("Portrait cache write: " + ex.Message); }
+                        var texture = Capture(pendingSize);
+                        Store(pending, texture, pendingSize);
+                        Save(pending, texture, pendingSize);
                     }
                     catch (Exception ex) { Fail(pending, ex.Message); }
                     pending = null;
@@ -203,41 +219,16 @@ namespace OC2DIYChef
                 }
                 return;
             }
+            // A selected chef gets its own high-resolution render, never an enlarged thumbnail.
+            if (selected != null && detailEntry != selected && !failed.Contains(selected) && !failedDetails.Contains(selected))
+            {
+                if (!TryLoad(selected, DetailSize)) Begin(selected, DetailSize);
+                return;
+            }
             foreach (var entry in wanted)
             {
                 if (images.ContainsKey(entry) || failed.Contains(entry)) continue;
-                Texture2D cached = null;
-                try
-                {
-                    var custom = entry.Avatar as DIYChefAvatarData;
-                    string supplied = custom == null ? null : Path.Combine(custom.Resources.Path, "preview.png");
-                    string path = supplied != null && File.Exists(supplied) ? supplied : CachePath(entry);
-                    if (File.Exists(path))
-                    {
-                        cached = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-                        if (cached.LoadImage(File.ReadAllBytes(path)) && cached.width <= 512 && cached.height <= 512)
-                        {
-                            cached.Apply(false, true);
-                            Store(entry, cached);
-                            return;
-                        }
-                        Object.Destroy(cached);
-                        cached = null;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    if (cached != null) Object.Destroy(cached);
-                    DIYChefPlugin.Warn("Portrait cache read: " + ex.Message);
-                }
-                try
-                {
-                    pending = entry;
-                    started = Time.realtimeSinceStartup;
-                    readyFrame = 0;
-                    view.SetChefData(new GameSession.SelectedChefData(entry.Avatar, colour), true);
-                }
-                catch (Exception ex) { Fail(entry, ex.Message); pending = null; }
+                if (!TryLoad(entry, Size)) Begin(entry, Size);
                 return;
             }
             // Stop drawing the studio between requests; at most one extra model remains pinned.
@@ -246,11 +237,98 @@ namespace OC2DIYChef
 
         void Fail(ChefGridEntry entry, string reason)
         {
-            failed.Add(entry);
+            if (pendingSize == DetailSize) failedDetails.Add(entry);
+            else failed.Add(entry);
             DIYChefPlugin.Warn("Portrait " + entry.Avatar.HeadName + ": " + reason);
         }
 
-        Texture2D Capture()
+        void Begin(ChefGridEntry entry, int size)
+        {
+            try
+            {
+                pending = entry;
+                pendingSize = size;
+                started = Time.realtimeSinceStartup;
+                readyFrame = 0;
+                view.SetChefData(new GameSession.SelectedChefData(entry.Avatar, colour), true);
+            }
+            catch (Exception ex) { Fail(entry, ex.Message); pending = null; }
+        }
+
+        bool TryLoad(ChefGridEntry entry, int size)
+        {
+            var custom = entry.Avatar as DIYChefAvatarData;
+            string supplied = custom == null ? null : Path.Combine(custom.Resources.Path, "preview.png");
+            if (supplied != null && LoadFile(entry, supplied, size)) return true;
+            try { return LoadFile(entry, CachePath(entry, size), size); }
+            catch (Exception ex) { DIYChefPlugin.Warn("Portrait cache read: " + ex.Message); return false; }
+        }
+
+        bool LoadFile(ChefGridEntry entry, string path, int size)
+        {
+            Texture2D cached = null;
+            try
+            {
+                if (!File.Exists(path)) return false;
+                cached = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                // A small supplied preview can serve the grid; the detail view needs actual pixels.
+                if (!cached.LoadImage(File.ReadAllBytes(path)) || cached.width < size || cached.height < size ||
+                    cached.width > DetailSize || cached.height > DetailSize)
+                {
+                    Object.Destroy(cached);
+                    return false;
+                }
+                if (size == Size && (cached.width != Size || cached.height != Size))
+                {
+                    var original = cached;
+                    cached = Downsample(original);
+                    Object.Destroy(original);
+                }
+                cached.Apply(false, true);
+                Store(entry, cached, size);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (cached != null) Object.Destroy(cached);
+                DIYChefPlugin.Warn("Portrait cache read: " + ex.Message);
+                return false;
+            }
+        }
+
+        void Save(ChefGridEntry entry, Texture2D texture, int size)
+        {
+            try
+            {
+                string path = CachePath(entry, size);
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllBytes(path, texture.EncodeToPNG());
+            }
+            catch (Exception ex) { DIYChefPlugin.Warn("Portrait cache write: " + ex.Message); }
+        }
+
+        Texture2D Downsample(Texture2D source)
+        {
+            var previous = RenderTexture.active;
+            try { Graphics.Blit(source, target); return ReadTarget(target, Size); }
+            finally { RenderTexture.active = previous; }
+        }
+
+        static Texture2D ReadTarget(RenderTexture source, int size)
+        {
+            Texture2D result = null;
+            try
+            {
+                RenderTexture.active = source;
+                result = new Texture2D(size, size, TextureFormat.RGB24, false);
+                result.ReadPixels(new Rect(0, 0, size, size), 0, 0);
+                result.Apply(false, false);
+                return result;
+            }
+            catch { if (result != null) Object.Destroy(result); throw; }
+        }
+
+        Texture2D Capture(int size)
         {
             view.ChefModel.SetActive(true);
             view.SetChefHat(HatMeshVisibility.VisState.Fancy);
@@ -271,23 +349,20 @@ namespace OC2DIYChef
             }
             if (!found) throw new InvalidOperationException("model has no visible renderers");
             float height = Mathf.Max(0.2f, bounds.size.y);
-            Vector3 center = bounds.center + Vector3.up * height * 0.13f;
+            Vector3 center = bounds.center;
             camera.transform.position = center + new Vector3(0, 0, 8);
             camera.transform.LookAt(center);
-            camera.orthographicSize = Mathf.Max(height * 0.43f, bounds.extents.x * 1.1f);
+            camera.orthographicSize = Mathf.Max(height * 0.55f, bounds.extents.x * 1.1f);
             var previous = RenderTexture.active;
-            Texture2D result = null;
+            var previousTarget = camera.targetTexture;
             try
             {
+                var destination = size == DetailSize ? detailTarget : target;
+                camera.targetTexture = destination;
                 camera.Render();
-                RenderTexture.active = target;
-                result = new Texture2D(Size, Size, TextureFormat.RGB24, false);
-                result.ReadPixels(new Rect(0, 0, Size, Size), 0, 0);
-                result.Apply(false, false);
-                return result;
+                return ReadTarget(destination, size);
             }
-            catch { if (result != null) Object.Destroy(result); throw; }
-            finally { RenderTexture.active = previous; }
+            finally { camera.targetTexture = previousTarget; RenderTexture.active = previous; }
         }
 
         void SilenceModel()
@@ -302,6 +377,8 @@ namespace OC2DIYChef
             if (replacer != null) ChefLoading.Cancel(replacer);
             if (camera != null) camera.targetTexture = null;
             if (target != null) { target.Release(); Object.Destroy(target); }
+            if (detailTarget != null) { detailTarget.Release(); Object.Destroy(detailTarget); }
+            if (detailImage != null) { Object.Destroy(detailImage); detailImage = null; }
             if (stage != null) { stage.SetActive(false); Object.Destroy(stage); }
             foreach (var texture in images.Values) Object.Destroy(texture);
             images.Clear();

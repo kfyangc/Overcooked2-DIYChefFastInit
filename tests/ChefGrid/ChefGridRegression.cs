@@ -31,11 +31,16 @@ static class ChefGridRegression
         Check(ChefGridNavigation.TurnPage(0, -1, 81, 40) == 2 &&
             ChefGridNavigation.TurnPage(2, 1, 81, 40) == 0, "page wrapping");
         Check(ChefGridNavigation.PlayerKey(1, 0) != ChefGridNavigation.PlayerKey(1, 1), "split users have distinct cursors");
+        Check(ChefGridNavigation.Move(23, 109, 8, 1, 0) == 24, "eight-column grid crosses its 24-entry page");
+        Check(ChefGridNavigation.Move(18, 109, 8, 0, 1) == 26, "eight-column vertical movement crosses a page");
+        Check(ChefGridNavigation.Move(103, 109, 8, 0, 1) == 108, "eight-column final row has no empty target");
+        Check(ChefGridNavigation.PageCount(109, 24) == 5 && ChefGridNavigation.TurnPage(4, 1, 109, 24) == 0,
+            "24-entry pagination covers the user roster and wraps");
         for (int count = 1; count <= 400; count++)
             for (int index = 0; index < count; index++)
                 foreach (var delta in new[] { new[] { -1, 0 }, new[] { 1, 0 }, new[] { 0, -1 }, new[] { 0, 1 } })
                 {
-                    int next = ChefGridNavigation.Move(index, count, 10, delta[0], delta[1]);
+                    int next = ChefGridNavigation.Move(index, count, 8, delta[0], delta[1]);
                     Check(next >= 0 && next < count, "navigation always reaches a real entry");
                 }
 

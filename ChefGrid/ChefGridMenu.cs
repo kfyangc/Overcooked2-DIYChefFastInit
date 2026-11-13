@@ -12,7 +12,9 @@ namespace OC2DIYChef
 {
     public sealed class ChefGridMenu : MonoBehaviour
     {
-        const int Columns = 10, Rows = 4, PageSize = Columns * Rows;
+        const int Columns = 8, Rows = 3, PageSize = Columns * Rows;
+        const float GridX = 48, GridY = 160, CellStepX = 112, CellStepY = 148;
+        const float CellWidth = 104, CellHeight = 144;
         static ConfigEntry<bool> configured;
         static ConfigEntry<float> portraitYaw;
         static readonly MethodInfo fixedValue = AccessTools.Method(typeof(PlayerInputLookup), "GetFixedValue",
@@ -256,46 +258,42 @@ namespace OC2DIYChef
             if (Input.mouseScrollDelta.y != 0)
                 page = ChefGridNavigation.TurnPage(page, Input.mouseScrollDelta.y > 0 ? -1 : 1, entries.Count, PageSize);
             if (!Input.GetMouseButtonDown(0)) return;
-            if (y >= 100 && y < 140)
+            if (y >= 114 && y < 148)
             {
                 foreach (var cursor in cursors)
-                    if (x >= 48 + cursor.Player * 160 && x < 200 + cursor.Player * 160)
+                    if (x >= 48 + cursor.Player * 164 && x < 204 + cursor.Player * 164)
                     { focused = cursor; page = cursor.Index / PageSize; }
             }
-            if (x >= 48 && x < 1008 && y >= 162 && y < 562)
+            if (x >= GridX && x < GridX + Columns * CellStepX && y >= GridY && y < GridY + Rows * CellStepY)
             {
-                int col = (int)(x - 48) / 96, row = (int)(y - 162) / 100;
-                if ((x - 48) % 96 < 90 && (y - 162) % 100 < 94)
+                int col = (int)((x - GridX) / CellStepX), row = (int)((y - GridY) / CellStepY);
+                if ((x - GridX) % CellStepX < CellWidth && (y - GridY) % CellStepY < CellHeight)
                 {
                     int index = page * PageSize + row * Columns + col;
                     if (index < entries.Count) Select(focused, index);
                 }
             }
-            if (y >= 595 && y < 635)
+            if (y >= 608 && y < 640)
             {
-                if (x >= 48 && x < 158) page = ChefGridNavigation.TurnPage(page, -1, entries.Count, PageSize);
-                if (x >= 898 && x < 1008) page = ChefGridNavigation.TurnPage(page, 1, entries.Count, PageSize);
+                if (x >= 48 && x < 184) page = ChefGridNavigation.TurnPage(page, -1, entries.Count, PageSize);
+                if (x >= 800 && x < 936) page = ChefGridNavigation.TurnPage(page, 1, entries.Count, PageSize);
             }
-            if (y >= 657 && y < 701)
+            if (y >= 650 && y < 686)
             {
-                if (x >= 880 && x < 1032) owner.Close();
-                if (x >= 1050 && x < 1230) Accept();
+                if (x >= 904 && x < 1056) owner.Close();
+                if (x >= 1072 && x < 1232) Accept();
             }
         }
 
         void BuildUI()
         {
-            font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            // Reuse the game's font when it includes the current language's glyphs.
-            foreach (var text in owner.GetComponentsInChildren<Text>(true))
-                if (text.font != null && (!Chinese || text.font.HasCharacter('厨'))) { font = text.font; break; }
-            if (Chinese && !font.HasCharacter('厨'))
-            {
-                font = Font.CreateDynamicFontFromOSFont(new[] { "Microsoft YaHei", "SimHei", "Arial" }, 20);
-                ownsFont = true;
-            }
+            // Use a readable body font: the game's decorative font loses detail in small names.
+            font = Font.CreateDynamicFontFromOSFont(Chinese ?
+                new[] { "Microsoft YaHei", "SimHei", "Arial" } : new[] { "Segoe UI", "Arial" }, 24);
+            ownsFont = true;
             canvasObject = new GameObject("DIYChef grid", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            canvasObject.transform.SetParent(owner.transform, false);
+            // Keep this a root canvas. A canvas below the original menu inherits its transform scale
+            // and becomes a nested canvas, so CanvasScaler cannot size it to the actual screen.
             if (owner.CachedEventSystem != null) owner.CachedEventSystem.SetSelectedGameObject(null);
             var canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -309,44 +307,50 @@ namespace OC2DIYChef
             var backRect = (RectTransform)backdrop.transform;
             backRect.anchorMin = Vector2.zero; backRect.anchorMax = Vector2.one;
             backRect.offsetMin = backRect.offsetMax = Vector2.zero;
-            backdrop.GetComponent<Image>().color = new Color(0.12f, 0.3f, 0.42f, 0.98f);
+            backdrop.GetComponent<Image>().color = new Color(0.04f, 0.08f, 0.12f, 0.78f);
             frame = Rect(canvasObject.transform, "Frame", 0, 0, 1280, 720);
             frame.anchorMin = frame.anchorMax = new Vector2(0.5f, 0.5f);
             frame.anchoredPosition = Vector2.zero;
-            Box(frame, "Header", 0, 0, 1280, 84, new Color(0.17f, 0.36f, 0.5f));
-            Label(frame, "Title", L("选择厨师", "CHEFS"), 48, 18, 750, 54, 38, Color.white);
-            Label(frame, "Total", entries.Count + L(" 位厨师", " CHEFS"), 1020, 28, 210, 36, 22, Color.white);
-            Box(frame, "Paper", 28, 148, 1224, 492, Paper);
+            Box(frame, "Panel border", 24, 24, 1232, 672, Ink);
+            Box(frame, "Panel", 28, 28, 1224, 664, Paper);
+            Box(frame, "Header", 40, 40, 1200, 58, Ink);
+            Label(frame, "Title", L("选择厨师", "CHEFS"), 56, 42, 650, 54, 34, Color.white);
+            Label(frame, "Total", entries.Count + L(" 位厨师", " CHEFS"), 1016, 49, 208, 40, 22, Color.white);
             for (int i = 0; i < 4; i++)
             {
-                playerTabs[i] = Box(frame, "Player " + i, 48 + i * 160, 100, 152, 40, Ink);
-                playerLabels[i] = Label(playerTabs[i].transform, "Label", "P" + (i + 1), 8, 0, 136, 40, 20, Color.white);
+                playerTabs[i] = Box(frame, "Player " + i, 48 + i * 164, 114, 156, 34, Ink);
+                playerLabels[i] = Label(playerTabs[i].transform, "Label", "P" + (i + 1), 6, 0, 144, 34, 19, Color.white);
             }
             for (int i = 0; i < PageSize; i++)
             {
-                float x = 48 + i % Columns * 96, y = 162 + i / Columns * 100;
+                float x = GridX + i % Columns * CellStepX, y = GridY + i / Columns * CellStepY;
                 var cell = cells[i] = new Cell();
-                cell.Border = Box(frame, "Chef " + i, x, y, 90, 94, Ink);
+                cell.Border = Box(frame, "Chef " + i, x, y, CellWidth, CellHeight, Ink);
                 cell.Root = cell.Border.gameObject;
-                cell.Background = Box(cell.Root.transform, "Card", 3, 3, 84, 88, new Color(0.72f, 0.76f, 0.73f));
-                cell.Portrait = Rect(cell.Root.transform, "Portrait", 4, 4, 82, 68).gameObject.AddComponent<RawImage>();
+                cell.Background = Box(cell.Root.transform, "Card", 3, 3, CellWidth - 6, CellHeight - 6, new Color(0.98f, 0.97f, 0.93f));
+                cell.Portrait = Rect(cell.Root.transform, "Portrait", 8, 4, 88, 88).gameObject.AddComponent<RawImage>();
                 cell.Portrait.raycastTarget = false;
-                cell.Portrait.uvRect = new Rect(0, 0.085f, 1, 0.83f);
-                cell.Name = Label(cell.Root.transform, "Name", "", 4, 73, 82, 18, 12, Ink);
-                cell.Players = Label(cell.Root.transform, "Cursors", "", 4, 4, 82, 19, 14, Color.white);
+                // The square picture ends above the separate two-line caption; no UV crop or overlay.
+                cell.Name = Label(cell.Root.transform, "Name", "", 4, 96, 96, 44, 17, Ink);
+                cell.Name.lineSpacing = 0.95f;
+                cell.Players = Label(cell.Root.transform, "Cursors", "", 6, 6, 92, 22, 16, Color.white);
                 cell.Players.GetComponent<Text>().fontStyle = FontStyle.Bold;
             }
-            detailPortrait = Rect(frame, "Selected portrait", 1030, 175, 198, 198).gameObject.AddComponent<RawImage>();
+            Box(frame, "Preview panel", 952, 114, 280, 486, new Color(0.98f, 0.97f, 0.93f));
+            detailPortrait = Rect(frame, "Selected portrait", 964, 126, 256, 256).gameObject.AddComponent<RawImage>();
             detailPortrait.raycastTarget = false;
-            detailName = Label(frame, "Selected name", "", 1030, 389, 198, 72, 24, Ink);
-            detailKind = Label(frame, "Selected kind", "", 1030, 472, 198, 38, 18, Ink);
-            detailPosition = Label(frame, "Selected index", "", 1030, 518, 198, 40, 20, Ink);
-            ButtonVisual(frame, "Previous page", L("< 上一页", "< PREV"), 48, 595, 110, 40);
-            ButtonVisual(frame, "Next page", L("下一页 >", "NEXT >"), 898, 595, 110, 40);
-            pageLabel = Label(frame, "Page", "", 180, 595, 696, 40, 20, Ink);
-            Label(frame, "Help", L("方向键 / 摇杆 移动    滚轮 / PgUp PgDn 翻页    点击头像选择", "D-pad / stick: move    Wheel / PgUp PgDn: page    Click: choose"), 48, 657, 810, 44, 17, Color.white);
-            ButtonVisual(frame, "Back", L("返回 / B", "BACK / B"), 880, 657, 152, 44);
-            ButtonVisual(frame, "Accept", L("确认 / A", "ACCEPT / A"), 1050, 657, 180, 44);
+            detailName = Label(frame, "Selected name", "", 964, 398, 256, 84, 26, Ink);
+            detailName.resizeTextForBestFit = true;
+            detailName.resizeTextMinSize = 20;
+            detailName.resizeTextMaxSize = 26;
+            detailKind = Label(frame, "Selected kind", "", 964, 500, 256, 36, 20, Ink);
+            detailPosition = Label(frame, "Selected index", "", 964, 548, 256, 36, 22, Ink);
+            ButtonVisual(frame, "Previous page", L("< 上一页", "< PREV"), 48, 608, 136, 32);
+            ButtonVisual(frame, "Next page", L("下一页 >", "NEXT >"), 800, 608, 136, 32);
+            pageLabel = Label(frame, "Page", "", 200, 608, 584, 32, 19, Ink);
+            Label(frame, "Help", L("方向键 / 摇杆移动　滚轮 / PgUp PgDn 翻页　点击头像选择", "D-pad / stick: move   Wheel / PgUp PgDn: page   Click: choose"), 48, 650, 840, 36, 18, Ink);
+            ButtonVisual(frame, "Back", L("返回 / B", "BACK / B"), 904, 650, 152, 36);
+            ButtonVisual(frame, "Accept", L("确认 / A", "ACCEPT / A"), 1072, 650, 160, 36);
         }
 
         void Refresh()
@@ -381,7 +385,7 @@ namespace OC2DIYChef
                 if (focused.Index == index) cell.Border.color = PlayerColours[focused.Player];
             }
             var selected = entries[focused.Index];
-            detailPortrait.texture = portraits == null ? null : portraits.Get(selected);
+            detailPortrait.texture = portraits == null ? null : portraits.GetDetail(selected);
             detailPortrait.enabled = detailPortrait.texture != null;
             detailName.text = selected.Label;
             detailKind.text = selected.CustomID == 255 ? L("官方厨师", "ORIGINAL CHEF") : L("额外厨师", "CUSTOM CHEF");
@@ -418,6 +422,8 @@ namespace OC2DIYChef
             text.text = value;
             text.color = colour;
             text.alignment = TextAnchor.MiddleCenter;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
             text.raycastTarget = false;
             return text;
         }
