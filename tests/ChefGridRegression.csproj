@@ -6,6 +6,6 @@
     <OutputPath>bin/chef-grid/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ChefGrid/ChefGridRegression.cs;../ChefGrid/ChefGridNavigation.cs;../ChefGrid/ChefGridRoster.cs" />
+    <Compile Include="ChefGrid/ChefGridRegression.cs;ChefGrid/ChefGridFramingRegression.cs;../ChefGrid/ChefGridNavigation.cs;../ChefGrid/ChefGridRoster.cs;../ChefGrid/ChefGridFraming.cs" />
   </ItemGroup>
 </Project>

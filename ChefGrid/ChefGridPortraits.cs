@@ -29,6 +29,8 @@ namespace OC2DIYChef
         readonly Camera camera;
         readonly RenderTexture target;
         readonly RenderTexture detailTarget;
+        readonly Mesh bakedMesh;
+        readonly List<Vector3> bakedVertices = new List<Vector3>();
         readonly ChefColourData colour;
         readonly HashSet<ChefGridEntry> failedDetails = new HashSet<ChefGridEntry>();
         Texture2D detailImage;
@@ -45,6 +47,7 @@ namespace OC2DIYChef
             stage.transform.position = new Vector3(10000, -10000, 10000);
             try
             {
+                bakedMesh = new Mesh { name = "DIYChef portrait geometry", hideFlags = HideFlags.HideAndDontSave };
                 var sourceReplacer = (ChefMeshReplacer)AccessTools.Field(typeof(FrontendChefCustomisation), "m_chef").GetValue(source);
                 var templateField = AccessTools.Field(typeof(ChefMeshReplacer), "m_chefTemplatePrefab");
                 var template = (GameObject)templateField.GetValue(sourceReplacer);
@@ -140,7 +143,7 @@ namespace OC2DIYChef
         {
             string path;
             if (paths.TryGetValue(entry, out path)) return size == Size ? path : Path.ChangeExtension(path, ".512.png");
-            var key = new StringBuilder("portrait-v2|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
+            var key = new StringBuilder("portrait-v3|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
                 stage.transform.GetChild(0).localEulerAngles.y + "|" + colour.name);
             var game = new FileInfo(typeof(ChefAvatarData).Assembly.Location);
             key.Append('|').Append(game.Length).Append('|').Append(game.LastWriteTimeUtc.Ticks);
@@ -204,7 +207,7 @@ namespace OC2DIYChef
                     if (Time.frameCount < readyFrame) return;
                     try
                     {
-                        var texture = Capture(pendingSize);
+                        var texture = Capture(pendingSize, pending.Avatar.HeadName);
                         Store(pending, texture, pendingSize);
                         Save(pending, texture, pendingSize);
                     }
@@ -328,7 +331,7 @@ namespace OC2DIYChef
             catch { if (result != null) Object.Destroy(result); throw; }
         }
 
-        Texture2D Capture(int size)
+        Texture2D Capture(int size, string headName)
         {
             view.ChefModel.SetActive(true);
             view.SetChefHat(HatMeshVisibility.VisState.Fancy);
@@ -339,20 +342,20 @@ namespace OC2DIYChef
                 animator.Update(0);
                 animator.enabled = false;
             }
-            var bounds = new Bounds();
-            bool found = false;
+            var all = new ChefPortraitBounds();
+            var head = new ChefPortraitBounds();
+            float front = 0;
             foreach (var renderer in view.ChefModel.GetComponentsInChildren<Renderer>())
             {
                 if (!renderer.enabled || !renderer.gameObject.activeInHierarchy || renderer is ParticleSystemRenderer) continue;
-                if (!found) { bounds = renderer.bounds; found = true; }
-                else bounds.Encapsulate(renderer.bounds);
+                var part = Measure(renderer, ref front);
+                all.Include(part);
+                if (renderer.name == headName || renderer.name == "Head1" || renderer.name == "Head2") head.Include(part);
             }
-            if (!found) throw new InvalidOperationException("model has no visible renderers");
-            float height = Mathf.Max(0.2f, bounds.size.y);
-            Vector3 center = bounds.center;
-            camera.transform.position = center + new Vector3(0, 0, 8);
-            camera.transform.LookAt(center);
-            camera.orthographicSize = Mathf.Max(height * 0.55f, bounds.extents.x * 1.1f);
+            var framing = ChefGridFraming.Calculate(all, head, size == Size);
+            camera.transform.localPosition = new Vector3(framing.X, framing.Y, front + 8);
+            camera.transform.localRotation = Quaternion.Euler(0, 180, 0);
+            camera.orthographicSize = framing.HalfSize;
             var previous = RenderTexture.active;
             var previousTarget = camera.targetTexture;
             try
@@ -363,6 +366,48 @@ namespace OC2DIYChef
                 return ReadTarget(destination, size);
             }
             finally { camera.targetTexture = previousTarget; RenderTexture.active = previous; }
+        }
+
+        ChefPortraitBounds Measure(Renderer renderer, ref float front)
+        {
+            Mesh mesh = null;
+            var skin = renderer as SkinnedMeshRenderer;
+            if (skin != null && skin.sharedMesh != null)
+            {
+                // Imported localBounds are in the bind pose and may be off-center after skinning.
+                // Bake only the isolated snapshot; actual player meshes are never changed.
+                bakedMesh.Clear();
+                skin.BakeMesh(bakedMesh);
+                bakedMesh.RecalculateBounds();
+                skin.localBounds = bakedMesh.bounds;
+                mesh = bakedMesh;
+            }
+            else
+            {
+                var filter = renderer.GetComponent<MeshFilter>();
+                if (filter != null && filter.sharedMesh != null && filter.sharedMesh.isReadable) mesh = filter.sharedMesh;
+            }
+            var bounds = new ChefPortraitBounds();
+            if (mesh != null)
+            {
+                bakedVertices.Clear();
+                mesh.GetVertices(bakedVertices);
+                var matrix = stage.transform.worldToLocalMatrix * renderer.localToWorldMatrix;
+                foreach (var vertex in bakedVertices)
+                {
+                    var point = matrix.MultiplyPoint3x4(vertex);
+                    bounds.Include(point.x, point.y);
+                    front = Mathf.Max(front, point.z);
+                }
+            }
+            else
+            {
+                var min = stage.transform.InverseTransformPoint(renderer.bounds.min);
+                var max = stage.transform.InverseTransformPoint(renderer.bounds.max);
+                bounds.Include(min.x, min.y); bounds.Include(max.x, max.y);
+                front = Mathf.Max(front, max.z);
+            }
+            return bounds;
         }
 
         void SilenceModel()
@@ -379,6 +424,7 @@ namespace OC2DIYChef
             if (target != null) { target.Release(); Object.Destroy(target); }
             if (detailTarget != null) { detailTarget.Release(); Object.Destroy(detailTarget); }
             if (detailImage != null) { Object.Destroy(detailImage); detailImage = null; }
+            if (bakedMesh != null) Object.Destroy(bakedMesh);
             if (stage != null) { stage.SetActive(false); Object.Destroy(stage); }
             foreach (var texture in images.Values) Object.Destroy(texture);
             images.Clear();
