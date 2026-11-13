@@ -16,15 +16,32 @@ namespace OC2DIYChef
             return Math.Min(row * columns + index % columns, count - 1);
         }
 
-        internal static int PageCount(int count, int pageSize)
+        internal static int RowCount(int count)
         {
-            return Math.Max(1, (count + Math.Max(1, pageSize) - 1) / Math.Max(1, pageSize));
+            return (int)((Math.Max(0L, count) + ChefGridLayout.Columns - 1) / ChefGridLayout.Columns);
         }
 
-        internal static int TurnPage(int page, int delta, int count, int pageSize)
+        internal static int LastFirstRow(int count)
         {
-            int pages = PageCount(count, pageSize);
-            return (int)Math.Max(0L, Math.Min(pages - 1L, (long)page + delta));
+            return Math.Max(0, RowCount(count) - ChefGridLayout.Rows);
+        }
+
+        internal static int Follow(int firstVisibleRow, int index, int count)
+        {
+            int first = Math.Max(0, Math.Min(LastFirstRow(count), firstVisibleRow));
+            int row = Math.Max(0, Math.Min(Math.Max(0, count - 1), index)) / ChefGridLayout.Columns;
+            // One row of context above and below the cursor, except at the list ends.
+            if (row < first + 1) first = row - 1;
+            else if (row > first + ChefGridLayout.Rows - 2) first = row - (ChefGridLayout.Rows - 2);
+            return Math.Max(0, Math.Min(LastFirstRow(count), first));
+        }
+
+        internal static int ShiftRows(int index, int count, int delta)
+        {
+            if (count <= 0) return -1;
+            index = Math.Max(0, Math.Min(count - 1, index));
+            long row = Math.Max(0L, Math.Min(RowCount(count) - 1L, (long)index / ChefGridLayout.Columns + delta));
+            return (int)Math.Min(count - 1L, row * ChefGridLayout.Columns + index % ChefGridLayout.Columns);
         }
 
         internal static long PlayerKey(int engagement, int split)

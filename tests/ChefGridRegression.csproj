@@ -10,6 +10,7 @@
     <Compile Include="ChefGrid/ChefGridPoseRegression.cs;../ChefGrid/ChefGridPose.cs" />
     <Compile Include="ChefGrid/ChefGridFaceRegression.cs" />
     <Compile Include="ChefGrid/ChefGridCacheWarmupRegression.cs;../ChefGrid/ChefGridCacheWarmup.cs" />
+    <Compile Include="ChefGrid/ChefGridInteractionRegression.cs;../ChefGrid/ChefGridTurnOrder.cs;../ChefGrid/ChefGridControls.cs" />
     <Compile Include="ChefGrid/ChefGridRegression.cs;ChefGrid/ChefGridFramingRegression.cs;ChefGrid/ChefGridTransparencyRegression.cs;ChefGrid/ChefGridLayoutRegression.cs;../ChefGrid/ChefGridNavigation.cs;../ChefGrid/ChefGridRoster.cs;../ChefGrid/ChefGridFraming.cs;../ChefGrid/ChefGridTransparency.cs;../ChefGrid/ChefGridLayout.cs" />
   </ItemGroup>
 </Project>

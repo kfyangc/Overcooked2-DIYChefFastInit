@@ -24,6 +24,7 @@ static class ChefGridRegression
         checks += ChefGridPoseRegression.Run();
         checks += ChefGridFaceRegression.Run();
         checks += ChefGridCacheWarmupRegression.Run();
+        checks += ChefGridInteractionRegression.Run();
         Check(ChefGridNavigation.Move(0, 0, 10, 1, 0) == -1, "empty roster");
         Check(ChefGridNavigation.Move(0, 1, 10, 0, -1) == 0, "single entry");
         Check(ChefGridNavigation.Move(39, 81, 10, 1, 0) == 40, "right crosses a page");
@@ -36,35 +37,51 @@ static class ChefGridRegression
         Check(ChefGridNavigation.Move(4, 81, 10, 0, -1) == 4, "top row preserves its column at the boundary");
         Check(ChefGridNavigation.Move(105, 109, 10, 0, 1) == 105 &&
             ChefGridNavigation.Move(108, 109, 10, 0, 1) == 108, "the partial last row cannot wrap to the first page");
-        Check(ChefGridNavigation.PageCount(0, 40) == 1 && ChefGridNavigation.PageCount(40, 40) == 1 &&
-            ChefGridNavigation.PageCount(41, 40) == 2, "page boundaries");
-        Check(ChefGridNavigation.TurnPage(0, -1, 81, 40) == 0 &&
-            ChefGridNavigation.TurnPage(2, 1, 81, 40) == 2, "page navigation stops at both ends");
+        Check(ChefGridNavigation.RowCount(0) == 0 && ChefGridNavigation.RowCount(50) == 5 &&
+            ChefGridNavigation.RowCount(51) == 6, "fixed ten-column row counts");
         Check(ChefGridNavigation.PlayerKey(1, 0) != ChefGridNavigation.PlayerKey(1, 1), "split users have distinct cursors");
-        Check(ChefGridNavigation.Move(23, 109, 8, 1, 0) == 24, "eight-column grid crosses its 24-entry page");
-        Check(ChefGridNavigation.Move(18, 109, 8, 0, 1) == 26, "eight-column vertical movement crosses a page");
-        Check(ChefGridNavigation.Move(103, 109, 8, 0, 1) == 108, "eight-column final row has no empty target");
-        Check(ChefGridNavigation.PageCount(109, 24) == 5 && ChefGridNavigation.TurnPage(4, 1, 109, 24) == 4,
-            "24-entry pagination covers the user roster and stops at its final page");
-        Check(ChefGridNavigation.Move(31, 109, 8, 1, 0) == 32, "four-row grid moves to the next page");
-        Check(ChefGridNavigation.PageCount(109, 32) == 4 && ChefGridNavigation.TurnPage(3, 1, 109, 32) == 3,
-            "32-entry pages cover the roster without wrapping");
+        Check(ChefGridNavigation.Follow(0, 30, 109) == 0 && ChefGridNavigation.Follow(0, 40, 109) == 1,
+            "downward movement scrolls by one row as the cursor enters the fifth visible row");
+        Check(ChefGridNavigation.Follow(3, 40, 109) == 3 && ChefGridNavigation.Follow(3, 30, 109) == 2,
+            "upward movement scrolls by one row as the cursor enters the first visible row");
+        Check(ChefGridNavigation.Follow(0, 0, 109) == 0 && ChefGridNavigation.Follow(5, 108, 109) == 6,
+            "top and bottom rows can reach viewport edges without looping or empty trailing rows");
+        Check(ChefGridNavigation.ShiftRows(25, 109, -3) == 5 && ChefGridNavigation.ShiftRows(25, 109, 3) == 55 &&
+            ChefGridNavigation.ShiftRows(99, 109, 1) == 108, "row scrolling preserves columns or clamps to the partial last row");
+        Check(ChefGridNavigation.ShiftRows(108, 109, int.MaxValue) == 108 &&
+            ChefGridNavigation.ShiftRows(25, 109, int.MinValue) == 5 && ChefGridNavigation.ShiftRows(0, 0, 1) == -1,
+            "scrolling at either end is bounded, including empty rosters and extreme deltas");
         for (int count = 1; count <= 400; count++)
             for (int index = 0; index < count; index++)
                 foreach (var delta in new[] { new[] { -1, 0 }, new[] { 1, 0 }, new[] { 0, -1 }, new[] { 0, 1 } })
                 {
-                    int next = ChefGridNavigation.Move(index, count, 8, delta[0], delta[1]);
+                    int next = ChefGridNavigation.Move(index, count, 10, delta[0], delta[1]);
                     Check(next >= 0 && next < count &&
                         ((delta[0] > 0 || delta[1] > 0) ? next >= index : next <= index),
                         "navigation reaches a real entry without reversing or wrapping at an edge");
                 }
         for (int count = 0; count <= 400; count++)
         {
-            int pages = ChefGridNavigation.PageCount(count, 50);
-            for (int page = 0; page < pages; page++)
-                Check(ChefGridNavigation.TurnPage(page, -1, count, 50) == Math.Max(0, page - 1) &&
-                    ChefGridNavigation.TurnPage(page, 1, count, 50) == Math.Min(pages - 1, page + 1),
-                    "scroll, page keys and pager buttons stay within the available page range");
+            int last = ChefGridNavigation.LastFirstRow(count);
+            Check(ChefGridNavigation.Follow(-100, 0, count) == 0 &&
+                ChefGridNavigation.Follow(1000, count - 1, count) == last, "invalid initial scroll positions clamp to list ends");
+            for (int index = 0; index < count; index++)
+            {
+                int first = ChefGridNavigation.Follow(0, index, count);
+                foreach (int dy in new[] { -1, 1 })
+                {
+                    int next = ChefGridNavigation.Move(index, count, 10, 0, dy);
+                    int follow = ChefGridNavigation.Follow(first, next, count);
+                    int visibleRow = next / 10 - follow;
+                    Check(follow >= 0 && follow <= last && visibleRow >= 0 && visibleRow < 5 &&
+                        (visibleRow >= 1 || follow == 0) && (visibleRow <= 3 || follow == last) &&
+                        Math.Abs(follow - first) <= 1,
+                        "one-row movement keeps the cursor in rows 2-4 except at the bounded list ends");
+                    var rect = new ChefGridLayout().Cell(next - follow * 10);
+                    Check(new ChefGridLayout().HitTest(rect.X + rect.Size / 2, rect.Y + rect.Size / 2, follow, count) == next,
+                        "mouse hit testing follows the same scrolled entry as keyboard navigation");
+                }
+            }
         }
 
         var official = Chef("Chef_First");

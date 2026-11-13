@@ -7,22 +7,18 @@ namespace OC2DIYChef
         internal float X, Y, Size;
     }
 
-    // Shared geometry for rendering and mouse hit testing at every configured density.
+    // Fixed viewport; rendering and hit testing share the same stored float edges.
     internal sealed class ChefGridLayout
     {
-        internal const int MinColumns = 4, MaxColumns = 16, MinRows = 2, MaxRows = 8;
+        internal const int Columns = 10, Rows = 5, VisibleCount = Columns * Rows;
         internal const float Left = 48, Top = 160, Width = 888, Height = 440;
-        internal readonly int Columns, Rows;
-        internal int PageSize { get { return Columns * Rows; } }
         readonly float[] xEdges, yEdges;
         readonly float side;
         internal float GridRight { get { return xEdges[Columns]; } }
         internal float GridBottom { get { return yEdges[Rows]; } }
 
-        internal ChefGridLayout(int columns, int rows)
+        internal ChefGridLayout()
         {
-            Columns = Math.Max(MinColumns, Math.Min(MaxColumns, columns));
-            Rows = Math.Max(MinRows, Math.Min(MaxRows, rows));
             side = Math.Min(Width / Columns, Height / Rows);
             float originX = Left + Math.Max(0, (Width - Columns * side) * 0.5f);
             float originY = Top + Math.Max(0, (Height - Rows * side) * 0.5f);
@@ -39,14 +35,14 @@ namespace OC2DIYChef
             return new ChefGridCellRect { X = xEdges[slot % Columns], Y = yEdges[slot / Columns], Size = side };
         }
 
-        internal int HitTest(float x, float y, int page, int count)
+        internal int HitTest(float x, float y, int firstVisibleRow, int count)
         {
             if (x < xEdges[0] || y < yEdges[0] || x >= GridRight ||
-                y >= GridBottom || page < 0 || count <= 0) return -1;
+                y >= GridBottom || firstVisibleRow < 0 || count <= 0) return -1;
             int column = AxisIndex(x, xEdges), row = AxisIndex(y, yEdges);
             int slot = row * Columns + column;
-            int index = page * PageSize + slot;
-            return index < count ? index : -1;
+            long index = (long)firstVisibleRow * Columns + slot;
+            return index < count ? (int)index : -1;
         }
 
         static int AxisIndex(float value, float[] edges)
