@@ -12,9 +12,9 @@ namespace OC2DIYChef
 {
     public sealed class ChefGridMenu : MonoBehaviour
     {
-        const int Columns = 8, Rows = 3, PageSize = Columns * Rows;
-        const float GridX = 48, GridY = 160, CellStepX = 112, CellStepY = 148;
-        const float CellWidth = 104, CellHeight = 144;
+        const int Columns = 8, Rows = 4, PageSize = Columns * Rows;
+        const float GridX = 48, GridY = 160, CellStepX = 112, CellStepY = 112;
+        const float CellWidth = 104, CellHeight = 104;
         static ConfigEntry<bool> configured;
         static ConfigEntry<float> portraitYaw;
         static readonly MethodInfo fixedValue = AccessTools.Method(typeof(PlayerInputLookup), "GetFixedValue",
@@ -42,7 +42,7 @@ namespace OC2DIYChef
             internal GameObject Root;
             internal Image Border, Background;
             internal RawImage Portrait;
-            internal Text Name, Players;
+            internal Text Players;
         }
 
         FrontendChefMenu owner;
@@ -328,11 +328,8 @@ namespace OC2DIYChef
                 cell.Border = Box(frame, "Chef " + i, x, y, CellWidth, CellHeight, Ink);
                 cell.Root = cell.Border.gameObject;
                 cell.Background = Box(cell.Root.transform, "Card", 3, 3, CellWidth - 6, CellHeight - 6, new Color(0.98f, 0.97f, 0.93f));
-                cell.Portrait = Rect(cell.Root.transform, "Portrait", 8, 4, 88, 88).gameObject.AddComponent<RawImage>();
+                cell.Portrait = Rect(cell.Root.transform, "Portrait", 4, 4, 96, 96).gameObject.AddComponent<RawImage>();
                 cell.Portrait.raycastTarget = false;
-                // The square picture ends above the separate two-line caption; no UV crop or overlay.
-                cell.Name = Label(cell.Root.transform, "Name", "", 4, 96, 96, 44, 17, Ink);
-                cell.Name.lineSpacing = 0.95f;
                 cell.Players = Label(cell.Root.transform, "Cursors", "", 6, 6, 92, 22, 16, Color.white);
                 cell.Players.GetComponent<Text>().fontStyle = FontStyle.Bold;
             }
@@ -373,7 +370,6 @@ namespace OC2DIYChef
                 var texture = portraits == null ? null : portraits.Get(entry);
                 cell.Portrait.texture = texture;
                 cell.Portrait.enabled = texture != null;
-                cell.Name.text = entry.Label;
                 cell.Players.text = "";
                 cell.Border.color = Ink;
                 foreach (var cursor in cursors)

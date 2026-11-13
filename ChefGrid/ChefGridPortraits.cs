@@ -29,7 +29,6 @@ namespace OC2DIYChef
         readonly Camera camera;
         readonly RenderTexture target;
         readonly RenderTexture detailTarget;
-        readonly Mesh bakedMesh;
         readonly List<Vector3> bakedVertices = new List<Vector3>();
         readonly ChefColourData colour;
         readonly HashSet<ChefGridEntry> failedDetails = new HashSet<ChefGridEntry>();
@@ -47,7 +46,6 @@ namespace OC2DIYChef
             stage.transform.position = new Vector3(10000, -10000, 10000);
             try
             {
-                bakedMesh = new Mesh { name = "DIYChef portrait geometry", hideFlags = HideFlags.HideAndDontSave };
                 var sourceReplacer = (ChefMeshReplacer)AccessTools.Field(typeof(FrontendChefCustomisation), "m_chef").GetValue(source);
                 var templateField = AccessTools.Field(typeof(ChefMeshReplacer), "m_chefTemplatePrefab");
                 var template = (GameObject)templateField.GetValue(sourceReplacer);
@@ -83,7 +81,8 @@ namespace OC2DIYChef
                 camera.enabled = false;
                 camera.orthographic = true;
                 camera.clearFlags = CameraClearFlags.SolidColor;
-                camera.backgroundColor = new Color(0.18f, 0.33f, 0.43f, 1);
+                camera.backgroundColor = Color.clear;
+                camera.useOcclusionCulling = false;
                 camera.nearClipPlane = 0.01f;
                 camera.farClipPlane = 30;
                 camera.cullingMask = (1 << actor.layer) | (1 << HatData.hatLayer);
@@ -143,7 +142,7 @@ namespace OC2DIYChef
         {
             string path;
             if (paths.TryGetValue(entry, out path)) return size == Size ? path : Path.ChangeExtension(path, ".512.png");
-            var key = new StringBuilder("portrait-v3|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
+            var key = new StringBuilder("portrait-v4|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
                 stage.transform.GetChild(0).localEulerAngles.y + "|" + colour.name);
             var game = new FileInfo(typeof(ChefAvatarData).Assembly.Location);
             key.Append('|').Append(game.Length).Append('|').Append(game.LastWriteTimeUtc.Ticks);
@@ -323,7 +322,7 @@ namespace OC2DIYChef
             try
             {
                 RenderTexture.active = source;
-                result = new Texture2D(size, size, TextureFormat.RGB24, false);
+                result = new Texture2D(size, size, TextureFormat.RGBA32, false);
                 result.ReadPixels(new Rect(0, 0, size, size), 0, 0);
                 result.Apply(false, false);
                 return result;
@@ -339,54 +338,68 @@ namespace OC2DIYChef
             SilenceModel();
             foreach (var animator in view.ChefModel.GetComponentsInChildren<Animator>(true))
             {
+                animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
                 animator.Update(0);
                 animator.enabled = false;
             }
-            var all = new ChefPortraitBounds();
-            var head = new ChefPortraitBounds();
-            float front = 0;
-            foreach (var renderer in view.ChefModel.GetComponentsInChildren<Renderer>())
+            using (var snapshot = new ChefGridSnapshot())
             {
-                if (!renderer.enabled || !renderer.gameObject.activeInHierarchy || renderer is ParticleSystemRenderer) continue;
-                var part = Measure(renderer, ref front);
-                all.Include(part);
-                if (renderer.name == headName || renderer.name == "Head1" || renderer.name == "Head2") head.Include(part);
+                var all = new ChefPortraitBounds();
+                var head = new ChefPortraitBounds();
+                float front = 0;
+                var renderers = view.ChefModel.GetComponentsInChildren<Renderer>();
+                foreach (var renderer in renderers)
+                {
+                    if (!renderer.enabled || !renderer.gameObject.activeInHierarchy || renderer is ParticleSystemRenderer) continue;
+                    var part = Measure(snapshot.Freeze(renderer), ref front);
+                    all.Include(part);
+                    if (renderer.name == headName || renderer.name == "Head1" || renderer.name == "Head2") head.Include(part);
+                }
+                var framing = ChefGridFraming.Calculate(all, head, size == Size);
+                camera.transform.localPosition = new Vector3(framing.X, framing.Y, front + 8);
+                camera.transform.localRotation = Quaternion.Euler(0, 180, 0);
+                camera.orthographicSize = framing.HalfSize;
+                return RenderTransparent(size);
             }
-            var framing = ChefGridFraming.Calculate(all, head, size == Size);
-            camera.transform.localPosition = new Vector3(framing.X, framing.Y, front + 8);
-            camera.transform.localRotation = Quaternion.Euler(0, 180, 0);
-            camera.orthographicSize = framing.HalfSize;
+        }
+
+        Texture2D RenderTransparent(int size)
+        {
             var previous = RenderTexture.active;
             var previousTarget = camera.targetTexture;
+            var previousBackground = camera.backgroundColor;
+            Texture2D result = null, white = null;
             try
             {
                 var destination = size == DetailSize ? detailTarget : target;
                 camera.targetTexture = destination;
+                camera.backgroundColor = Color.black;
                 camera.Render();
-                return ReadTarget(destination, size);
+                result = ReadTarget(destination, size);
+                camera.backgroundColor = Color.white;
+                camera.Render();
+                white = ReadTarget(destination, size);
+                byte[] pixels = result.GetRawTextureData();
+                ChefGridTransparency.Combine(pixels, white.GetRawTextureData());
+                result.LoadRawTextureData(pixels);
+                result.Apply(false, false);
+                return result;
             }
-            finally { camera.targetTexture = previousTarget; RenderTexture.active = previous; }
+            catch { if (result != null) Object.Destroy(result); throw; }
+            finally
+            {
+                if (white != null) Object.Destroy(white);
+                camera.targetTexture = previousTarget;
+                camera.backgroundColor = previousBackground;
+                RenderTexture.active = previous;
+            }
         }
 
         ChefPortraitBounds Measure(Renderer renderer, ref float front)
         {
             Mesh mesh = null;
-            var skin = renderer as SkinnedMeshRenderer;
-            if (skin != null && skin.sharedMesh != null)
-            {
-                // Imported localBounds are in the bind pose and may be off-center after skinning.
-                // Bake only the isolated snapshot; actual player meshes are never changed.
-                bakedMesh.Clear();
-                skin.BakeMesh(bakedMesh);
-                bakedMesh.RecalculateBounds();
-                skin.localBounds = bakedMesh.bounds;
-                mesh = bakedMesh;
-            }
-            else
-            {
-                var filter = renderer.GetComponent<MeshFilter>();
-                if (filter != null && filter.sharedMesh != null && filter.sharedMesh.isReadable) mesh = filter.sharedMesh;
-            }
+            var filter = renderer.GetComponent<MeshFilter>();
+            if (filter != null && filter.sharedMesh != null && filter.sharedMesh.isReadable) mesh = filter.sharedMesh;
             var bounds = new ChefPortraitBounds();
             if (mesh != null)
             {
@@ -424,7 +437,6 @@ namespace OC2DIYChef
             if (target != null) { target.Release(); Object.Destroy(target); }
             if (detailTarget != null) { detailTarget.Release(); Object.Destroy(detailTarget); }
             if (detailImage != null) { Object.Destroy(detailImage); detailImage = null; }
-            if (bakedMesh != null) Object.Destroy(bakedMesh);
             if (stage != null) { stage.SetActive(false); Object.Destroy(stage); }
             foreach (var texture in images.Values) Object.Destroy(texture);
             images.Clear();

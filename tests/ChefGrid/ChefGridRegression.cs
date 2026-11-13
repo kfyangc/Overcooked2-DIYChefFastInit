@@ -18,6 +18,7 @@ static class ChefGridRegression
     static void Main()
     {
         checks += ChefGridFramingRegression.Run();
+        checks += ChefGridTransparencyRegression.Run();
         Check(ChefGridNavigation.Move(0, 0, 10, 1, 0) == -1, "empty roster");
         Check(ChefGridNavigation.Move(0, 1, 10, 0, -1) == 0, "single entry");
         Check(ChefGridNavigation.Move(39, 81, 10, 1, 0) == 40, "right crosses a page");
@@ -37,6 +38,9 @@ static class ChefGridRegression
         Check(ChefGridNavigation.Move(103, 109, 8, 0, 1) == 108, "eight-column final row has no empty target");
         Check(ChefGridNavigation.PageCount(109, 24) == 5 && ChefGridNavigation.TurnPage(4, 1, 109, 24) == 0,
             "24-entry pagination covers the user roster and wraps");
+        Check(ChefGridNavigation.Move(31, 109, 8, 1, 0) == 32, "four-row grid moves to the next page");
+        Check(ChefGridNavigation.PageCount(109, 32) == 4 && ChefGridNavigation.TurnPage(3, 1, 109, 32) == 0,
+            "32-entry pages cover the roster after removing left captions");
         for (int count = 1; count <= 400; count++)
             for (int index = 0; index < count; index++)
                 foreach (var delta in new[] { new[] { -1, 0 }, new[] { 1, 0 }, new[] { 0, -1 }, new[] { 0, 1 } })
