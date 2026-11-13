@@ -15,7 +15,11 @@ namespace UnityEngine
         public Transform transform { get { return gameObject.transform; } }
         public T GetComponent<T>() where T : Component { return gameObject.GetComponent<T>(); }
     }
-    public class MonoBehaviour : Component { public bool enabled = true; }
+    public class MonoBehaviour : Component
+    {
+        public bool enabled = true;
+        public bool isActiveAndEnabled { get { return enabled && gameObject != null && gameObject.activeSelf; } }
+    }
     public class Animator : Component { }
     public class Transform : Component { public void SetParent(Transform parent, bool worldPositionStays) { } }
     public class GameObject : Object
@@ -78,6 +82,8 @@ static class GameUtils
 {
     static readonly PlayerManager manager = new PlayerManager();
     internal static T RequireManager<T>() where T : class { return manager as T; }
+    internal static GameSession Session;
+    internal static GameSession GetGameSession() { return Session; }
 }
 static class UserSystemUtils { internal static void BuildGameInputConfig() { PlayerInputLookup.Config = new GameInputConfig(); } }
 public static class PlayerInputLookup
@@ -92,7 +98,12 @@ public sealed class ChefMeshReplacer : UnityEngine.MonoBehaviour
     public UnityEngine.GameObject ChefModel = new UnityEngine.GameObject("Chef model");
 }
 public sealed class ChefAvatarData { public string HeadName = "Chef_Test"; }
-public static class GameSession { public sealed class SelectedChefData { public ChefAvatarData Character = new ChefAvatarData(); } }
+public sealed class GameSession
+{
+    public sealed class SelectedChefData { public ChefAvatarData Character = new ChefAvatarData(); }
+    public sealed class Settings { public string WorldMapScene; }
+    public Settings TypeSettings;
+}
 public sealed class FrontendChefCustomisation : UnityEngine.MonoBehaviour
 {
     ChefMeshReplacer m_chef;
@@ -140,6 +151,10 @@ namespace HarmonyLib
 {
     static class AccessTools
     {
+        internal static Type Inner(Type type, string name)
+        {
+            return type.GetNestedType(name, BindingFlags.Public | BindingFlags.NonPublic);
+        }
         internal static FieldInfo Field(Type type, string name)
         {
             return type.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
@@ -149,8 +164,21 @@ namespace HarmonyLib
 }
 namespace OC2DIYChef
 {
-    public sealed class LobbyFlowController { public readonly UIPlayerRoot m_uiPlayerRoot = new UIPlayerRoot(); }
-    public sealed class UIPlayerRoot
+    public sealed class LobbyFlowController
+    {
+        public enum LobbyState { PreSetup, Matchmake, LocalThemeSelection, OnlineThemeSelection, LocalThemeSelected }
+        public static LobbyFlowController Instance;
+        public readonly UIPlayerRootMenu m_uiPlayerRoot = new UIPlayerRootMenu();
+    }
+    public sealed class ClientLobbyFlowController
+    {
+        public static ClientLobbyFlowController Instance;
+#pragma warning disable CS0414 // Read through the production context adapter.
+        readonly LobbyFlowController.LobbyState m_state;
+#pragma warning restore CS0414
+        public ClientLobbyFlowController(LobbyFlowController.LobbyState state) { m_state = state; }
+    }
+    public sealed class UIPlayerRootMenu
     {
         public readonly Dictionary<User, UnityEngine.GameObject> Players = new Dictionary<User, UnityEngine.GameObject>();
         public void Add(User user)
@@ -168,6 +196,7 @@ namespace OC2DIYChef
     public sealed class ChefGridLobby
     {
         public readonly LobbyFlowController Flow = new LobbyFlowController();
+        public UIPlayerRootMenu Players { get { return Flow.m_uiPlayerRoot; } }
         internal readonly ChefGridLobbySession Session = new ChefGridLobbySession();
         public int Begins, Ends;
         internal void BeginInput(FrontendChefCustomisation[] views) { Begins++; Session.Begin(); }

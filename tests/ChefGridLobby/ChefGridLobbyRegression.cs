@@ -49,27 +49,7 @@ static class ChefGridLobbyRegression
         Check(selection.Find() == 2 && selection.Owns(left) && !selection.Owns(right) && !selection.Owns(remote),
             "Target identity distinguishes split sides and excludes remote users even with the same pad key");
 
-        int clicks = 0;
-        Action<UIPlayerMenuBehaviour> click = card => { if (ChefGridLobbySelection.FindLocal(card.UserInfo) >= 0) clicks++; };
-        Func<User, bool> visible = user => ChefGridLobbySelection.FindLocal(user) >= 0;
-        Func<User, bool> enabled = user => user != null && user.SelectedChefData != null;
-        Check(!ChefGridHostMenuBridge.Register(null, visible, click, enabled) &&
-            !ChefGridHostMenuBridge.Register(typeof(string), visible, click, enabled),
-            "Missing optional menu service uses the native path without a hard assembly dependency");
-        Check(ChefGridHostMenuBridge.Register(typeof(FakeHostPlayerMenu), visible, click, enabled),
-            "The exact internal HostUtilities Register signature is callable");
-        Check(FakeHostPlayerMenu.Key == ChefGridHostMenuBridge.Key && FakeHostPlayerMenu.Visible(left) &&
-            !FakeHostPlayerMenu.Visible(remote) && FakeHostPlayerMenu.Enabled(left),
-            "The registered row is limited to the local player's own name menu");
-        FakeHostPlayerMenu.Invoke(new UIPlayerMenuBehaviour { UserInfo = left });
-        FakeHostPlayerMenu.Invoke(new UIPlayerMenuBehaviour { UserInfo = remote });
-        Check(clicks == 1, "Clicking another machine's player cannot invoke the selection callback");
-        left.SelectedChefData = null;
-        FakeHostPlayerMenu.Invoke(new UIPlayerMenuBehaviour { UserInfo = left });
-        Check(clicks == 1, "The menu service respects the enabled predicate");
-        left.SelectedChefData = new GameSession.SelectedChefData();
-        Check(ChefGridHostMenuBridge.Register(typeof(FakeHostPlayerMenu), visible, click, enabled) &&
-            FakeHostPlayerMenu.Count == 1, "Re-registration replaces the same unique action instead of duplicating it");
+        checks += ChefGridMapRegression.Run();
 
         var lobby = new ChefGridLobby();
         foreach (var user in ClientUserSystem.m_Users._items) lobby.Flow.m_uiPlayerRoot.Add(user);
@@ -176,28 +156,19 @@ static class ChefGridLobbyRegression
         typeof(ChefGridLobbyMenu).GetMethod("OnDestroy", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(menu, null);
         Check(PlayerInputLookup.Config == gameplay && ClientUserSystem.usersChanged == null,
             "Old scene destruction cannot overwrite newly built gameplay input");
-        Console.WriteLine("PASS: " + checks + " own-player name-menu registration, selection and input assertions; no Unity/game process used.");
+        var mapHost = new GameObject("new map menu");
+        mapHost.SetActive(false);
+        var mapMenu = mapHost.AddComponent<ChefGridLobbyMenu>();
+        Check(mapMenu.Open(lobby, new GamepadUser(), ChefGridLobbySelection.Capture(left)), "Open before a direct scene mapping change");
+        var newGameplay = PlayerInputLookup.Config = new GameInputConfig();
+        typeof(ChefGridLobbyMenu).GetMethod("OnDestroy", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(mapMenu, null);
+        Check(PlayerInputLookup.Config == newGameplay && ClientUserSystem.usersChanged == null,
+            "Scene destruction without an early Hide preserves mappings already installed by the new scene");
+        Console.WriteLine("PASS: " + checks + " standalone player-menu context, selection and input assertions; no Unity/game process used.");
     }
 
     static void Tick(ChefGridLobbyMenu menu)
     {
         typeof(ChefGridLobbyMenu).GetMethod("Update", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(menu, null);
-    }
-}
-
-// Mirrors the inspected v1.9.9 internal registration contract.
-static class FakeHostPlayerMenu
-{
-    internal static string Key;
-    internal static Func<User, bool> Visible, Enabled;
-    internal static Action<UIPlayerMenuBehaviour> Click;
-    internal static int Count;
-    static void Register(string key, Func<User, bool> visible, Action<UIPlayerMenuBehaviour> click, Func<User, bool> enabled = null)
-    {
-        Key = key; Visible = visible; Click = click; Enabled = enabled; Count = 1;
-    }
-    internal static void Invoke(UIPlayerMenuBehaviour card)
-    {
-        if (Visible(card.UserInfo) && Enabled(card.UserInfo)) Click(card);
     }
 }

@@ -2,7 +2,7 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.2.0.15 (test build)**
+**Current version: 2.2.0.16 (test build)**
 
 This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248/Overcooked2-DIYChef) to reduce startup waits when many custom chefs and hats are installed, and to speed up loading previously cached resources. Existing chef resources, `prefer.txt` and BepInEx configuration remain compatible.
 
@@ -93,11 +93,11 @@ After each chef in `prefer.txt`, you can add `HAT=xxx` (separated by spaces) to 
 
 - Copy the DIY hat resource folder released by the modeler into the `OC2DIYChef/Resources/HATS` folder. Use the DIY hat resource folder name as the hat's name. 
 
-### Switching chefs at the arcade lobby
+### Switching chefs in the arcade lobby or world map
 
-While choosing a theme or matchmaking in the arcade lobby, click your player name and select **CHANGE CHEF** from its menu. The item appears only for local players and edits only the clicked player. Confirming returns directly to the lobby; cancelling restores only that player's previous chef. Frontend multiplayer selection still confirms in order.
+In the arcade lobby's theme/matchmaking screen or the world-map pause screen, click your player name and select **CHANGE CHEF**. The item appears only for local players and edits only the clicked player. Confirmation returns to the previous screen; cancellation restores only that player's chef. The world map stays paused. Frontend multiplayer selection still confirms in order.
 
-The separate corner button and global shortcuts from 2.2.0.14 have been removed. With HostUtilities installed, the item registers with its player-actions menu and uses its layout, pointer handling and controller navigation. Otherwise it uses the native menu template. No HostUtilities.dll or prefer.txt changes are required. The item follows `[ChefSelection] GridEnabled`. Actual menu appearance, input and online synchronization still need in-game testing.
+Chef selection runs entirely in this mod using the game's native menu template, events and navigation. There is no hard or soft HostUtilities dependency, detection, registration or invocation. Installing that plugin does not switch this implementation. No prefer.txt changes are required. The item follows `[ChefSelection] GridEnabled`. Actual menu appearance, input and online synchronization still need in-game testing.
 
 The older up/down shortcut remains available through `LOBBYSWITCHCHEF=TRUE` in `prefer.txt`; it is suspended while the grid is open.
 

@@ -1,5 +1,4 @@
 using HarmonyLib;
-using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -12,6 +11,7 @@ namespace OC2DIYChef
     internal static class ChefGridPlayerMenu
     {
         const UIPlayerMenuBehaviour.UIPlayerMenuOptions Option = (UIPlayerMenuBehaviour.UIPlayerMenuOptions)0x4449;
+        const string ButtonName = "DIYChef_ChangeChef";
         static readonly FieldInfo menuField = AccessTools.Field(typeof(UIPlayerMenuBehaviour), "m_menu");
         static readonly FieldInfo optionsField = AccessTools.Field(typeof(UIPlayerMenuBehaviour), "m_menuOptions");
         static readonly MethodInfo selected = AccessTools.Method(typeof(UIPlayerMenuBehaviour), "OnSelected");
@@ -19,37 +19,7 @@ namespace OC2DIYChef
         static readonly MethodInfo navigation = AccessTools.Method(typeof(UIPlayerMenuBehaviour), "UpdateNavigation");
         static readonly HashSet<UIPlayerMenuBehaviour> started = new HashSet<UIPlayerMenuBehaviour>();
         static readonly Dictionary<UIPlayerMenuBehaviour, T17Button> buttons = new Dictionary<UIPlayerMenuBehaviour, T17Button>();
-        static bool initialized, hostMenu;
         static string Label { get { return Localization.GetLanguage() == SupportedLanguages.Chinese ? "切换厨师" : "CHANGE CHEF"; } }
-
-        internal static void Initialize(Harmony harmony)
-        {
-            if (initialized) return;
-            initialized = true;
-            try
-            {
-                var service = AccessTools.TypeByName("HostUtilities.UI_PlayerActionsMenu");
-                var refresh = service == null ? null : AccessTools.Method(service, "Refresh");
-                if (refresh != null)
-                {
-                    hostMenu = ChefGridHostMenuBridge.Register(service, ChefGridLobby.CanShowFor,
-                        ChefGridLobby.OpenFor, ChefGridLobby.CanOpenFor);
-                    if (hostMenu) harmony.Patch(refresh, postfix: new HarmonyMethod(
-                        typeof(ChefGridPlayerMenu), nameof(HostRefresh)));
-                }
-                DIYChefPlugin.Log("Chef name menu entry: " + (hostMenu ? "HostUtilities registration" : "native menu"));
-            }
-            catch (Exception ex) { DIYChefPlugin.Warn("HostUtilities chef menu registration unavailable: " + ex); }
-        }
-
-        // HostUtilities owns cloning, layout, pointer focus and controller navigation.
-        // Apply our exact localized action label after each service refresh.
-        static void HostRefresh(UIPlayerMenuBehaviour __0)
-        {
-            var menu = (GameObject)menuField.GetValue(__0);
-            var item = menu == null ? null : menu.transform.Find("HostUtilities_" + ChefGridHostMenuBridge.Key);
-            if (item != null) SetLabel(item.GetComponent<T17Button>());
-        }
 
         internal static void Hide(UIPlayerMenuBehaviour card)
         {
@@ -75,11 +45,10 @@ namespace OC2DIYChef
             button.m_TooltipTag = Label;
         }
 
-        // Same native-template approach as HostUtilities, for installations without
-        // that optional plugin. Never create a second entry when its registry is used.
+        // Always use the game's own template, layout and menu navigation.
         static void Prepare(UIPlayerMenuBehaviour card)
         {
-            if (hostMenu || !started.Contains(card)) return;
+            if (!started.Contains(card)) return;
             var menu = (GameObject)menuField.GetValue(card);
             var options = (List<UIPlayerMenuBehaviour.MenuOption>)optionsField.GetValue(card);
             if (menu == null || options == null || options.Count == 0) return;
@@ -89,7 +58,7 @@ namespace OC2DIYChef
                 var template = options.Find(x => x.m_button != null).m_button;
                 if (template == null) return;
                 var item = Object.Instantiate(template.gameObject, menu.transform);
-                item.name = ChefGridHostMenuBridge.Key;
+                item.name = ButtonName;
                 item.SetActive(false);
                 button = item.GetComponent<T17Button>();
                 button.OnButtonSelect = b => selected.Invoke(card, new object[] { b });
@@ -119,7 +88,7 @@ namespace OC2DIYChef
         static void Arrange(UIPlayerMenuBehaviour card)
         {
             T17Button button;
-            if (hostMenu || !buttons.TryGetValue(card, out button) || button == null || !button.gameObject.activeSelf) return;
+            if (!buttons.TryGetValue(card, out button) || button == null || !button.gameObject.activeSelf) return;
             var menu = (GameObject)menuField.GetValue(card);
             if (menu.GetComponent<LayoutGroup>() != null)
             {
@@ -173,6 +142,22 @@ namespace OC2DIYChef
         static void Changed(UIPlayerMenuBehaviour __instance)
         {
             if (buttons.ContainsKey(__instance)) Prepare(__instance);
+        }
+
+        [HarmonyPostfix, HarmonyPatch(typeof(InGamePauseMenu), "Show")]
+        static void PauseShown(InGamePauseMenu __instance, bool __result)
+        {
+            if (!__result) return;
+            var players = ChefGridPlayerContext.PausePlayers(__instance);
+            if (players == null) return;
+            // Cards may have started while the pause menu was hidden. Refresh their
+            // available actions and name-bar interaction when the world map opens it.
+            foreach (var card in players.UIPlayers)
+            {
+                if (card == null) continue;
+                Prepare(card);
+                if (card.MenuButton != null) card.MenuButton.interactable = card.CanBeInteractedWith();
+            }
         }
 
         [HarmonyPostfix, HarmonyPatch(typeof(UIPlayerMenuBehaviour), "OnDestroy")]

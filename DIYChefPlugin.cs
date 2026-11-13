@@ -32,7 +32,6 @@ namespace OC2DIYChef
         void Start()
         {
             ModelTestCompatibility.Initialize();
-            ChefGridPlayerMenu.Initialize(patcher);
         }
 
         void Update()
@@ -44,8 +43,7 @@ namespace OC2DIYChef
 
         void OnDestroy()
         {
-            var lobby = LobbyFlowController.Instance;
-            if (lobby != null && lobby.GetComponent<ChefGridLobby>() != null) lobby.GetComponent<ChefGridLobby>().Shutdown();
+            ChefGridLobby.ShutdownActive();
             if (ChefGridMenu.Active != null) ChefGridMenu.Active.CloseGrid();
             ChefGridEngagementGuard.Shutdown();
             ModelTestCompatibility.Shutdown();

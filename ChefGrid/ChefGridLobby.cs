@@ -13,7 +13,6 @@ namespace OC2DIYChef
     // Input ownership only: entry is in the existing player name menu.
     public sealed class ChefGridLobby : MonoBehaviour
     {
-        static readonly FieldInfo state = AccessTools.Field(typeof(ClientLobbyFlowController), "m_state");
         static readonly FieldInfo leave = AccessTools.Field(typeof(ClientLobbyFlowController), "m_leaveButton");
         static readonly FieldInfo localInputs = AccessTools.Field(typeof(ClientLobbyFlowController), "m_localUserInput");
         static readonly FieldInfo changeTeam = AccessTools.Field(
@@ -24,26 +23,22 @@ namespace OC2DIYChef
         readonly List<Suppressor> suppressors = new List<Suppressor>();
         readonly HashSet<T17EventSystem> eventSystems = new HashSet<T17EventSystem>();
         ChefGridLobbyMenu menu;
-        internal LobbyFlowController Flow { get; private set; }
+        internal UIPlayerRootMenu Players { get; private set; }
         internal static bool Blocking { get { return current != null && current.session.Blocking; } }
 
-        internal static void Attach(LobbyFlowController flow)
+        internal static void Attach(UIPlayerRootMenu players)
         {
-            var entry = flow.GetComponent<ChefGridLobby>() ?? flow.gameObject.AddComponent<ChefGridLobby>();
-            entry.Flow = flow;
+            if (players == null) return;
+            var entry = players.GetComponent<ChefGridLobby>() ?? players.gameObject.AddComponent<ChefGridLobby>();
+            entry.Players = players;
             current = entry;
         }
 
         internal static bool CanShowFor(User user)
         {
-            var flow = LobbyFlowController.Instance;
-            var client = ClientLobbyFlowController.Instance;
             if (!ChefGridMenu.Enabled || user == null || user.SelectedChefData == null ||
-                ChefGridLobbySelection.FindLocal(user) < 0 || flow == null ||
-                flow.m_uiPlayerRoot == null || client == null) return false;
-            var value = (LobbyFlowController.LobbyState)state.GetValue(client);
-            return value == LobbyFlowController.LobbyState.LocalThemeSelection ||
-                value == LobbyFlowController.LobbyState.OnlineThemeSelection || value == LobbyFlowController.LobbyState.Matchmake;
+                ChefGridLobbySelection.FindLocal(user) < 0) return false;
+            return ChefGridPlayerContext.CurrentPlayers() != null;
         }
 
         internal static bool CanOpenFor(User user)
@@ -54,8 +49,8 @@ namespace OC2DIYChef
 
         internal static void OpenFor(UIPlayerMenuBehaviour card)
         {
-            if (card == null || !CanOpenFor(card.UserInfo) || card.m_rootMenu != LobbyFlowController.Instance.m_uiPlayerRoot) return;
-            Attach(LobbyFlowController.Instance);
+            if (card == null || !CanOpenFor(card.UserInfo) || card.m_rootMenu != ChefGridPlayerContext.CurrentPlayers()) return;
+            Attach(card.m_rootMenu);
             try { current.Open(card); }
             catch (Exception ex)
             {
@@ -78,7 +73,7 @@ namespace OC2DIYChef
             var gamer = card.UserInfo.GamepadUser;
             if (gamer != null && T17EventSystemsManager.Instance.GetEventSystemForGamepadUser(gamer) == null)
                 T17EventSystemsManager.Instance.AssignFreeEventSystemToGamepadUser(gamer);
-            Flow.m_uiPlayerRoot.CloseAllPlayerMenus();
+            Players.CloseAllPlayerMenus();
             ChefGridPlayerMenu.Hide(card);
             // Return to the name bar instead of the hidden menu item.
             var events = gamer == null ? null : T17EventSystemsManager.Instance.GetEventSystemForGamepadUser(gamer);
@@ -117,6 +112,13 @@ namespace OC2DIYChef
         {
             if (current != null && current.menu != null) current.menu.Hide(false);
         }
+
+        internal static void CloseForRoot(UIPlayerRootMenu players)
+        {
+            if (current != null && current.Players == players && current.menu != null) current.menu.Hide(false);
+        }
+
+        internal static void ShutdownActive() { if (current != null) current.Shutdown(); }
 
         void LateUpdate()
         {
@@ -158,13 +160,14 @@ namespace OC2DIYChef
         }
 
         void OnDestroy() { Shutdown(); }
+        void OnDisable() { Shutdown(); }
     }
 
     [HarmonyPatch]
     internal static class ChefGridLobbyPatches
     {
         [HarmonyPostfix, HarmonyPatch(typeof(LobbyFlowController), "Start")]
-        static void Start(LobbyFlowController __instance) { ChefGridLobby.Attach(__instance); }
+        static void Start(LobbyFlowController __instance) { ChefGridLobby.Attach(__instance.m_uiPlayerRoot); }
 
         [HarmonyPrefix, HarmonyPatch(typeof(ClientLobbyFlowController), "Update")]
         static void Update(ClientLobbyFlowController __instance) { ChefGridLobby.ConsumeLobbyButtons(__instance); }
@@ -174,6 +177,15 @@ namespace OC2DIYChef
 
         [HarmonyPrefix, HarmonyPatch(typeof(ClientLobbyFlowController), "OnLoadLevel")]
         static void LevelLoad() { ChefGridLobby.BeforeLevelLoad(); }
+
+        [HarmonyPrefix, HarmonyPatch(typeof(PauseMenuManager), "Update")]
+        static void Pause(PauseMenuManager __instance) { ChefGridPauseGuard.BeforeUpdate(__instance, ChefGridLobby.Blocking); }
+
+        [HarmonyPrefix, HarmonyPatch(typeof(InGamePauseMenu), "Hide")]
+        static void HidePause(InGamePauseMenu __instance)
+        {
+            ChefGridLobby.CloseForRoot(ChefGridPlayerContext.PausePlayers(__instance));
+        }
 
         [HarmonyPrefix, HarmonyPatch(typeof(ClientEmoteWheel), "Update")]
         static bool Emotes(ClientEmoteWheel __instance)

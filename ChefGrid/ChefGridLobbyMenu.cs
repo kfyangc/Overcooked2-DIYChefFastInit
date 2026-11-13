@@ -10,7 +10,7 @@ namespace OC2DIYChef
     {
         readonly FrontendChefCustomisation[] views = new FrontendChefCustomisation[4];
         readonly User[] boundUsers = new User[4];
-        GameInputConfig initialInput;
+        GameInputConfig initialInput, ownedInput;
         ChefGridLobby lobby;
         ChefGridLobbySelection target;
         bool showing;
@@ -37,6 +37,7 @@ namespace OC2DIYChef
             try
             {
                 UserSystemUtils.BuildGameInputConfig();
+                ownedInput = PlayerInputLookup.GetInputConfig();
                 BindPlayers();
                 ClientUserSystem.usersChanged += BindPlayers;
                 lobby.BeginInput(views);
@@ -54,14 +55,14 @@ namespace OC2DIYChef
 
         void BindPlayers()
         {
-            if (!showing || lobby == null || lobby.Flow.m_uiPlayerRoot == null) return;
+            if (!showing || lobby == null || lobby.Players == null) return;
             var users = ClientUserSystem.m_Users;
             var manager = GameUtils.RequireManager<PlayerManager>();
             for (int i = 0; i < views.Length; i++)
             {
                 var view = views[i];
                 var user = i < users.Count ? users._items[i] : null;
-                var player = user == null ? null : lobby.Flow.m_uiPlayerRoot.GetUIPlayerForUser(user);
+                var player = user == null ? null : lobby.Players.GetUIPlayerForUser(user);
                 var replacer = player == null ? null : player.GetComponent<ChefMeshReplacer>();
                 view.SetChefMeshReplacer(replacer);
                 view.SetChefAnimator(replacer == null || replacer.ChefModel == null ? null :
@@ -108,8 +109,11 @@ namespace OC2DIYChef
                 var grid = GetComponent<ChefGridMenu>();
                 if (grid != null) grid.CloseGrid();
                 foreach (var view in views) if (view != null && view.IsActive()) view.Deactivate();
-                if (initialInput != null) PlayerInputLookup.SetInputConfig(initialInput);
-                initialInput = null;
+                // A level-load callback may already have installed gameplay mappings.
+                // Only restore the configuration while this menu still owns it.
+                if (initialInput != null && (ownedInput == null || PlayerInputLookup.GetInputConfig() == ownedInput))
+                    PlayerInputLookup.SetInputConfig(initialInput);
+                initialInput = ownedInput = null;
                 target = null;
                 if (lobby != null) lobby.EndInput();
             }
