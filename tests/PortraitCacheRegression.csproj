@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <OutputPath>bin/portrait-cache/</OutputPath>
+    <NoWarn>$(NoWarn);SYSLIB0021;CS0649</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="PortraitCache/*.cs;../ChefGrid/Portraits/ChefGridPortraitCache.cs;../AssetPipeline/Cache/AssetDiskCache.cs;../AssetPipeline/Cache/CachedTexture.cs;../AssetPipeline/Cache/TextureDiskCache.cs;../AssetPipeline/Cache/TextureCacheCompression.cs;../AssetPipeline/Cache/TextureCacheWriteQueue.cs;../AssetPipeline/Native/*.cs" />
+    <EmbeddedResource Include="../lib/lz4-win-x86.dll" LogicalName="OC2DIYChef.Native.LZ4.x86" />
+  </ItemGroup>
+</Project>

@@ -153,6 +153,7 @@ static class DiskCacheRegression
         CheckWorkerBatches(workspace);
         CheckNativePixels(workspace);
         if (Lz4Codec.Available) CheckCompressedTextures(workspace);
+        TextureCacheWriteQueueRegression.Run(workspace, Check);
         Console.WriteLine("PASS: " + assertions + " disk cache assertions; no Unity objects or game process created.");
     }
 
@@ -474,12 +475,17 @@ static class DiskCacheRegression
         AssetDiskCache.Root = Path.Combine(workspace, "startup-compression");
         AssetDiskCache.WriteTexture(source, fingerprint, texture);
         string startupPath = AssetDiskCache.CachePath(source, 2);
+        string nestedPath = Path.Combine(Path.Combine(AssetDiskCache.Root, "portraits"), "nested.texture");
+        AssetDiskCache.WriteTextureFile(nestedPath, new byte[32], texture);
+        bool nestedWasRaw = BitConverter.ToInt32(File.ReadAllBytes(nestedPath), 4) == 1;
         AssetDiskCache.BackgroundCompressionEnabled = true;
         AssetDiskCache.StartTextureCompression();
         wait = Stopwatch.StartNew();
         while (AssetDiskCache.CompressionBusy && wait.ElapsedMilliseconds < 5000) Thread.Sleep(1);
         Check(!AssetDiskCache.CompressionBusy && AssetDiskCache.ReadTexture(source, fingerprint).Compressed,
             "startup scan upgrades existing raw texture files");
+        Check(nestedWasRaw && AssetDiskCache.ReadTextureFile(nestedPath).Compressed,
+            "startup scan recursively upgrades raw portrait textures in nested cache directories");
         byte[] processed = File.ReadAllBytes(startupPath);
         AssetDiskCache.StartTextureCompression();
         wait = Stopwatch.StartNew();

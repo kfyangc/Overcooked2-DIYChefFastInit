@@ -47,7 +47,7 @@ namespace OC2DIYChef
             diagnostics = config.Bind("Loading", "Diagnostics", false,
                 "Log frame P95/max, process memory and first camera-render latency.");
             AssetDiskCache.Enabled = config.Bind("Loading", "DiskCacheEnabled", true,
-                "Cache parsed OBJ geometry and decoded texture pixels on disk; changed source files rebuild automatically.").Value;
+                "Cache parsed OBJ geometry, decoded textures and chef portraits on disk; changed source files rebuild automatically.").Value;
             AssetDiskCache.Root = Path.Combine(Paths.CachePath, "DIYChefFastInit");
             AssetDiskCache.Log = DIYChefPlugin.Log;
             AssetHash.Warning = DIYChefPlugin.Log;
@@ -293,7 +293,8 @@ namespace OC2DIYChef
                         " maxMs=" + frames[frames.Count - 1].ToString("F2") +
                         ProcessMemory.Read() +
                         " cacheBytes=" + ResourceCache.All.Sum(x => x.Bytes) +
-                        " temporaryBytes=" + ((ResourceCache.Worker != null && ResourceCache.Worker.Data != null ? ResourceCache.Worker.Data.Bytes : 0) + AssetDiskCache.PendingWriteBytes) +
+                        " temporaryBytes=" + ((ResourceCache.Worker != null && ResourceCache.Worker.Data != null ? ResourceCache.Worker.Data.Bytes : 0) +
+                            AssetDiskCache.PendingWriteBytes + ChefGridPortraitCache.PendingWriteBytes) +
                         " nativePixelBytes=" + NativePixelBuffer.AllocatedBytes +
                         " pinned=" + ResourceCache.All.Count(x => x.References > 0) +
                         " budgetBlockedByPins=" + (ResourceCache.All.Sum(x => x.Bytes) > Math.Max(1, budget.Value) * 1024L * 1024L) +

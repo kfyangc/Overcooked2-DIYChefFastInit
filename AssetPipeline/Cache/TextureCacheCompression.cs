@@ -24,7 +24,8 @@ namespace OC2DIYChef
             try
             {
                 if (Directory.Exists(Root))
-                    foreach (string path in Directory.GetFiles(Root, "*.texture")) QueueTextureCompression(path);
+                    foreach (string path in Directory.GetFiles(Root, "*.texture", SearchOption.AllDirectories))
+                        QueueTextureCompression(path);
             }
             catch (Exception error) { CompressionLog("Texture cache scan failed: " + error.Message); }
         }

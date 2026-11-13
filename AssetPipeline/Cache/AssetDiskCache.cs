@@ -113,11 +113,18 @@ namespace OC2DIYChef
         static void Write(string source, byte[] fingerprint, int kind, Action<BinaryWriter> payload)
         {
             if (!Enabled || string.IsNullOrEmpty(Root)) return;
-            string path = CachePath(source, kind);
+            WritePath(CachePath(source, kind), fingerprint, kind, payload);
+        }
+
+        // Generated assets already have a versioned content key in their filename.
+        // Share the container and atomic publication without hashing that path again.
+        static void WritePath(string path, byte[] fingerprint, int kind, Action<BinaryWriter> payload)
+        {
+            if (!Enabled) return;
             string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try
             {
-                Directory.CreateDirectory(Root);
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)));
                 using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
                 using (var output = new BinaryWriter(stream))
                 {

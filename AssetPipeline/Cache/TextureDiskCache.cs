@@ -13,22 +13,32 @@ namespace OC2DIYChef
         internal static CachedTexture ReadTexture(string source, byte[] fingerprint, bool nativePixels = false,
             Func<bool> cancelled = null)
         {
-            using (var input = Open(source, fingerprint, TextureKind))
+            if (!Enabled || string.IsNullOrEmpty(Root)) return null;
+            return ReadTextureFile(CachePath(source, TextureKind), fingerprint, nativePixels, cancelled);
+        }
+
+        internal static CachedTexture ReadTextureFile(string path, byte[] fingerprint = null, bool nativePixels = false,
+            Func<bool> cancelled = null, int maxDimension = int.MaxValue)
+        {
+            if (!Enabled) return null;
+            using (var input = OpenPath(path, fingerprint, TextureKind))
             {
                 if (input == null) return null;
-                try { return ReadTextureData(input, nativePixels, cancelled); }
+                try { return ReadTextureData(input, nativePixels, cancelled, maxDimension); }
                 catch (OperationCanceledException) { throw; }
-                catch (Exception ex) { Warning(source, ex); return null; }
+                catch (Exception ex) { Warning(path, ex); return null; }
             }
         }
 
-        static CachedTexture ReadTextureData(CacheReader input, bool nativePixels, Func<bool> cancelled)
+        static CachedTexture ReadTextureData(CacheReader input, bool nativePixels, Func<bool> cancelled,
+            int maxDimension = int.MaxValue)
         {
             byte[] metadata = input.ReadCheckedBytes(20);
             var texture = new CachedTexture { Width = BitConverter.ToInt32(metadata, 0), Height = BitConverter.ToInt32(metadata, 4),
                 Format = BitConverter.ToInt32(metadata, 8), MipCount = BitConverter.ToInt32(metadata, 12), StorageSchema = input.Schema };
             int length = BitConverter.ToInt32(metadata, 16);
-            if (texture.Width < 1 || texture.Height < 1 || texture.MipCount < 1 || length < 0)
+            if (texture.Width < 1 || texture.Height < 1 || texture.Width > maxDimension ||
+                texture.Height > maxDimension || texture.MipCount < 1 || length < 0)
                 throw new FormatException("invalid texture dimensions or payload");
             int channels = texture.Format == (int)TextureFormat.RGB24 ? 3 :
                 texture.Format == (int)TextureFormat.RGBA32 || texture.Format == (int)TextureFormat.ARGB32 ||
@@ -81,14 +91,21 @@ namespace OC2DIYChef
 
         internal static void WriteTexture(string source, byte[] fingerprint, CachedTexture texture)
         {
-            Write(source, fingerprint, TextureKind, delegate(BinaryWriter output)
+            if (!Enabled || string.IsNullOrEmpty(Root)) return;
+            WriteTextureFile(CachePath(source, TextureKind), fingerprint, texture);
+        }
+
+        internal static void WriteTextureFile(string path, byte[] fingerprint, CachedTexture texture)
+        {
+            if (!Enabled) return;
+            WritePath(path, fingerprint, TextureKind, delegate(BinaryWriter output)
             {
                 output.Write(texture.Width); output.Write(texture.Height); output.Write(texture.Format);
                 output.Write(texture.MipCount); output.Write(texture.PixelLength);
                 if (texture.Pixels != null) output.Write(texture.Pixels);
                 else texture.NativePixels.WriteTo(output);
             });
-            if (BackgroundCompressionEnabled && Lz4Codec.Available) QueueTextureCompression(CachePath(source, TextureKind));
+            if (BackgroundCompressionEnabled && Lz4Codec.Available) QueueTextureCompression(path);
         }
 
         internal static void QueueTextureWrite(string source, byte[] fingerprint, CachedTexture texture)

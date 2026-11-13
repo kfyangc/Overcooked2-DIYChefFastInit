@@ -190,9 +190,12 @@ namespace OC2DIYChef
             // Cache IO does not need the studio or the original menu's camera animation.
             // Fill several cells per frame even when a real player's model is still loading.
             var warmup = Stopwatch.StartNew();
-            thumbnailCache.Warm(wanted, ThumbnailReady, LoadThumbnail, () => warmup.Elapsed.TotalMilliseconds < 6);
-            if (selected != null && detailEntry != selected && !failed.Contains(selected) && !failedDetails.Contains(selected))
-                detailCache.TryLoad(selected, LoadDetail);
+            using (AssetHash.BeginBatch())
+            {
+                thumbnailCache.Warm(wanted, ThumbnailReady, LoadThumbnail, () => warmup.Elapsed.TotalMilliseconds < 6);
+                if (selected != null && detailEntry != selected && !failed.Contains(selected) && !failedDetails.Contains(selected))
+                    detailCache.TryLoad(selected, LoadDetail);
+            }
             // User-facing previews take priority over background thumbnail work.
             if (ChefLoading.HasPendingExcept(replacer))
             {
@@ -226,7 +229,8 @@ namespace OC2DIYChef
                     {
                         var texture = Capture(pendingSize, pending.Avatar.HeadName);
                         Store(pending, texture, pendingSize);
-                        Save(pending, texture, pendingSize);
+                        try { ChefGridPortraitCache.Save(CachePath(pending, pendingSize), texture); }
+                        catch (Exception ex) { DIYChefPlugin.Warn("Portrait cache write: " + ex.Message); }
                     }
                     catch (Exception ex) { Fail(pending, ex.Message); }
                     pending = null;
@@ -286,32 +290,11 @@ namespace OC2DIYChef
         {
             var custom = entry.Avatar as DIYChefAvatarData;
             string supplied = custom == null ? null : Path.Combine(custom.Resources.Path, "preview.png");
-            if (supplied != null && LoadFile(entry, supplied, size)) return true;
-            try { return LoadFile(entry, CachePath(entry, size), size); }
-            catch (Exception ex) { DIYChefPlugin.Warn("Portrait cache read: " + ex.Message); return false; }
-        }
-
-        bool LoadFile(ChefGridEntry entry, string path, int size)
-        {
             Texture2D cached = null;
             try
             {
-                if (!File.Exists(path)) return false;
-                cached = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-                // A small supplied preview can serve the grid; the detail view needs actual pixels.
-                if (!cached.LoadImage(File.ReadAllBytes(path)) || cached.width < size || cached.height < size ||
-                    cached.width > DetailSize || cached.height > DetailSize)
-                {
-                    Object.Destroy(cached);
-                    return false;
-                }
-                if (size == Size && (cached.width != Size || cached.height != Size))
-                {
-                    var original = cached;
-                    cached = Downsample(original);
-                    Object.Destroy(original);
-                }
-                cached.Apply(false, true);
+                cached = ChefGridPortraitCache.Load(CachePath(entry, size), supplied, size, Downsample);
+                if (cached == null) return false;
                 Store(entry, cached, size);
                 return true;
             }
@@ -321,17 +304,6 @@ namespace OC2DIYChef
                 DIYChefPlugin.Warn("Portrait cache read: " + ex.Message);
                 return false;
             }
-        }
-
-        void Save(ChefGridEntry entry, Texture2D texture, int size)
-        {
-            try
-            {
-                string path = CachePath(entry, size);
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.WriteAllBytes(path, texture.EncodeToPNG());
-            }
-            catch (Exception ex) { DIYChefPlugin.Warn("Portrait cache write: " + ex.Message); }
         }
 
         Texture2D Downsample(Texture2D source)

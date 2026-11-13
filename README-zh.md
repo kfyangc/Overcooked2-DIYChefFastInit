@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-**当前版本：2.2.0.17（测试版）**
+**当前版本：2.2.0.21（测试版）**
 
 本项目基于 [gua248 的 Overcooked2-DIYChef](https://github.com/gua248/Overcooked2-DIYChef)（《胡闹厨房 2》厨师外观模组，厨房暖暖），优化额外厨师和帽子的加载流程，减少安装大量资源时的启动等待，并加快已缓存资源的再次载入。原有厨师资源、`prefer.txt` 和 BepInEx 配置可以继续使用。
 
@@ -23,6 +23,8 @@
 退出游戏后，将原插件 DLL 备份到 `BepInEx/plugins` 目录之外，再把 **`DIYChefFastInit.dll`** 放入原插件目录，保留旁边的 `Resources`、`prefer.txt` 等文件。插件 ID 和配置文件名保持不变。
 
 磁盘缓存保存在 **`BepInEx/cache/DIYChefFastInit`**。首次使用仍需生成缓存，后续载入可复用；删除缓存后会自动重新生成。原始厨师资源仍需保留。
+
+2.2.0.21 将头像改为二进制像素缓存并后台无损压缩，旧 PNG 首次使用时自动迁移。源码已按功能分目录；格式说明、实测和取舍见 [缓存格式调研](docs/CACHE_FORMATS.md)。
 
 构建方法、缓存配置和诊断方式见 [加载与构建说明](docs/LOADING.md)，第三方组件见 [第三方声明](docs/THIRD_PARTY_NOTICES.md)。
 

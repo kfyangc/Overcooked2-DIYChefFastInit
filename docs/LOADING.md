@@ -1,6 +1,8 @@
 # 厨师按需加载
 
-厨师和帽子资源按实际使用需求加载。版本的唯一来源为 Version.cs；项目版本、BepInEx 插件版本、程序集及文件版本共用该值。
+厨师和帽子资源按实际使用需求加载。版本的唯一来源为 Plugin/Version.cs；项目版本、BepInEx 插件版本、程序集及文件版本共用该值。
+
+2.2.0.21 先按功能整理源码，再将头像缓存接入与模型纹理相同的二进制容器及 LZ4 无损压缩。已有 v8 PNG 和作者预览在首次使用时自动后台迁移；缓存键、128 头像和 512 大图构图保持一致。生成头像不再执行 PNG 编码。实物格式调查、Mono 性能数据和方案取舍见 [缓存格式调研](CACHE_FORMATS.md)，目录职责见 [代码结构](CODE_STRUCTURE.md)。
 
 2.2.0.1 测试版新增 [厨师网格选择](CHEF_GRID.md)，功能代码集中在 `ChefGrid/`。网格头像按页逐个生成，复用现有加载器，优先处理实际玩家预览；新增 `[ChefSelection]` 配置。构建和离线回归已通过，尚未进行游戏内画面与输入验收。
 
@@ -45,7 +47,7 @@
 dotnet build -c Release "-p:GameDir=D:/Games/Steam Games/steamapps/common/Overcooked! 2"
 ```
 
-也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.2.0.17。测试版版本号迭代用第四位。
+也可以设置 OC2_GAME_DIR 环境变量。依赖直接取自目标游戏的 Managed 和 BepInEx/core，保持 net35 兼容，不把游戏程序集复制到产物中。输出为 bin/Release/DIYChefFastInit.dll，当前版本为 2.2.0.21。测试版版本号迭代用第四位。
 
 Fetch-Lz4.ps1 获取并校验固定版本的官方 x86 LZ4 库，缓存在忽略提交的 lib 目录。构建将它及许可证嵌入插件 DLL；安装只需 DIYChefFastInit.dll。首次使用时自动释放到 BepInEx/cache/DIYChefFastInit/native。第三方声明见 THIRD_PARTY_NOTICES.md。
 
