@@ -9,7 +9,6 @@ namespace OC2DIYChef
     public sealed class ChefGridLobbyMenu : InGameMenuBehaviour
     {
         readonly FrontendChefCustomisation[] views = new FrontendChefCustomisation[4];
-        readonly User[] boundUsers = new User[4];
         GameInputConfig initialInput, ownedInput;
         ChefGridLobby lobby;
         ChefGridLobbySelection target;
@@ -69,19 +68,15 @@ namespace OC2DIYChef
                     replacer.ChefModel.GetComponent<Animator>());
                 if (!target.Owns(user) || user.SelectedChefData == null || replacer == null)
                 {
-                    if (view.IsActive()) view.Deactivate();
-                    boundUsers[i] = null;
+                    ChefGridLobbyView.Unbind(view);
                     continue;
                 }
-                if (boundUsers[i] != user && view.IsActive()) view.Deactivate();
-                boundUsers[i] = user;
                 var previous = view.GetAssignedInput();
                 if (previous != null && previous.Pad == (ControlPadInput.PadNum)user.Engagement &&
                     previous.Side == user.PadSide) continue;
                 var mapping = user.PadSide == PadSide.Both ? manager.UnsidedAmbiMapping : manager.SidedAmbiMapping;
                 var input = new PlayerGameInput((ControlPadInput.PadNum)user.Engagement, user.PadSide, mapping);
-                if (view.IsActive()) view.RebindInput(input);
-                else view.Activate(input, user.SelectedChefData);
+                ChefGridLobbyView.Bind(view, input, user.SelectedChefData);
             }
         }
 
@@ -116,7 +111,7 @@ namespace OC2DIYChef
                 ClientUserSystem.usersChanged -= BindPlayers;
                 var grid = GetComponent<ChefGridMenu>();
                 if (grid != null) grid.CloseGrid();
-                foreach (var view in views) if (view != null && view.IsActive()) view.Deactivate();
+                foreach (var view in views) if (view != null) ChefGridLobbyView.Unbind(view);
                 // A level-load callback may already have installed gameplay mappings.
                 // Only restore the configuration while this menu still owns it.
                 if (initialInput != null && (ownedInput == null || PlayerInputLookup.GetInputConfig() == ownedInput))

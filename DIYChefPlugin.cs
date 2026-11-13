@@ -43,6 +43,7 @@ namespace OC2DIYChef
         void LateUpdate()
         {
             ChefGridLobby.UpdateFrame();
+            ChefGridPlayerMenu.UpdateFrame();
             ModelTestCompatibility.LateUpdate();
         }
 

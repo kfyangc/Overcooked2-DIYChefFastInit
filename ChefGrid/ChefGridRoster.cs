@@ -68,6 +68,9 @@ namespace OC2DIYChef
             var user = users._items[player];
             // Install custom ID first: sending the official avatar can refresh the lobby immediately.
             DIYChefCustomisation.userDIYChefID[player] = entry.CustomID;
+            // Update the user only at an explicit selection, as the native action
+            // does. ChefAvatar sends a message; view data is an isolated copy.
+            user.SelectedChefAvatar = entry.OfficialID;
             var data = view.GetCurrentSelection();
             if (data != null) data.Character = all[entry.OfficialID];
             selection.SetValue(view, Array.IndexOf((ChefAvatarData[])unlockedField.GetValue(view), all[entry.OfficialID]));

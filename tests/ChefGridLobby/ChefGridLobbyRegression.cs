@@ -51,6 +51,7 @@ static class ChefGridLobbyRegression
 
         checks += ChefGridMapRegression.Run();
         checks += ChefGridWorldMapRegression.Run();
+        checks += ChefGridLobbyBindingRegression.Run();
 
         var lobby = new ChefGridLobby();
         foreach (var user in ClientUserSystem.m_Users._items) lobby.Flow.m_uiPlayerRoot.Add(user);
@@ -113,7 +114,9 @@ static class ChefGridLobbyRegression
         DIYChefCustomisation.userDIYChefID = new byte[] { 99, 88, 92, 90 };
         ClientUserSystem.usersChanged();
         Check(!views[0].IsActive() && views[1].IsActive() && !views[2].IsActive() && !views[3].IsActive() &&
-            views[1].GetCurrentSelection() == left.SelectedChefData, "The target follows identity after the global player index changes");
+            views[1].GetCurrentSelection() != left.SelectedChefData &&
+            views[1].GetCurrentSelection().Character == left.SelectedChefData.Character,
+            "The target follows identity after the global player index changes without sharing mutable selection data");
         left.SelectedChefAvatar = 40; DIYChefCustomisation.userDIYChefID[1] = 100;
         grid.Cancel();
         Check(left.SelectedChefAvatar == 27 && DIYChefCustomisation.userDIYChefID[1] == 88 &&

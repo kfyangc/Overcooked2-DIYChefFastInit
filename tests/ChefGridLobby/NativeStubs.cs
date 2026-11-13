@@ -81,7 +81,11 @@ public sealed class PlayerManager
 static class GameUtils
 {
     static readonly PlayerManager manager = new PlayerManager();
+    internal static readonly AvatarDirectoryData Directory = new AvatarDirectoryData();
+    internal static readonly MetaGameProgress Progress = new MetaGameProgress();
     internal static T RequireManager<T>() where T : class { return manager as T; }
+    internal static AvatarDirectoryData GetAvatarDirectoryData() { return Directory; }
+    internal static MetaGameProgress GetMetaGameProgress() { return Progress; }
     internal static GameSession Session;
     internal static GameSession GetGameSession() { return Session; }
 }
@@ -97,26 +101,86 @@ public sealed class ChefMeshReplacer : UnityEngine.MonoBehaviour
 {
     public UnityEngine.GameObject ChefModel = new UnityEngine.GameObject("Chef model");
 }
-public sealed class ChefAvatarData { public string HeadName = "Chef_Test"; }
+public sealed class ChefAvatarData { public string HeadName = "Chef_Test"; public DlcData ForDlc; }
+public sealed class ChefColourData { }
+public sealed class DlcData { public int m_DLCID; }
+public sealed class AvatarDirectoryData
+{
+    public readonly ChefAvatarData[] Avatars = new ChefAvatarData[64];
+    public AvatarDirectoryData()
+    {
+        for (int i = 0; i < Avatars.Length; i++) Avatars[i] = new ChefAvatarData { HeadName = "Chef_" + i };
+    }
+}
+public sealed class MetaGameProgress { public ChefAvatarData[] GetUnlockedAvatars() { return (ChefAvatarData[])GameUtils.Directory.Avatars.Clone(); } }
+public sealed class T17FrontendFlow
+{
+    public static T17FrontendFlow Instance;
+    public DlcData AutoOpenFrontendDlcData;
+    public int ClearAutoOpenCalls;
+    public void AutoOpenChefSelectionMenu(object value) { ClearAutoOpenCalls++; AutoOpenFrontendDlcData = null; }
+}
+public static class ClientMessenger
+{
+    public static int AvatarMessages;
+    public static uint LastAvatar;
+    public static void ChefAvatar(uint avatar, User user) { AvatarMessages++; LastAvatar = avatar; }
+}
 public sealed class GameSession
 {
-    public sealed class SelectedChefData { public ChefAvatarData Character = new ChefAvatarData(); }
+    public sealed class SelectedChefData
+    {
+        public ChefAvatarData Character = new ChefAvatarData();
+        public ChefColourData Colour = new ChefColourData();
+        public SelectedChefData() { }
+        public SelectedChefData(ChefAvatarData character, ChefColourData colour) { Character = character; Colour = colour; }
+    }
     public sealed class Settings { public string WorldMapScene; }
     public Settings TypeSettings;
 }
 public sealed class FrontendChefCustomisation : UnityEngine.MonoBehaviour
 {
     ChefMeshReplacer m_chef;
-    PlayerGameInput input;
-    GameSession.SelectedChefData selection;
+    PlayerGameInput m_assignedInput;
+    GameSession.SelectedChefData m_chefData;
+#pragma warning disable CS0169 // Production native-field adapter initializes these.
+    ChefAvatarData[] m_avatarDirectory, m_unlockedAvatars;
+    ILogicalButton m_leftButton, m_rightButton;
+    int m_chefSelection;
+#pragma warning restore CS0169
+    public static int ActivateCalls, DeactivateCalls;
     public ChefMeshReplacer Replacer { get { return m_chef; } }
     public PlayerInputLookup.Player m_actualPlayer;
-    public bool IsActive() { return input != null; }
-    public PlayerGameInput GetAssignedInput() { return input; }
-    public GameSession.SelectedChefData GetCurrentSelection() { return selection; }
-    public void Activate(PlayerGameInput value, GameSession.SelectedChefData data) { input = value; selection = data; enabled = true; }
-    public void RebindInput(PlayerGameInput value) { input = value; }
-    public void Deactivate() { input = null; selection = null; enabled = false; }
+    public bool IsActive() { return m_assignedInput != null; }
+    public PlayerGameInput GetAssignedInput() { return m_assignedInput; }
+    public GameSession.SelectedChefData GetCurrentSelection() { return m_chefData; }
+    public void Activate(PlayerGameInput value, GameSession.SelectedChefData data)
+    {
+        ActivateCalls++;
+        m_assignedInput = value;
+        m_chefData = data;
+        var flow = T17FrontendFlow.Instance;
+        // Mirror the native Activate branch that the old stand-in omitted:
+        // a lingering frontend DLC request selects and sends an avatar immediately.
+        if (data != null && flow != null && flow.AutoOpenFrontendDlcData != null)
+        {
+            var avatars = GameUtils.Directory.Avatars;
+            int index = Array.FindIndex(avatars, x => x.ForDlc != null && x.ForDlc.m_DLCID == flow.AutoOpenFrontendDlcData.m_DLCID);
+            if (index < 0) index = avatars.Length - 1;
+            m_chefData.Character = avatars[index];
+            ClientMessenger.ChefAvatar((uint)index, ClientUserSystem.m_Users._items[(int)m_actualPlayer]);
+        }
+        enabled = true;
+    }
+    public void RebindInput(PlayerGameInput value) { if (enabled) m_assignedInput = value; }
+    public void Deactivate()
+    {
+        DeactivateCalls++;
+        m_assignedInput = null;
+        m_chefData = null;
+        enabled = false;
+        if (T17FrontendFlow.Instance != null) T17FrontendFlow.Instance.AutoOpenChefSelectionMenu(null);
+    }
     public void SetChefMeshReplacer(ChefMeshReplacer value) { m_chef = value; }
     public void SetChefAnimator(UnityEngine.Animator animator) { }
 }

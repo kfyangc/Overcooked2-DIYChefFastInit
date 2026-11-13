@@ -2,7 +2,7 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.2.0.18 (test build)**
+**Current version: 2.2.0.19 (test build)**
 
 This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248/Overcooked2-DIYChef) to reduce startup waits when many custom chefs and hats are installed, and to speed up loading previously cached resources. Existing chef resources, `prefer.txt` and BepInEx configuration remain compatible.
 
@@ -101,9 +101,9 @@ On the world-map pause screen, use the game's existing **CHANGE CHEF** button to
 
 All generated thumbnails and detail previews use the game's grey **No_Team** outfit, sharing the same image cache across players and scenes. Existing grey v8 portraits remain reusable; missing grey portraits are generated once. Actual player/team outfits retain their normal game colours.
 
-Chef selection runs entirely in this mod using the game's native menu template, events and navigation. There is no hard or soft HostUtilities dependency, detection, registration or invocation. Installing that plugin does not switch this implementation. No prefer.txt changes are required. The item follows `[ChefSelection] GridEnabled`. Actual menu appearance, input and online synchronization still need in-game testing.
+Chef selection runs entirely in this mod. The arcade entry follows the native-template interaction pattern used by HostUtilities: an independent action with its own click, hover, focus and navigation handling. It does not modify the game's native option list. Opening names, focusing actions and preparing the grid do not change a chef. There is no hard or soft HostUtilities dependency, detection, registration or invocation. No prefer.txt changes are required. The item follows `[ChefSelection] GridEnabled`. Actual menu appearance, input and online synchronization still need in-game testing.
 
-The older up/down shortcut remains available through `LOBBYSWITCHCHEF=TRUE` in `prefer.txt`; it is suspended while the grid is open.
+The older `LOBBYSWITCHCHEF=TRUE` up/down shortcut is available only with `GridEnabled=false`. With the grid enabled it is retired, including while navigating the player-name menu, so those navigation keys cannot also change a chef.
 
 ### Warning messages
 

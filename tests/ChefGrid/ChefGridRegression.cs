@@ -121,11 +121,15 @@ static class ChefGridRegression
         Check(ChefGridRoster.Select(entries[0], 0, view), "custom cell selects directly");
         Check(events[0] == "avatar:2:custom:23" && events[1] == "custom:23" && events[2] == "refresh:23",
             "custom ID installed before official message and final display refresh");
+        Check(local.SelectedChefAvatar == 2 && ChefGridRoster.Find(entries, 0) == 0,
+            "explicit custom selection updates local identity without waiting for a server echo");
         Check(view.GetCurrentSelection().Character == fallback && view.Selection == 1, "vanilla state remains valid fallback");
         Check(ChefGridRoster.Find(entries, 0) == 0, "custom cursor uses custom ID rather than fallback");
         events.Clear();
         Check(ChefGridRoster.Select(entries[1], 0, view), "official cell selects directly");
         Check(events[0] == "avatar:0:custom:255" && events[1] == "custom:255", "official selection clears custom ID first");
+        Check(local.SelectedChefAvatar == 0 && ChefGridRoster.Find(entries, 0) == 1,
+            "explicit official selection is immediately reflected in the local cursor");
         Check(view.GetCurrentSelection().Character == official && view.Selection == 0, "official state restored");
         events.Clear();
         Check(!ChefGridRoster.Select(entries[0], 1, view) && events.Count == 0, "remote cursor cannot be changed");
@@ -222,7 +226,7 @@ static class TestMessenger
     public static void ChefAvatar(uint id, User user)
     {
         Events.Add("avatar:" + id + ":custom:" + DIYChefCustomisation.userDIYChefID[0]);
-        user.SelectedChefAvatar = id;
+        // The game's ClientMessenger only sends; a later server echo refreshes users.
     }
 }
 namespace OC2DIYChef
