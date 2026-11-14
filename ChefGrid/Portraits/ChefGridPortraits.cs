@@ -132,6 +132,9 @@ namespace OC2DIYChef
         void Store(ChefGridEntry entry, Texture2D texture, int size)
         {
             texture.filterMode = FilterMode.Bilinear;
+            // Portrait UVs cover the full image. Do not wrap the bottom clothing
+            // pixels into the transparent top edge during bilinear filtering.
+            texture.wrapMode = TextureWrapMode.Clamp;
             if (size == DetailSize)
             {
                 detailCache.Available(entry);

@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-**当前版本：2.2.0.24（测试版）**
+**当前版本：2.2.0.25（测试版）**
 
 本项目基于 [gua248 的 Overcooked2-DIYChef](https://github.com/gua248/Overcooked2-DIYChef)（《胡闹厨房 2》厨师外观模组，厨房暖暖），优化额外厨师和帽子的加载流程，减少安装大量资源时的启动等待，并加快已缓存资源的再次载入。原有厨师资源、`prefer.txt` 和 BepInEx 配置可以继续使用。
 
