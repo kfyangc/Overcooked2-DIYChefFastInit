@@ -17,6 +17,7 @@ static class ChefGridRegression
 
     static void Main()
     {
+        checks += ChefGridParallelRegression.Run();
         checks += ChefGridFramingRegression.Run();
         checks += ChefGridTransparencyRegression.Run();
         checks += ChefGridLayoutRegression.Run();

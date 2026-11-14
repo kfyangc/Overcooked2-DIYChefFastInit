@@ -6,6 +6,7 @@
     <OutputPath>bin/chef-grid/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="ChefGrid/ChefGridParallelRegression.cs;../ChefGrid/Input/ChefGridReadySet.cs;../ChefGrid/Layout/ChefGridPanelLayout.cs" />
     <Compile Include="ChefGrid/ChefGridVisibilityRegression.cs;../ChefGrid/Portraits/ChefGridVisibility.cs" />
     <Compile Include="ChefGrid/ChefGridPoseRegression.cs;../ChefGrid/Portraits/ChefGridPose.cs" />
     <Compile Include="ChefGrid/ChefGridFaceRegression.cs" />

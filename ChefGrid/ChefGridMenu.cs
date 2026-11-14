@@ -32,6 +32,10 @@ namespace OC2DIYChef
             internal PlayerGameInput Input;
             internal readonly ILogicalButton[] Buttons = new ILogicalButton[6];
             internal ChefGridControls Controls = new ChefGridControls();
+            internal ChefGridControlEvents Events;
+            internal ChefGridPanelLayout Layout;
+            internal int FirstRow;
+            internal Panel UI;
         }
 
         sealed class Cell
@@ -51,27 +55,33 @@ namespace OC2DIYChef
         readonly HashSet<long> alive = new HashSet<long>();
         readonly List<ChefGridEntry> wanted = new List<ChefGridEntry>();
         readonly List<long> playerOrder = new List<long>();
-        ChefGridTurnOrder turns;
-        ChefGridLayout layout;
-        Cell[] cells;
-        const int Columns = ChefGridLayout.Columns, VisibleCount = ChefGridLayout.VisibleCount;
-        readonly Text[] playerLabels = new Text[4];
-        readonly Image[] playerTabs = new Image[4];
+        readonly ChefGridReadySet ready = new ChefGridReadySet();
+        sealed class Panel
+        {
+            internal Cell[] Cells;
+            internal RectTransform Grid, Scroll;
+            internal Text Name, Kind, Position, Status, Accept, Key, Player;
+            internal Image Icon;
+            internal RawImage Detail;
+            internal float ReadyAt;
+            internal readonly ChefGridButtonPrompts Prompts = new ChefGridButtonPrompts();
+        }
         GameObject canvasObject;
         RectTransform frame;
-        RectTransform gridLayer;
         Font font;
-        Text rangeLabel, detailName, detailKind, detailPosition, detailStatus, acceptLabel, acceptKey, backKey;
-        RawImage detailPortrait;
-        Image acceptIcon, backIcon;
-        readonly ChefGridButtonPrompts buttonPrompts = new ChefGridButtonPrompts();
-        readonly ChefGridDoubleClick doubleClick = new ChefGridDoubleClick();
-        readonly ChefGridScrollBar scrollBar = new ChefGridScrollBar();
-        RectTransform scrollThumb;
-        float detailReadyAt;
+        Image backIcon;
+        Text backKey;
+        readonly ChefGridButtonPrompts backPrompts = new ChefGridButtonPrompts();
+        readonly ChefGridControls backControls = new ChefGridControls();
+        PlayerGameInput backInput;
+        ILogicalButton backButton;
+        long? backIdentity;
+        bool backObserved;
+        Vector3 lastMouse;
+        string panelSignature;
         ChefGridPortraits portraits;
         Cursor focused;
-        int firstVisibleRow, openedFrame;
+        int openedFrame;
         enum ExitRequest { None, Accept, Cancel }
         ExitRequest exitRequest;
         bool open, failed, ownsFont;
@@ -83,7 +93,7 @@ namespace OC2DIYChef
         internal static void Configure(ConfigFile config)
         {
             configured = config.Bind("ChefSelection", "GridEnabled", true,
-                "Show a scrolling 10-column, 5-row chef grid. Disable to use the original carousel.");
+                "Show independent horizontal player panels with scrolling chef grids. Disable to use the original carousel.");
             unselectedDimOpacity = config.Bind("ChefSelection", "UnselectedDimOpacity", 0.4f,
                 new ConfigDescription("Black overlay opacity for unselected chefs: 0 disables dimming, 1 is fully dark. 未选中厨师的压暗比例。",
                     new AcceptableValueRange<float>(0f, 1f)));
@@ -116,10 +126,9 @@ namespace OC2DIYChef
             owner = menu;
             playerViews = views;
             cancel = onCancel;
-            layout = new ChefGridLayout();
-            cells = new Cell[VisibleCount];
-            turns = new ChefGridTurnOrder();
-            firstVisibleRow = 0;
+            ready.Sync(new long[0]);
+            panelSignature = null;
+            lastMouse = Input.mousePosition;
             exitRequest = ExitRequest.None;
             var progress = GameUtils.GetMetaGameProgress();
             if (progress == null) return;
@@ -138,8 +147,7 @@ namespace OC2DIYChef
             PollControls(false);
             PreparePortraits();
             Refresh();
-            DIYChefPlugin.Log("Chef grid opened entries=" + entries.Count + " layout=10x5 rows=" +
-                ChefGridNavigation.RowCount(entries.Count) + " sequentialPlayers=" + cursors.Count);
+            DIYChefPlugin.Log("Chef grid opened entries=" + entries.Count + " layout=horizontal-panels parallelPlayers=" + cursors.Count);
         }
 
         void SyncPlayers()
@@ -166,12 +174,16 @@ namespace OC2DIYChef
                 if (cursor.Input != input)
                 {
                     cursor.Input = input;
+                    cursor.Controls = new ChefGridControls();
+                    cursor.InputObserved = false;
                     var ids = new[] { PlayerInputLookup.LogicalButtonID.UILeftPlayerSpecific,
                         PlayerInputLookup.LogicalButtonID.UIRightPlayerSpecific, PlayerInputLookup.LogicalButtonID.UIUp,
                         PlayerInputLookup.LogicalButtonID.UIDown, PlayerInputLookup.LogicalButtonID.UISelect,
                         PlayerInputLookup.LogicalButtonID.UICancel };
                     for (int n = 0; n < ids.Length; n++)
                         cursor.Buttons[n] = PlayerInputLookup.GetFixedButton(ids[n], input);
+                    cursor.Buttons[4] = ChefGridButtonPrompts.Binding(input, true);
+                    cursor.Buttons[5] = ChefGridButtonPrompts.Binding(input, false);
                     // Unlike UIUp/UIDown, MovementY respects the two sides of a split keyboard.
                     var vertical = (ILogicalValue)fixedValue.Invoke(null,
                         new object[] { PlayerInputLookup.LogicalValueID.MovementY, input });
@@ -183,25 +195,40 @@ namespace OC2DIYChef
             cursors.Sort((a, b) => a.Player.CompareTo(b.Player));
             playerOrder.Clear();
             foreach (var cursor in cursors) playerOrder.Add(cursor.Key);
-            turns.Sync(playerOrder);
-            if (turns.Current.HasValue)
+            ready.Sync(playerOrder);
+            focused = cursors.Count == 0 ? null : cursors[0];
+            string signature = "";
+            foreach (var cursor in cursors) signature += cursor.Key + ":" + cursor.Player + ";";
+            if (signature != panelSignature)
             {
-                if (exitRequest == ExitRequest.Accept) exitRequest = ExitRequest.None;
-                Focus(cursors.Find(x => x.Key == turns.Current.Value));
+                panelSignature = signature;
+                for (int i = 0; i < cursors.Count; i++)
+                {
+                    var cursor = cursors[i];
+                    cursor.Layout = new ChefGridPanelLayout(i, cursors.Count);
+                    cursor.FirstRow = cursor.Layout.Follow(cursor.FirstRow, cursor.Index, entries.Count);
+                }
+                if (canvasObject != null) { DestroyUI(); BuildUI(); }
             }
-            else if (focused == null || !cursors.Contains(focused))
-                focused = cursors.Count == 0 ? null : cursors[cursors.Count - 1];
-            // A waiting player may leave after the others confirmed.
-            if (turns.Complete && exitRequest == ExitRequest.None) RequestExit(ExitRequest.Accept);
-        }
-
-        void Focus(Cursor cursor)
-        {
-            if (focused == cursor) return;
-            doubleClick.Reset();
-            scrollBar.End();
-            focused = cursor;
-            if (focused != null) firstVisibleRow = ChefGridNavigation.Follow(firstVisibleRow, focused.Index, entries.Count);
+            if (!ready.Complete && exitRequest == ExitRequest.Accept) exitRequest = ExitRequest.None;
+            if (ready.Complete && exitRequest == ExitRequest.None) RequestExit(ExitRequest.Accept);
+            // P1 means the first actual local input identity, even in a scoped P2 arcade menu.
+            for (int i = 0; i < users.Count; i++)
+            {
+                var user = users._items[i];
+                if (!user.IsLocal) continue;
+                long key = ChefGridNavigation.PlayerKey((int)user.Engagement, (int)user.Split);
+                if (backIdentity != key || backInput == null || backInput.Side != user.PadSide)
+                {
+                    backIdentity = key;
+                    var manager = GameUtils.RequireManager<PlayerManager>();
+                    backInput = new PlayerGameInput((ControlPadInput.PadNum)user.Engagement, user.PadSide,
+                        user.PadSide == PadSide.Both ? manager.UnsidedAmbiMapping : manager.SidedAmbiMapping);
+                    backButton = ChefGridButtonPrompts.Binding(backInput, false);
+                    backObserved = false;
+                }
+                break;
+            }
         }
 
         internal void Tick()
@@ -222,37 +249,35 @@ namespace OC2DIYChef
             if (focused == null) { CloseGrid(); return; }
             bool enabled = Time.frameCount > openedFrame && Application.isFocused &&
                 !T17DialogBoxManager.HasAnyOpenDialogs() && exitRequest == ExitRequest.None;
-            var input = PollControls(enabled);
-            if (!enabled) doubleClick.Reset();
+            bool goBack = PollControls(enabled);
             if (exitRequest != ExitRequest.None)
             {
                 FinishExit();
-                if (!open) return;
-                PreparePortraits();
-                Refresh();
+                if (open) { PreparePortraits(); Refresh(); }
                 return;
             }
             if (enabled)
             {
-                if (input.Cancel) RequestExit(ExitRequest.Cancel);
+                if (goBack) RequestExit(ExitRequest.Cancel);
                 else
                 {
-                    if (input.Direction >= 0)
+                    foreach (var cursor in cursors)
                     {
-                        int dx = input.Direction == 0 ? -1 : input.Direction == 1 ? 1 : 0;
-                        int dy = input.Direction == 2 ? -1 : input.Direction == 3 ? 1 : 0;
-                        Select(focused, ChefGridNavigation.Move(focused.Index, entries.Count, Columns, dx, dy));
-                    }
-                    if (input.Accept) Accept();
-                    else
-                    {
-                        if (KeyboardUtils.IsKeyboard(focused.Input))
+                        var input = cursor.Events;
+                        if (!ready.IsConfirmed(cursor.Key) && input.Direction >= 0)
                         {
-                            if (Input.GetKeyDown(KeyCode.PageUp)) ShiftRows(-3);
-                            if (Input.GetKeyDown(KeyCode.PageDown)) ShiftRows(3);
+                            int dx = input.Direction == 0 ? -1 : input.Direction == 1 ? 1 : 0;
+                            int dy = input.Direction == 2 ? -1 : input.Direction == 3 ? 1 : 0;
+                            Select(cursor, ChefGridNavigation.Move(cursor.Index, entries.Count, cursor.Layout.Columns, dx, dy));
                         }
-                        Mouse();
+                        if (!ready.IsConfirmed(cursor.Key) && KeyboardUtils.IsKeyboard(cursor.Input) && cursor.Input.Side == PadSide.Both)
+                        {
+                            int rows = Input.GetKeyDown(KeyCode.PageUp) ? -3 : Input.GetKeyDown(KeyCode.PageDown) ? 3 : 0;
+                            if (rows != 0) Select(cursor, Math.Max(0, Math.Min(entries.Count - 1, cursor.Index + rows * cursor.Layout.Columns)));
+                        }
+                        if (input.Accept) Accept(cursor);
                     }
+                    if (exitRequest == ExitRequest.None) Mouse();
                 }
             }
             if (!open) return;
@@ -262,15 +287,15 @@ namespace OC2DIYChef
             Refresh();
         }
 
-        ChefGridControlEvents PollControls(bool enabled)
+        bool PollControls(bool enabled)
         {
-            var activeEvents = new ChefGridControlEvents { Direction = -1 };
-            // Sample every participant before advancing a turn, including shared keyboard keys.
+
+            // Sample every participant before Select can publish a usersChanged event.
             foreach (var cursor in cursors)
             {
                 int direction = -1;
                 for (int n = 0; n < 4; n++) if (Down(cursor.Buttons[n])) { direction = n; break; }
-                bool keyboard = KeyboardUtils.IsKeyboard(cursor.Input);
+                bool keyboard = KeyboardUtils.IsKeyboard(cursor.Input) && cursor.Input.Side == PadSide.Both;
                 if (keyboard)
                 {
                     if (Input.GetKey(KeyCode.LeftArrow)) direction = 0;
@@ -281,13 +306,18 @@ namespace OC2DIYChef
                 bool accept = Down(cursor.Buttons[4]) || (keyboard && (Input.GetKey(KeyCode.Space) ||
                     Input.GetKey(KeyCode.Return) || Input.GetKey(KeyCode.KeypadEnter)));
                 bool cancel = Down(cursor.Buttons[5]) || (keyboard && Input.GetKey(KeyCode.Escape));
-                var events = cursor.Controls.Poll(direction, accept, cancel, Time.unscaledTime,
-                    enabled && cursor.InputObserved && cursor == focused && turns.Current == cursor.Key);
+                cursor.Events = cursor.Controls.Poll(direction, accept, cancel, Time.unscaledTime,
+                    enabled && cursor.InputObserved);
                 cursor.InputObserved = true;
-                if (cursor == focused) activeEvents = events;
+
             }
             foreach (var cursor in cursors) foreach (var button in cursor.Buttons) Claim(button);
-            return activeEvents;
+            bool keyboardBack = backInput != null && KeyboardUtils.IsKeyboard(backInput) && backInput.Side == PadSide.Both;
+            var back = backControls.Poll(-1, false, Down(backButton) || (keyboardBack && Input.GetKey(KeyCode.Escape)),
+                Time.unscaledTime, enabled && backObserved);
+            backObserved = true;
+            Claim(backButton);
+            return back.Cancel;
         }
 
         static bool Down(ILogicalButton button) { return button != null && button.IsDown(); }
@@ -297,12 +327,17 @@ namespace OC2DIYChef
             if (portraits != null && focused != null)
             {
                 wanted.Clear();
-                wanted.Add(entries[focused.Index]);
-                int start = firstVisibleRow * Columns;
-                int end = Math.Min(entries.Count, start + VisibleCount);
-                for (int i = start; i < end; i++)
-                    if (i != focused.Index) wanted.Add(entries[i]);
-                portraits.Tick(wanted);
+                var selected = new List<ChefGridEntry>();
+                foreach (var cursor in cursors)
+                    if (!selected.Contains(entries[cursor.Index])) selected.Add(entries[cursor.Index]);
+                wanted.AddRange(selected);
+                foreach (var cursor in cursors)
+                {
+                    int start = cursor.FirstRow * cursor.Layout.Columns;
+                    for (int i = start; i < Math.Min(entries.Count, start + cursor.Layout.VisibleCount); i++)
+                        if (!wanted.Contains(entries[i])) wanted.Add(entries[i]);
+                }
+                portraits.Tick(wanted, selected);
             }
         }
 
@@ -315,13 +350,9 @@ namespace OC2DIYChef
 
         bool Select(Cursor cursor, int index, bool follow = true)
         {
-            if (cursor == null || turns.Current != cursor.Key || index < 0 || index >= entries.Count) return false;
-            scrollBar.End();
-            if (follow)
-            {
-                doubleClick.Reset();
-                firstVisibleRow = ChefGridNavigation.Follow(firstVisibleRow, index, entries.Count);
-            }
+            if (cursor == null || ready.IsConfirmed(cursor.Key) || index < 0 || index >= entries.Count) return false;
+            cursor.Layout.EndScroll();
+            if (follow) cursor.FirstRow = cursor.Layout.Follow(cursor.FirstRow, index, entries.Count);
             if (cursor.Index == index && cursor.Chosen) return true;
             if (ChefGridRoster.Select(entries[index], cursor.Player, cursor.View))
             {
@@ -333,13 +364,11 @@ namespace OC2DIYChef
             return false;
         }
 
-        void Accept()
+        void Accept(Cursor cursor)
         {
-            doubleClick.Reset();
-            if (!Select(focused, focused.Index) || !turns.Confirm(focused.Key)) return;
-            DIYChefPlugin.Log("Chef grid confirmed player=" + (focused.Player + 1) + " chef=" + entries[focused.Index].Avatar.HeadName);
-            if (turns.Complete) RequestExit(ExitRequest.Accept);
-            else Focus(cursors.Find(x => x.Key == turns.Current.Value));
+            if (ready.IsConfirmed(cursor.Key)) { ready.Reopen(cursor.Key); return; }
+            if (!Select(cursor, cursor.Index) || !ready.Confirm(cursor.Key)) return;
+            if (ready.Complete) RequestExit(ExitRequest.Accept);
         }
 
         void RequestExit(ExitRequest request) { exitRequest = request; }
@@ -361,64 +390,42 @@ namespace OC2DIYChef
             }
         }
 
-        void ShiftRows(int delta)
-        {
-            Select(focused, ChefGridNavigation.ShiftRows(focused.Index, entries.Count, delta));
-        }
-
         void Mouse()
         {
-            if (!Input.GetMouseButton(0)) scrollBar.End();
             Vector2 point;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(frame, Input.mousePosition, null, out point)) return;
             float x = point.x + 640, y = 360 - point.y;
-            // Retain the drag even if the pointer leaves the narrow track or panel.
-            if (scrollBar.Dragging)
+            bool moved = (Input.mousePosition - lastMouse).sqrMagnitude > 0.1f;
+            lastMouse = Input.mousePosition;
+            bool click = Input.GetMouseButtonDown(0);
+            // A drag belongs to its original panel even while crossing another one.
+            foreach (var cursor in cursors)
             {
-                firstVisibleRow = scrollBar.Drag(y, entries.Count);
-                return;
-            }
-            if (x < 0 || x > 1280 || y < 0 || y > 720)
-            {
-                if (Input.GetMouseButtonDown(0)) doubleClick.Reset();
-                return;
-            }
-            if (x < 944 && Input.mouseScrollDelta.y != 0)
-                ShiftRows(Input.mouseScrollDelta.y > 0 ? -1 : 1);
-            if (!Input.GetMouseButtonDown(0)) return;
-            if (scrollBar.Begin(x, y, firstVisibleRow, entries.Count))
-            {
-                doubleClick.Reset();
-                firstVisibleRow = scrollBar.Drag(y, entries.Count);
-                return;
-            }
-            if (y >= 114 && y < 148)
-            {
-                doubleClick.Reset();
-                foreach (var cursor in cursors)
-                    if (x >= 48 + cursor.Player * 164 && x < 204 + cursor.Player * 164)
-                    {
-                        if (turns.Reopen(cursor.Key)) Focus(cursors.Find(c => c.Key == turns.Current.Value));
-                        return;
-                    }
-            }
-            int hit = layout.HitTest(x, y, firstVisibleRow, entries.Count);
-            if (hit >= 0)
-            {
-                // Mouse selection keeps the card under the pointer so the second click
-                // still targets the same chef, including in the first/last visible row.
-                if (Select(focused, hit, false))
+                var layout = cursor.Layout;
+                if (layout.Dragging)
                 {
-                    if (doubleClick.Click(focused.Key, hit, x, y, Time.unscaledTime)) Accept();
+                    if (Input.GetMouseButton(0)) cursor.FirstRow = layout.DragScroll(y, entries.Count);
+                    else layout.EndScroll();
+                    return;
                 }
-                else doubleClick.Reset();
-                return;
             }
-            doubleClick.Reset();
-            if (y >= 650 && y < 686)
+            foreach (var cursor in cursors)
             {
-                if (x >= 904 && x < 1056) RequestExit(ExitRequest.Cancel);
-                if (x >= 1072 && x < 1232) Accept();
+                var layout = cursor.Layout;
+                if (x < layout.Left || x >= layout.Left + layout.Width) continue;
+                if (click && x >= 48 && x < 188 && y >= 650 && y < 686) { RequestExit(ExitRequest.Cancel); return; }
+                if (click && x >= layout.Left + layout.Width - 140 && y >= 650 && y < 686) { Accept(cursor); return; }
+                if (click && layout.BeginScroll(x, y, cursor.FirstRow, entries.Count))
+                { cursor.FirstRow = layout.DragScroll(y, entries.Count); return; }
+                if (Input.mouseScrollDelta.y != 0 && y >= layout.GridTop && y < 630)
+                {
+                    cursor.FirstRow = Math.Max(0, Math.Min(layout.LastFirstRow(entries.Count),
+                        cursor.FirstRow + (Input.mouseScrollDelta.y > 0 ? -1 : 1)));
+                    return;
+                }
+                int hit = layout.HitTest(x, y, cursor.FirstRow, entries.Count);
+                if (hit >= 0 && (moved || click) && Select(cursor, hit, false) && click) Accept(cursor);
+                return;
             }
         }
 
@@ -453,122 +460,91 @@ namespace OC2DIYChef
             Box(frame, "Header", 40, 40, 1200, 58, Ink);
             Label(frame, "Title", L("选择厨师", "CHEFS"), 56, 42, 650, 54, 34, Color.white);
             Label(frame, "Total", entries.Count + L(" 位厨师", " CHEFS"), 1016, 49, 208, 40, 22, Color.white);
-            for (int i = 0; i < 4; i++)
+            foreach (var cursor in cursors)
             {
-                playerTabs[i] = Box(frame, "Player " + i, 48 + i * 164, 114, 156, 34, Ink);
-                playerLabels[i] = Label(playerTabs[i].transform, "Label", "P" + (i + 1), 6, 0, 144, 34, 19, Color.white);
+                var l = cursor.Layout;
+                var ui = cursor.UI = new Panel();
+                Box(frame, "Player panel", l.Left, 104, l.Width, 584, PlayerColours[cursor.Player]);
+                Box(frame, "Player paper", l.Left + 3, 107, l.Width - 6, 578, Paper);
+                ui.Player = Label(frame, "Player", "P" + (cursor.Player + 1), l.Left + 10, 108, l.Width - 20, 28, 21, Ink);
+                float imageSize = 128, textX = l.Left + imageSize + 16;
+                ui.Detail = Rect(frame, "Selected portrait", l.Left + 8, 136, imageSize, imageSize).gameObject.AddComponent<RawImage>();
+                ui.Detail.raycastTarget = false;
+                ui.Name = Label(frame, "Chef name", "", textX, 136, l.Left + l.Width - textX - 8, 66, 22, Ink);
+                ui.Name.resizeTextForBestFit = true; ui.Name.resizeTextMinSize = 16; ui.Name.resizeTextMaxSize = 22;
+                ui.Kind = Label(frame, "Chef kind", "", textX, 202, l.Left + l.Width - textX - 8, 28, 17, Ink);
+                ui.Position = Label(frame, "Position", "", textX, 230, l.Left + l.Width - textX - 8, 28, 17, Ink);
+                ui.Status = Label(frame, "Preview status", "", l.Left + 8, 176, imageSize, 48, 16, Ink);
+                ui.Grid = Rect(frame, "Grid", 0, 0, 1280, 720);
+                ui.Cells = new Cell[l.VisibleCount];
+                for (int slot = 0; slot < ui.Cells.Length; slot++)
+                {
+                    var rect = l.Cell(slot); float side = rect.Size;
+                    var cell = ui.Cells[slot] = new Cell();
+                    cell.Root = Box(ui.Grid, "Chef", rect.X, rect.Y, side, side, Paper).gameObject;
+                    cell.Portrait = Rect(cell.Root.transform, "Portrait", 0, 0, side, side).gameObject.AddComponent<RawImage>();
+                    cell.Portrait.raycastTarget = false;
+                    cell.Shade = Box(cell.Root.transform, "Shade", 0, 0, side, side, Color.clear);
+                    const float stroke = 5;
+                    cell.Highlight = new[] { Box(cell.Root.transform, "Top", -stroke, -stroke, side + 2 * stroke, stroke, Ink),
+                        Box(cell.Root.transform, "Right", side, 0, stroke, side, Ink), Box(cell.Root.transform, "Bottom", -stroke, side, side + 2 * stroke, stroke, Ink),
+                        Box(cell.Root.transform, "Left", -stroke, 0, stroke, side, Ink) };
+                }
+                float trackX = l.GridLeft + l.Columns * l.Side + 4;
+                Box(frame, "Scroll track", trackX, l.GridTop, 6, l.Rows * l.Side, new Color(Ink.r, Ink.g, Ink.b, 0.15f));
+                ui.Scroll = (RectTransform)Box(frame, "Scroll thumb", trackX, l.GridTop, 6, l.Rows * l.Side, Ink).transform;
+                ActionButton("Confirm", l.Left + l.Width - 140, 140, out ui.Accept, out ui.Icon, out ui.Key);
             }
-            gridLayer = Rect(frame, "Chef grid", 0, 0, 1280, 720);
-            for (int i = 0; i < VisibleCount; i++)
-            {
-                var rect = layout.Cell(i);
-                float side = rect.Size;
-                var cell = cells[i] = new Cell();
-                cell.Root = Box(gridLayer, "Chef " + i, rect.X, rect.Y, side, side, Ink).gameObject;
-                Box(cell.Root.transform, "Card", 1, 1, side - 2, side - 2, Paper);
-                cell.Portrait = Rect(cell.Root.transform, "Portrait", 1, 1, side - 2, side - 2).gameObject.AddComponent<RawImage>();
-                cell.Portrait.raycastTarget = false;
-                cell.Shade = Box(cell.Root.transform, "Selection shade", 1, 1, side - 2, side - 2, Color.clear);
-                // Extend outward so the selected thumbnail remains completely inside the frame.
-                float stroke = Math.Min(6, side * 0.1f);
-                cell.Highlight = new[] {
-                    Box(cell.Root.transform, "Selected top", -stroke, -stroke, side + stroke * 2, stroke, Ink),
-                    Box(cell.Root.transform, "Selected right", side, 0, stroke, side, Ink),
-                    Box(cell.Root.transform, "Selected bottom", -stroke, side, side + stroke * 2, stroke, Ink),
-                    Box(cell.Root.transform, "Selected left", -stroke, 0, stroke, side, Ink) };
-            }
-            float scrollLeft = ChefGridScrollBar.CentreX - ChefGridScrollBar.Width / 2;
-            Box(frame, "Scroll track", scrollLeft, ChefGridScrollBar.Top, ChefGridScrollBar.Width,
-                ChefGridScrollBar.Height, new Color(Ink.r, Ink.g, Ink.b, 0.15f));
-            scrollThumb = (RectTransform)Box(frame, "Scroll thumb", scrollLeft, ChefGridScrollBar.Top,
-                ChefGridScrollBar.Width, ChefGridScrollBar.Height, Ink).transform;
-            Box(frame, "Preview panel", 952, 114, 280, 486, Paper);
-            detailPortrait = Rect(frame, "Selected portrait", 964, 126, 256, 256).gameObject.AddComponent<RawImage>();
-            detailPortrait.raycastTarget = false;
-            detailStatus = Label(frame, "Preview status", "", 964, 230, 256, 48, 20, Ink);
-            detailName = Label(frame, "Selected name", "", 964, 398, 256, 84, 26, Ink);
-            detailName.resizeTextForBestFit = true;
-            detailName.resizeTextMinSize = 20;
-            detailName.resizeTextMaxSize = 26;
-            detailKind = Label(frame, "Selected kind", "", 964, 500, 256, 36, 20, Ink);
-            detailPosition = Label(frame, "Selected index", "", 964, 548, 256, 36, 22, Ink);
-            rangeLabel = Label(frame, "Visible rows", "", 48, 608, 888, 32, 19, Ink);
-            Label(frame, "Help", L("方向键 / 摇杆移动　滚轮 / 拖动滚动条　双击厨师确认", "Arrows / stick: move   Wheel / drag bar: scroll   Double-click: confirm"), 48, 650, 840, 36, 18, Ink);
             Text backLabel;
-            ActionButton("Back", 904, 152, out backLabel, out backIcon, out backKey);
-            backLabel.text = L("返回", "BACK");
-            ActionButton("Accept", 1072, 160, out acceptLabel, out acceptIcon, out acceptKey);
+            ActionButton("Back", 48, 140, out backLabel, out backIcon, out backKey);
+            backLabel.text = L("返回 P1", "BACK P1");
         }
 
         void Refresh()
         {
-            for (int i = 0; i < 4; i++)
+            foreach (var cursor in cursors)
             {
-                var cursor = cursors.Find(x => x.Player == i);
-                playerTabs[i].gameObject.SetActive(cursor != null);
-                if (cursor == null) continue;
-                bool confirmed = turns.IsConfirmed(cursor.Key);
-                playerTabs[i].color = cursor == focused && !confirmed ? PlayerColours[i] : Ink;
-                playerLabels[i].text = "P" + (i + 1) + (confirmed ? L("  已确认", "  READY") :
-                    cursor == focused ? L("  正在选择", "  SELECTING") : L("  等待中", "  WAITING"));
-            }
-            for (int slot = 0; slot < VisibleCount; slot++)
-            {
-                int index = firstVisibleRow * Columns + slot;
-                var cell = cells[slot];
-                cell.Root.SetActive(index < entries.Count);
-                if (index >= entries.Count)
+                var ui = cursor.UI; var l = cursor.Layout;
+                bool confirmed = ready.IsConfirmed(cursor.Key);
+                ui.Player.text = "P" + (cursor.Player + 1) + (confirmed ? L(" 已确认", " READY") : L(" 选择中", " SELECTING"));
+                for (int slot = 0; slot < ui.Cells.Length; slot++)
                 {
-                    cell.Selected = false;
-                    continue;
+                    var cell = ui.Cells[slot]; int index = cursor.FirstRow * l.Columns + slot;
+                    cell.Root.SetActive(index < entries.Count);
+                    if (index >= entries.Count) continue;
+                    var texture = portraits == null ? null : portraits.Get(entries[index]);
+                    cell.Portrait.texture = texture; cell.Portrait.enabled = texture != null;
+                    cell.Selected = index == cursor.Index;
+                    cell.Shade.color = cell.Selected ? new Color(1, 1, 1, 0.06f) : new Color(0, 0, 0, Mathf.Clamp01(unselectedDimOpacity.Value));
+                    foreach (var edge in cell.Highlight) { edge.enabled = cell.Selected; edge.color = PlayerColours[cursor.Player]; }
+                    if (cell.Selected) cell.Root.transform.SetAsLastSibling();
                 }
-                var entry = entries[index];
-                var texture = portraits == null ? null : portraits.Get(entry);
-                cell.Portrait.texture = texture;
-                cell.Portrait.enabled = texture != null;
-                // Only the current turn owns a selection frame. Completed and waiting
-                // players remain in the status strip, even when they share this chef.
-                cell.Selected = focused.Index == index;
-                cell.Shade.color = cell.Selected ? new Color(1, 1, 1, 0.06f) :
-                    new Color(0, 0, 0, Mathf.Clamp01(unselectedDimOpacity.Value));
-                for (int edge = 0; edge < cell.Highlight.Length; edge++)
-                {
-                    cell.Highlight[edge].enabled = cell.Selected;
-                    cell.Highlight[edge].color = PlayerColours[focused.Player];
-                }
+                var selected = entries[cursor.Index];
+                var detail = portraits == null ? null : portraits.GetDetail(selected);
+                if (detail != ui.Detail.texture) ui.ReadyAt = Time.unscaledTime;
+                ui.Detail.texture = detail; ui.Detail.enabled = detail != null;
+                if (detail != null) ui.Detail.color = new Color(1, 1, 1, Mathf.Clamp01((Time.unscaledTime - ui.ReadyAt) / 0.15f));
+                ui.Status.enabled = detail == null;
+                ui.Status.text = portraits != null && portraits.DetailFailed(selected) ? L("预览失败", "FAILED") : L("加载预览…", "LOADING…");
+                ui.Name.text = selected.Label;
+                ui.Kind.text = selected.CustomID == 255 ? L("官方厨师", "ORIGINAL") : L("额外厨师", "CUSTOM");
+                ui.Position.text = (cursor.Index + 1) + " / " + entries.Count;
+                float height = l.ThumbHeight(entries.Count);
+                ui.Scroll.sizeDelta = new Vector2(6, height);
+                ui.Scroll.anchoredPosition = new Vector2(l.GridLeft + l.Columns * l.Side + 7, -l.ThumbTop(cursor.FirstRow, entries.Count) - height / 2);
+                ui.Accept.text = confirmed ? L("重新选择", "EDIT") : L("确认", "READY");
+                ui.Prompts.Refresh(cursor.Input, cursor.Buttons[4], cursor.Buttons[5]);
+                ShowPrompt(ui.Icon, ui.Key, ui.Prompts.Accept);
             }
-            // Lift the focused thumbnail with its exterior frame above neighboring cells.
-            int selectedSlot = focused.Index - firstVisibleRow * Columns;
-            if (selectedSlot >= 0 && selectedSlot < VisibleCount)
-            {
-                var selectedRoot = cells[selectedSlot].Root.transform;
-                if (selectedRoot.GetSiblingIndex() != gridLayer.childCount - 1) selectedRoot.SetAsLastSibling();
-            }
-            var selected = entries[focused.Index];
-            var detail = portraits == null ? null : portraits.GetDetail(selected);
-            if (detail != detailPortrait.texture) detailReadyAt = Time.unscaledTime;
-            detailPortrait.texture = detail;
-            detailPortrait.enabled = detail != null;
-            if (detail != null) detailPortrait.color = new Color(1, 1, 1, Mathf.Clamp01((Time.unscaledTime - detailReadyAt) / 0.15f));
-            detailStatus.enabled = detail == null;
-            detailStatus.text = portraits == null ? L("预览暂不可用", "PREVIEW UNAVAILABLE") : portraits.DetailFailed(selected) ?
-                L("预览加载失败", "PREVIEW FAILED") : L("正在加载预览…", "LOADING PREVIEW…");
-            detailName.text = selected.Label;
-            detailKind.text = selected.CustomID == 255 ? L("官方厨师", "ORIGINAL CHEF") : L("额外厨师", "CUSTOM CHEF");
-            detailPosition.text = (focused.Index + 1) + " / " + entries.Count;
-            int rows = ChefGridNavigation.RowCount(entries.Count);
-            rangeLabel.text = L("第 ", "ROWS ") + (firstVisibleRow + 1) + "–" + Math.Min(rows, firstVisibleRow + ChefGridLayout.Rows) +
-                " / " + rows + L(" 行　·　依次确认厨师", "   ·   CONFIRM IN PLAYER ORDER");
-            float thumbHeight = scrollBar.ThumbHeight(entries.Count);
-            scrollThumb.sizeDelta = new Vector2(ChefGridScrollBar.Width, thumbHeight);
-            scrollThumb.anchoredPosition = new Vector2(ChefGridScrollBar.CentreX,
-                -scrollBar.ThumbTop(firstVisibleRow, entries.Count) - thumbHeight / 2);
-            scrollThumb.GetComponent<Image>().color = scrollBar.Dragging ? PlayerColours[focused.Player] : Ink;
-            acceptLabel.text = exitRequest != ExitRequest.None ? L("返回中…", "FINISHING…") :
-                L("确认 P", "CONFIRM P") + (focused.Player + 1);
-            buttonPrompts.Refresh(focused.Input, focused.Buttons[4], focused.Buttons[5]);
-            ShowPrompt(acceptIcon, acceptKey, buttonPrompts.Accept);
-            ShowPrompt(backIcon, backKey, buttonPrompts.Back);
+            backPrompts.Refresh(backInput, null, backButton);
+            ShowPrompt(backIcon, backKey, backPrompts.Back);
+        }
+
+        void DestroyUI()
+        {
+            if (canvasObject != null) { canvasObject.SetActive(false); Object.Destroy(canvasObject); canvasObject = null; }
+            if (ownsFont && font != null) Object.Destroy(font);
+            ownsFont = false; font = null;
         }
 
         static RectTransform Rect(Transform parent, string name, float x, float y, float w, float h)
@@ -631,9 +607,8 @@ namespace OC2DIYChef
 
         internal void CloseGrid()
         {
-            doubleClick.Reset();
-            buttonPrompts.Reset();
-            scrollBar.End();
+            backPrompts.Reset();
+            backIdentity = null; backObserved = false;
             open = false;
             if (Active == this)
             {
@@ -641,10 +616,7 @@ namespace OC2DIYChef
                 Active = null;
             }
             if (portraits != null) { portraits.Dispose(); portraits = null; }
-            if (canvasObject != null) { canvasObject.SetActive(false); Object.Destroy(canvasObject); canvasObject = null; }
-            if (ownsFont && font != null) Object.Destroy(font);
-            ownsFont = false;
-            font = null;
+            DestroyUI();
             cursors.Clear();
             focused = null;
         }

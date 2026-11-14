@@ -2,7 +2,7 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.2.0.21 (test build)**
+**Current version: 2.2.0.22 (test build)**
 
 This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248/Overcooked2-DIYChef) to reduce startup waits when many custom chefs and hats are installed, and to speed up loading previously cached resources. Existing chef resources, `prefer.txt` and BepInEx configuration remain compatible.
 
@@ -14,7 +14,7 @@ This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248
 - **Lossless texture compression:** Compress texture caches with LZ4HC in the background, reducing disk usage while preserving pixels, image quality and mipmaps.
 - **ModelTest particle compatibility:** Reapply particle effects after chef replacement without modifying the ModelTest DLL. The bridge stays inactive when ModelTest is absent.
 - **Custom default chefs:** Put a custom chef first to select it automatically when entering the game or adding a local player. The official online fallback is selected separately. This feature has not been tested in-game, and online behavior has not been verified.
-- **Chef selection grid:** A fixed 10-column, 5-row viewport scrolls by row, keeping the cursor in visible rows 2–4 during directional movement except at the list ends. Local players confirm in order. Click a chef to select; double-click to confirm. Confirm/back prompts follow the current player's keyboard or Xbox/PlayStation/Switch device and mapped buttons. Esc/B cancellation retains local players. The scrollbar supports dragging and track clicks; the up/down buttons have been removed. Unselected portrait dimming defaults to 40% and is configurable. The right panel retains the name and an independent 512-pixel preview, and existing portrait caches are reused. See the [grid research and usage guide](docs/CHEF_GRID.md) (Chinese) for device detection limits. Input and appearance still need in-game verification.
+- **Chef selection panels:** Up to four local players select simultaneously in one horizontal row. Each panel has its own scrolling five-row grid, preview and information above, and confirmation at bottom right. Hover selects a chef; one click confirms. Confirm again to edit only that player's choice. Only P1 can cancel using the bottom-left back action. Device prompts follow actual keyboard or Xbox/PlayStation/Switch bindings. Existing grey portrait caches are shared; unselected dimming remains configurable. See the [grid usage guide](docs/CHEF_GRID.md) (Chinese). Actual input and appearance need in-game verification.
 
 ## Installation and upgrades
 
@@ -97,7 +97,7 @@ After each chef in `prefer.txt`, you can add `HAT=xxx` (separated by spaces) to 
 
 In the arcade lobby's theme/matchmaking screen, click your player name and select **CHANGE CHEF**. The item appears only for local players and edits only the clicked player. Confirmation closes the player submenu; cancellation restores that player's chef. The action becomes available again when the closing input is released.
 
-On the world-map pause screen, use the game's existing **CHANGE CHEF** button to open the same grid. Local players confirm in order. Completing selection closes the pause screen; cancellation restores the starting choices and returns to the pause screen. The map player-name menus no longer receive an extra entry.
+On the world-map pause screen, use the game's existing **CHANGE CHEF** button to open the same panels. Local players select independently. Completing selection closes the pause screen; cancellation restores the starting choices and returns to the pause screen. The map player-name menus no longer receive an extra entry.
 
 All generated thumbnails and detail previews use the game's grey **No_Team** outfit, sharing the same image cache across players and scenes. Existing grey v8 portraits remain reusable; missing grey portraits are generated once. Actual player/team outfits retain their normal game colours.
 

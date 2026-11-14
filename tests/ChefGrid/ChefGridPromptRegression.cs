@@ -50,6 +50,38 @@ static class ChefGridPromptRegression
         prompts.Refresh(keyboard, accept, back);
         Check(prompts.Accept.Icon == null && prompts.Accept.Key == "Enter" && prompts.Back.Key == "Esc",
             "Switching to the second keyboard player updates prompts immediately rather than checking player one");
+        var leftKeyboard = new PlayerGameInput { Pad = ControlPadInput.PadNum.Two, Keyboard = true, Side = PadSide.Left };
+        var rightKeyboard = new PlayerGameInput { Pad = ControlPadInput.PadNum.Two, Keyboard = true, Side = PadSide.Right };
+        PCPadInputProvider.Set(keyboard.Pad, "Keyboard");
+        PCPadInputProvider.Key(keyboard.Pad, ControlPadInput.Button.A, "Left Shift");
+        PCPadInputProvider.Key(keyboard.Pad, ControlPadInput.Button.B, "Left Control");
+        PCPadInputProvider.Key(keyboard.Pad, ControlPadInput.Button.RB, "Right Control");
+        PCPadInputProvider.Key(keyboard.Pad, ControlPadInput.Button.Y, "Right Shift");
+        int fixedBefore = PlayerInputLookup.FixedCalls;
+        prompts.Refresh(leftKeyboard, accept, back);
+        Check(prompts.Accept.Icon == null && prompts.Accept.Key == "Left Shift" && prompts.Back.Key == "Left Control",
+            "Split-left prompts show actual InControl keyboard bindings rather than shared Enter/Esc or generic icon packs");
+        prompts.Refresh(rightKeyboard, accept, back);
+        Check(prompts.Accept.Key == "Right Control" && prompts.Back.Key == "Right Shift",
+            "The right half of the same keyboard resolves its independent physical actions");
+        Check(((MappedPromptButton)ChefGridButtonPrompts.Binding(leftKeyboard, true)).Button == ControlPadInput.Button.A &&
+            ((MappedPromptButton)ChefGridButtonPrompts.Binding(rightKeyboard, true)).Button == ControlPadInput.Button.RB &&
+            ((MappedPromptButton)ChefGridButtonPrompts.Binding(rightKeyboard, false)).Button == ControlPadInput.Button.Y &&
+            PlayerInputLookup.FixedCalls == fixedBefore,
+            "Split-keyboard polling and prompts share sided mappings without constructing global Space/Escape composites");
+        PCPadInputProvider.Key(keyboard.Pad, ControlPadInput.Button.A, "E");
+        UnityEngine.Time.unscaledTime = 1;
+        prompts.Refresh(leftKeyboard, accept, back);
+        Check(prompts.Accept.Key == "E", "Rebound keyboard keys refresh after the normal polling interval");
+        PCPadInputProvider.Key(keyboard.Pad, ControlPadInput.Button.A, null);
+        UnityEngine.Time.unscaledTime = 2;
+        prompts.Refresh(leftKeyboard, accept, back);
+        Check(prompts.Accept.Icon == null && prompts.Accept.Key == "—",
+            "An unmapped split key never advertises a shared fallback which that player cannot use");
+        prompts.Refresh(keyboard, accept, back);
+        Check(prompts.Accept.Key == "Enter" && prompts.Back.Key == "Esc",
+            "The combined keyboard keeps explicit grid fallback prompts after leaving split mode");
+        UnityEngine.Time.unscaledTime = 0;
         prompts.Refresh(pad, accept, back);
         Check(prompts.Accept.Icon.name == "Xbox A", "Switching back restores the current player's controller prompt immediately");
         PCPadInputProvider.Set(pad.Pad, "PlayStation 4 Controller");
@@ -104,26 +136,48 @@ static class ControlPadInput
 sealed class PlayerGameInput
 {
     internal ControlPadInput.PadNum Pad;
+    internal PadSide Side;
     internal bool Keyboard;
     internal ControlPadInput.Button? ConfirmOverride;
 }
 static class PlayerInputLookup
 {
-    internal enum LogicalButtonID { UISelectNotStart }
+    internal enum LogicalButtonID { UISelectNotStart, UISelect, UICancel }
+    internal static int FixedCalls;
+    static ILogicalButton GetSidedLogicalCombo(AmbiPadButton button, PlayerGameInput input)
+    {
+        return new MappedPromptButton(input.Side == PadSide.Left ?
+            (button == AmbiPadButton.Confirm ? ControlPadInput.Button.A : ControlPadInput.Button.B) :
+            (button == AmbiPadButton.Confirm ? ControlPadInput.Button.RB : ControlPadInput.Button.Y));
+    }
     internal static ILogicalButton GetFixedButton(LogicalButtonID id, PlayerGameInput input)
     {
+        FixedCalls++;
         return new MappedPromptButton(input.ConfirmOverride ??
             (PlayerManagerShared<PCPlayerManager.PCPlayerProfile>.AcceptAndCancelButtonsInverted ? ControlPadInput.Button.B : ControlPadInput.Button.A));
     }
 }
+enum PadSide { Both, Left, Right }
+enum AmbiPadButton { Confirm, Cancel }
 static class KeyboardUtils { internal static bool IsKeyboard(PlayerGameInput input) { return input.Keyboard; } }
-sealed class StandardActionSet { internal InControl.InputDevice Device; }
+sealed class StandardActionSet
+{
+    internal InControl.InputDevice Device;
+    internal readonly Dictionary<ControlPadInput.Button, InControl.PlayerAction> ButtonActions =
+        new Dictionary<ControlPadInput.Button, InControl.PlayerAction>();
+}
 static class PCPadInputProvider
 {
     static readonly Dictionary<ControlPadInput.PadNum, StandardActionSet> devices = new Dictionary<ControlPadInput.PadNum, StandardActionSet>();
     static StandardActionSet GetActionSet(ControlPadInput.PadNum pad) { return devices[pad]; }
     internal static void Set(ControlPadInput.PadNum pad, string name)
     { devices[pad] = new StandardActionSet { Device = new InControl.InputDevice { Name = name } }; }
+    internal static void Key(ControlPadInput.PadNum pad, ControlPadInput.Button button, string name)
+    {
+        var action = new InControl.PlayerAction();
+        if (name != null) action.Bindings.Add(new InControl.KeyBindingSource(name));
+        devices[pad].ButtonActions[button] = action;
+    }
 }
 sealed class MappedPromptButton : ILogicalButton
 {
@@ -168,6 +222,14 @@ sealed class ControllerIconLookup
 }
 namespace InControl
 {
+    class BindingSource { internal virtual string Name { get { return ""; } } }
+    sealed class KeyBindingSource : BindingSource
+    {
+        readonly string name;
+        internal KeyBindingSource(string name) { this.name = name; }
+        internal override string Name { get { return name; } }
+    }
+    sealed class PlayerAction { internal readonly List<BindingSource> Bindings = new List<BindingSource>(); }
     class InputDevice { internal string Name; internal string Meta { get { return ""; } } }
     sealed class UnityInputDevice : InputDevice { internal object Profile { get { return null; } } }
 }

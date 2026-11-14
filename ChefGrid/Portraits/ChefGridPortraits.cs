@@ -35,10 +35,12 @@ namespace OC2DIYChef
         readonly HashSet<ChefGridEntry> failedDetails = new HashSet<ChefGridEntry>();
         readonly ChefGridCacheWarmup<ChefGridEntry> thumbnailCache = new ChefGridCacheWarmup<ChefGridEntry>();
         readonly ChefGridCacheWarmup<ChefGridEntry> detailCache = new ChefGridCacheWarmup<ChefGridEntry>();
-        Texture2D detailImage;
-        ChefGridEntry detailEntry;
+        readonly Dictionary<ChefGridEntry, Texture2D> details = new Dictionary<ChefGridEntry, Texture2D>();
+        readonly LinkedList<ChefGridEntry> detailRecent = new LinkedList<ChefGridEntry>();
+        readonly HashSet<ChefGridEntry> selectedDetails = new HashSet<ChefGridEntry>();
         ChefGridEntry pending;
         int pendingSize;
+        int nextDetail;
         float started;
         int readyFrame;
 
@@ -121,7 +123,8 @@ namespace OC2DIYChef
         {
             // Grid portraits have a cropped headshot composition. Never enlarge them into
             // the full-model panel while its independently framed detail image loads.
-            return detailEntry == entry ? detailImage : null;
+            Texture2D image;
+            return details.TryGetValue(entry, out image) ? image : null;
         }
 
         internal bool DetailFailed(ChefGridEntry entry) { return failed.Contains(entry) || failedDetails.Contains(entry); }
@@ -132,9 +135,17 @@ namespace OC2DIYChef
             if (size == DetailSize)
             {
                 detailCache.Available(entry);
-                if (detailImage != null) Object.Destroy(detailImage);
-                detailEntry = entry;
-                detailImage = texture;
+                Texture2D previous;
+                if (details.TryGetValue(entry, out previous)) Object.Destroy(previous);
+                details[entry] = texture;
+                detailRecent.Remove(entry); detailRecent.AddLast(entry);
+                while (details.Count > 4)
+                {
+                    var old = detailRecent.First;
+                    while (old != null && selectedDetails.Contains(old.Value)) old = old.Next;
+                    if (old == null) break;
+                    Object.Destroy(details[old.Value]); details.Remove(old.Value); detailRecent.Remove(old);
+                }
                 return;
             }
             thumbnailCache.Available(entry);
@@ -183,18 +194,20 @@ namespace OC2DIYChef
             }
         }
 
-        internal void Tick(List<ChefGridEntry> wanted)
+        internal void Tick(List<ChefGridEntry> wanted, IList<ChefGridEntry> selected)
         {
+            selectedDetails.Clear();
+            foreach (var entry in selected) selectedDetails.Add(entry);
             capacity = Math.Max(96, wanted.Count);
-            ChefGridEntry selected = wanted.Count == 0 ? null : wanted[0];
             // Cache IO does not need the studio or the original menu's camera animation.
             // Fill several cells per frame even when a real player's model is still loading.
             var warmup = Stopwatch.StartNew();
             using (AssetHash.BeginBatch())
             {
                 thumbnailCache.Warm(wanted, ThumbnailReady, LoadThumbnail, () => warmup.Elapsed.TotalMilliseconds < 6);
-                if (selected != null && detailEntry != selected && !failed.Contains(selected) && !failedDetails.Contains(selected))
-                    detailCache.TryLoad(selected, LoadDetail);
+                foreach (var entry in selected)
+                    if (!details.ContainsKey(entry) && !failed.Contains(entry) && !failedDetails.Contains(entry))
+                        detailCache.TryLoad(entry, LoadDetail);
             }
             // User-facing previews take priority over background thumbnail work.
             if (ChefLoading.HasPendingExcept(replacer))
@@ -203,7 +216,7 @@ namespace OC2DIYChef
                 return;
             }
             if (pending != null && (!wanted.Contains(pending) ||
-                (pendingSize == DetailSize && pending != selected)))
+                (pendingSize == DetailSize && !selectedDetails.Contains(pending))))
             {
                 ChefLoading.Cancel(replacer);
                 pending = null;
@@ -244,10 +257,16 @@ namespace OC2DIYChef
                 return;
             }
             // A selected chef gets its own high-resolution render, never an enlarged thumbnail.
-            if (selected != null && detailEntry != selected && !failed.Contains(selected) && !failedDetails.Contains(selected))
+            for (int offset = 0; offset < selected.Count; offset++)
             {
-                Begin(selected, DetailSize);
-                return;
+                int index = (nextDetail + offset) % selected.Count;
+                var entry = selected[index];
+                if (!details.ContainsKey(entry) && !failed.Contains(entry) && !failedDetails.Contains(entry))
+                {
+                    Begin(entry, DetailSize);
+                    nextDetail = (index + 1) % selected.Count;
+                    return;
+                }
             }
             foreach (var entry in wanted)
             {
@@ -462,7 +481,8 @@ namespace OC2DIYChef
             if (camera != null) camera.targetTexture = null;
             if (target != null) { target.Release(); Object.Destroy(target); }
             if (detailTarget != null) { detailTarget.Release(); Object.Destroy(detailTarget); }
-            if (detailImage != null) { Object.Destroy(detailImage); detailImage = null; }
+            foreach (var image in details.Values) Object.Destroy(image);
+            details.Clear(); detailRecent.Clear(); selectedDetails.Clear();
             if (stage != null) { stage.SetActive(false); Object.Destroy(stage); }
             foreach (var texture in images.Values) Object.Destroy(texture);
             images.Clear();

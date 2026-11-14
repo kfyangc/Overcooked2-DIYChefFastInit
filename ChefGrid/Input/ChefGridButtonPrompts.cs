@@ -15,6 +15,8 @@ namespace OC2DIYChef
     {
         static readonly MethodInfo getActionSet = AccessTools.Method(typeof(PCPadInputProvider), "GetActionSet",
             new[] { typeof(ControlPadInput.PadNum) });
+        static readonly MethodInfo sidedButton = AccessTools.Method(typeof(PlayerInputLookup), "GetSidedLogicalCombo",
+            new[] { typeof(AmbiPadButton), typeof(PlayerGameInput) });
         const BindingFlags Fields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         PlayerGameInput previousInput;
         ILogicalButton previousAccept, previousCancel;
@@ -30,7 +32,13 @@ namespace OC2DIYChef
             refreshAt = Time.unscaledTime + 0.5f;
             if (input == null || KeyboardUtils.IsKeyboard(input))
             {
-                // These explicit grid bindings remain available for both sides of a split keyboard.
+                if (input != null && input.Side != PadSide.Both)
+                {
+                    Accept = KeyboardPrompt(input, Binding(input, true));
+                    Back = KeyboardPrompt(input, Binding(input, false));
+                    return;
+                }
+                // The unsplit keyboard still has these explicit grid fallback keys.
                 Accept = new ChefGridButtonPrompt { Key = "Enter" };
                 Back = new ChefGridButtonPrompt { Key = "Esc" };
                 return;
@@ -42,6 +50,35 @@ namespace OC2DIYChef
             var primaryConfirm = PlayerInputLookup.GetFixedButton(PlayerInputLookup.LogicalButtonID.UISelectNotStart, input);
             Accept = Resolve(lookup, style, primaryConfirm, ControlPadInput.Button.A);
             Back = Resolve(lookup, style, cancel, ControlPadInput.Button.B);
+        }
+
+        internal static ILogicalButton Binding(PlayerGameInput input, bool confirm)
+        {
+            if (input == null) return null;
+            if (KeyboardUtils.IsKeyboard(input) && input.Side != PadSide.Both)
+                return (ILogicalButton)sidedButton.Invoke(null,
+                    new object[] { confirm ? AmbiPadButton.Confirm : AmbiPadButton.Cancel, input });
+            return PlayerInputLookup.GetFixedButton(confirm ? PlayerInputLookup.LogicalButtonID.UISelect :
+                PlayerInputLookup.LogicalButtonID.UICancel, input);
+        }
+
+        static ChefGridButtonPrompt KeyboardPrompt(PlayerGameInput input, ILogicalButton logical)
+        {
+            // A sided input graph contains LogicalPadButton nodes even for a keyboard.
+            // Resolve that physical action first, then use its actual InControl key
+            // binding. Generic keyboard icon packs cannot represent custom remaps.
+            var button = logical == null ? null : PlayerButtonImage.GetControlPadButton<ControlPadInput.Button>(
+                logical, ControllerIconLookup.DeviceContext.Pad);
+            var actions = getActionSet == null ? null : (StandardActionSet)getActionSet.Invoke(null, new object[] { input.Pad });
+            if (button.HasValue && actions != null)
+            {
+                PlayerAction action;
+                if (actions.ButtonActions.TryGetValue(button.Value, out action))
+                    foreach (var binding in action.Bindings)
+                        if (binding is KeyBindingSource && !string.IsNullOrEmpty(binding.Name))
+                            return new ChefGridButtonPrompt { Key = binding.Name };
+            }
+            return new ChefGridButtonPrompt { Key = "—" };
         }
 
         static ChefGridPromptStyle Style(PlayerGameInput input)
