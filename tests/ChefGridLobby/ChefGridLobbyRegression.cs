@@ -62,12 +62,16 @@ static class ChefGridLobbyRegression
         Check(menu.Open(lobby, new GamepadUser(), selection), "Clicking P3 opens without a frontend flow or camera");
         var grid = host.GetComponent<ChefGridMenu>();
         var views = grid.Views;
-        Check(grid.IsOpen && !views[0].IsActive() && !views[1].IsActive() && views[2].IsActive() && !views[3].IsActive(),
-            "Only the clicked local player participates; other local and remote players are excluded");
+        Check(grid.IsOpen && views[0].IsActive() && !views[1].IsActive() && views[2].IsActive() && views[3].IsActive(),
+            "Clicking any local name shows every local participant but never the remote user");
+        int nativeUpdates = InGameMenuBehaviour.Updates;
+        Tick(menu);
+        Check(grid.IsOpen && InGameMenuBehaviour.Updates == nativeUpdates,
+            "The active grid is the sole input owner; native unsided cancel polling cannot bypass P1-only back");
         Check(views[2].GetAssignedInput().Side == PadSide.Left && views[2].m_actualPlayer == (PlayerInputLookup.Player)2,
             "The selected split player retains its actual input side and global avatar-message index");
         Check(lobby.Begins == 1 && lobby.Session.Blocking && PlayerInputLookup.Config != initial,
-            "The modal owns lobby input while editing one player");
+            "The modal owns lobby input while editing all local players");
         var input = views[2].GetAssignedInput();
         ClientUserSystem.usersChanged();
         Check(views[2].GetAssignedInput() == input, "Avatar refresh does not recreate button bindings");
@@ -87,12 +91,13 @@ static class ChefGridLobbyRegression
             "Cancel closes the grid and restores the exact lobby mapping");
         Check(left.SelectedChefAvatar == 11 && DIYChefCustomisation.userDIYChefID[2] == 52,
             "Cancel restores the clicked player's official and custom chef");
-        Check(local.SelectedChefAvatar == 23 && remote.SelectedChefAvatar == 24 && right.SelectedChefAvatar == 26 &&
-            DIYChefCustomisation.userDIYChefID[0] == 90 && DIYChefCustomisation.userDIYChefID[1] == 99 &&
-            DIYChefCustomisation.userDIYChefID[3] == 92, "Cancel never restores or overwrites other players");
-        Check(ChefLoading.Cancelled.Count == 1 && ChefLoading.Cancelled[0] == views[2].Replacer &&
-            ChefGridRoster.Selected.Count == 1 && ChefGridRoster.Selected[0] == 2,
-            "Only the target renderer request and target avatar message are changed");
+        Check(local.SelectedChefAvatar == 3 && remote.SelectedChefAvatar == 24 && right.SelectedChefAvatar == 14 &&
+            DIYChefCustomisation.userDIYChefID[0] == 31 && DIYChefCustomisation.userDIYChefID[1] == 99 &&
+            DIYChefCustomisation.userDIYChefID[3] == 67, "Cancel restores every local player and leaves the remote choice untouched");
+        Check(ChefLoading.Cancelled.Count == 3 && ChefLoading.Cancelled.Contains(views[0].Replacer) &&
+            ChefLoading.Cancelled.Contains(views[2].Replacer) && ChefLoading.Cancelled.Contains(views[3].Replacer) &&
+            ChefGridRoster.Selected.Count == 3 && !ChefGridRoster.Selected.Contains(1),
+            "Restoration cancels all participating renderer requests and sends only local avatar updates");
         Check(ClientUserSystem.usersChanged == null, "Closing unsubscribes temporary player bindings");
 
         Check(menu.Open(lobby, new GamepadUser(), ChefGridLobbySelection.Capture(left)), "The same name menu can reopen the grid");
@@ -111,30 +116,44 @@ static class ChefGridLobbyRegression
 
         Check(menu.Open(lobby, new GamepadUser(), ChefGridLobbySelection.Capture(left)), "Open before player reordering");
         ClientUserSystem.m_Users = new UserList(remote, left, right, local);
-        DIYChefCustomisation.userDIYChefID = new byte[] { 99, 88, 92, 90 };
+        DIYChefCustomisation.userDIYChefID = new byte[] { 99, 88, 67, 31 };
         ClientUserSystem.usersChanged();
-        Check(!views[0].IsActive() && views[1].IsActive() && !views[2].IsActive() && !views[3].IsActive() &&
+        Check(!views[0].IsActive() && views[1].IsActive() && views[2].IsActive() && views[3].IsActive() &&
             views[1].GetCurrentSelection() != left.SelectedChefData &&
             views[1].GetCurrentSelection().Character == left.SelectedChefData.Character,
-            "The target follows identity after the global player index changes without sharing mutable selection data");
+            "All local participants follow their global indices without sharing mutable selection data");
         left.SelectedChefAvatar = 40; DIYChefCustomisation.userDIYChefID[1] = 100;
         grid.Cancel();
         Check(left.SelectedChefAvatar == 27 && DIYChefCustomisation.userDIYChefID[1] == 88 &&
-            right.SelectedChefAvatar == 26 && local.SelectedChefAvatar == 23,
-            "Cancel restores the target at its new index without modifying its former neighbour");
+            right.SelectedChefAvatar == 14 && local.SelectedChefAvatar == 3,
+            "Cancel restores each local identity at its new index while preserving the remote user");
         var ends = lobby.Ends;
         menu.Hide();
         Check(lobby.Ends == ends && PlayerInputLookup.Config == initial, "Repeated Hide releases owned resources only once");
 
         Check(menu.Open(lobby, new GamepadUser(), ChefGridLobbySelection.Capture(left)), "Open before the selected player leaves");
         ClientUserSystem.m_Users = new UserList(remote, right, local);
-        DIYChefCustomisation.userDIYChefID = new byte[] { 99, 92, 90, 255 };
+        DIYChefCustomisation.userDIYChefID = new byte[] { 99, 67, 31, 255 };
         ClientUserSystem.usersChanged();
         Tick(menu);
-        Check(!grid.IsOpen && !host.activeSelf && right.SelectedChefAvatar == 26 && local.SelectedChefAvatar == 23,
-            "A departed target closes the grid instead of switching control to a different player");
+        Check(grid.IsOpen && host.activeSelf && views[1].IsActive() && views[2].IsActive(),
+            "The invoker leaving does not close the independent panels of remaining locals");
+        var joined = User.Create(true, 2, PadSide.Both, 15);
+        ClientUserSystem.m_Users = new UserList(remote, right, local, joined);
+        DIYChefCustomisation.userDIYChefID = new byte[] { 99, 67, 31, 123 };
+        lobby.Flow.m_uiPlayerRoot.Add(joined);
+        ClientUserSystem.usersChanged();
+        Check(views[3].IsActive() && views[3].GetCurrentSelection() != joined.SelectedChefData,
+            "A local player joining an open panel receives its own read-only input binding");
+        right.SelectedChefAvatar = 45; local.SelectedChefAvatar = 46; joined.SelectedChefAvatar = 50;
+        DIYChefCustomisation.userDIYChefID = new byte[] { 99, 101, 102, 144 };
+        grid.Cancel();
+        Check(!grid.IsOpen && !host.activeSelf && right.SelectedChefAvatar == 14 && local.SelectedChefAvatar == 3 &&
+            joined.SelectedChefAvatar == 15 && DIYChefCustomisation.userDIYChefID[3] == 123 &&
+            remote.SelectedChefAvatar == 24 && DIYChefCustomisation.userDIYChefID[0] == 99,
+            "Cancel restores remaining and newly joined locals from their own first-participation snapshots, never the remote");
         ClientUserSystem.m_Users = new UserList(remote, left, right, local);
-        DIYChefCustomisation.userDIYChefID = new byte[] { 99, 88, 92, 90 };
+        DIYChefCustomisation.userDIYChefID = new byte[] { 99, 88, 67, 31 };
 
         lobby.Flow.m_uiPlayerRoot.Players.Clear();
         Check(!menu.Open(lobby, new GamepadUser(), ChefGridLobbySelection.Capture(left)) &&

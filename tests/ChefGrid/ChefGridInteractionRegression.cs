@@ -10,6 +10,25 @@ static class ChefGridInteractionRegression
         checks++;
     }
 
+    // Same binding and first-observation path as SyncPlayers/PollControls, without Unity.
+    sealed class BoundControls
+    {
+        internal readonly ChefGridControls Controls = new ChefGridControls();
+        internal bool Observed;
+
+        internal void Rebind(int pad, int side)
+        {
+            if (Controls.Bind(pad, side)) Observed = false;
+        }
+
+        internal ChefGridControlEvents Poll(int direction, bool accept, bool cancel, float now)
+        {
+            var result = Controls.Poll(direction, accept, cancel, now, Observed);
+            Observed = true;
+            return result;
+        }
+    }
+
     internal static int Run()
     {
         checks = 0;
@@ -75,6 +94,56 @@ static class ChefGridInteractionRegression
             movement.Poll(1, false, false, 2, true).Direction == -1, "A waiting player's held stick cannot move the viewport on handoff");
         movement.Poll(-1, false, false, 3, true);
         Check(movement.Poll(1, false, false, 4, true).Direction == 1, "Neutral then move arms the next player's direction");
+
+        var bound = new BoundControls();
+        bound.Rebind(0, 0);
+        bound.Poll(-1, false, false, 0);
+        Check(bound.Poll(1, false, false, 0.01f).Direction == 1, "A newly observed binding permits the first move");
+        bound.Rebind(0, 0); // Native selection replaces PlayerGameInput with the same Pad/Side.
+        Check(bound.Observed && bound.Poll(1, false, false, 0.2f).Direction == -1,
+            "Equivalent input replacement retains observation and the initial repeat delay");
+        Check(bound.Poll(1, false, false, 0.37f).Direction == 1,
+            "Held direction repeats after 0.35 seconds despite selection rebinding");
+        bound.Rebind(0, 0);
+        Check(bound.Poll(1, false, false, 0.42f).Direction == -1 &&
+            bound.Poll(1, false, false, 0.48f).Direction == 1,
+            "Equivalent replacement also retains the subsequent 0.1 second repeat interval");
+        bound.Rebind(0, 0);
+        Check(bound.Poll(1, false, false, 0.59f).Direction == 1,
+            "Repeated native replacements permit continuous held movement");
+
+        var partner = new BoundControls();
+        partner.Rebind(0, 1);
+        partner.Poll(-1, false, false, 0.6f);
+        Check(partner.Poll(2, false, false, 0.61f).Direction == 2, "A split keyboard partner moves independently");
+        bound.Rebind(0, 0);
+        partner.Rebind(0, 1);
+        Check(bound.Poll(1, false, false, 0.7f).Direction == 1 &&
+            partner.Poll(2, false, false, 0.7f).Direction == -1,
+            "Refreshing all players after one selection cannot reset or share repeat timers");
+        bound.Rebind(0, 0);
+        partner.Rebind(0, 1);
+        Check(partner.Poll(2, false, false, 0.97f).Direction == 2,
+            "The partner keeps their own initial repeat deadline across other players' selections");
+
+        bound.Poll(-1, true, true, 1);
+        bound.Rebind(0, 0);
+        var held = bound.Poll(-1, true, true, 1.01f);
+        Check(!held.Accept && !held.Cancel, "Equivalent replacements preserve held confirm and cancel edges");
+        foreach (var replacement in new[] { new[] { 1, 0 }, new[] { 1, 1 } })
+        {
+            bound.Rebind(replacement[0], replacement[1]);
+            Check(!bound.Observed, "A real device or side change requires a fresh observation");
+            var initial = bound.Poll(3, true, true, 2);
+            var continuing = bound.Poll(3, true, true, 2.5f);
+            Check(initial.Direction == -1 && !initial.Accept && !initial.Cancel &&
+                continuing.Direction == -1 && !continuing.Accept && !continuing.Cancel,
+                "Held direction, confirm and cancel are suppressed on a real binding change");
+            bound.Poll(-1, false, false, 3);
+            var fresh = bound.Poll(3, true, true, 3.1f);
+            Check(fresh.Direction == 3 && fresh.Accept && fresh.Cancel,
+                "Releasing and pressing arms the replacement device normally");
+        }
         return checks;
     }
 }

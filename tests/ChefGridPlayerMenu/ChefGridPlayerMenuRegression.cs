@@ -428,7 +428,9 @@ static class ChefGridPlayerMenuRegression
         ChefGridPlayerMenu.HideAll(root);
         card.UserInfo = new User { Engagement = 3, Split = 1 };
         back.Restore(root);
-        Check(!back.Pending && events.Pending == null, "a removed player cannot redirect focus to a different user in the old slot");
+        Check(!back.Pending && events.Pending == card.MenuButton.gameObject,
+            "when the invoker leaves a shared local session, navigation returns to a surviving local name");
+        ChefGridPlayerMenu.HideAll(root);
         back.Capture(card);
         back.Restore(new UIPlayerRootMenu());
         Check(!back.Pending && events.Pending == null, "scene/root changes discard obsolete return focus");
@@ -439,6 +441,14 @@ static class ChefGridPlayerMenuRegression
         card.UserInfo.IsLocal = false;
         back.Capture(card);
         Check(!back.Pending, "remote cards never become a return target");
+        root.CachedEventSystem = events;
+        var surviving = Card(root, new User { Engagement = 4, Split = 0 });
+        back.Capture(surviving);
+        surviving.UserInfo = null;
+        ChefGridPlayerMenu.HideAll(root);
+        back.Restore(root);
+        Check(!back.Pending && events.Pending == null,
+            "a departed invoker with no surviving local cannot return focus to a remote name");
     }
 
     static void Main()

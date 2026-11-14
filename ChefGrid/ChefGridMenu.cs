@@ -41,7 +41,7 @@ namespace OC2DIYChef
         sealed class Cell
         {
             internal GameObject Root;
-            internal Image[] Highlight;
+            internal Image Background;
             internal Image Shade;
             internal RawImage Portrait;
             internal bool Selected;
@@ -174,8 +174,8 @@ namespace OC2DIYChef
                 if (cursor.Input != input)
                 {
                     cursor.Input = input;
-                    cursor.Controls = new ChefGridControls();
-                    cursor.InputObserved = false;
+                    if (cursor.Controls.Bind((int)input.Pad, (int)input.Side))
+                        cursor.InputObserved = false;
                     var ids = new[] { PlayerInputLookup.LogicalButtonID.UILeftPlayerSpecific,
                         PlayerInputLookup.LogicalButtonID.UIRightPlayerSpecific, PlayerInputLookup.LogicalButtonID.UIUp,
                         PlayerInputLookup.LogicalButtonID.UIDown, PlayerInputLookup.LogicalButtonID.UISelect,
@@ -303,9 +303,9 @@ namespace OC2DIYChef
                     else if (Input.GetKey(KeyCode.UpArrow)) direction = 2;
                     else if (Input.GetKey(KeyCode.DownArrow)) direction = 3;
                 }
-                bool accept = Down(cursor.Buttons[4]) || (keyboard && (Input.GetKey(KeyCode.Space) ||
+                bool accept = ChefGridButtonPrompts.Down(cursor.Input, cursor.Buttons[4]) || (keyboard && (Input.GetKey(KeyCode.Space) ||
                     Input.GetKey(KeyCode.Return) || Input.GetKey(KeyCode.KeypadEnter)));
-                bool cancel = Down(cursor.Buttons[5]) || (keyboard && Input.GetKey(KeyCode.Escape));
+                bool cancel = ChefGridButtonPrompts.Down(cursor.Input, cursor.Buttons[5]) || (keyboard && Input.GetKey(KeyCode.Escape));
                 cursor.Events = cursor.Controls.Poll(direction, accept, cancel, Time.unscaledTime,
                     enabled && cursor.InputObserved);
                 cursor.InputObserved = true;
@@ -313,7 +313,7 @@ namespace OC2DIYChef
             }
             foreach (var cursor in cursors) foreach (var button in cursor.Buttons) Claim(button);
             bool keyboardBack = backInput != null && KeyboardUtils.IsKeyboard(backInput) && backInput.Side == PadSide.Both;
-            var back = backControls.Poll(-1, false, Down(backButton) || (keyboardBack && Input.GetKey(KeyCode.Escape)),
+            var back = backControls.Poll(-1, false, ChefGridButtonPrompts.Down(backInput, backButton) || (keyboardBack && Input.GetKey(KeyCode.Escape)),
                 Time.unscaledTime, enabled && backObserved);
             backObserved = true;
             Claim(backButton);
@@ -417,7 +417,7 @@ namespace OC2DIYChef
                 if (click && x >= layout.Left + layout.Width - 140 && y >= 650 && y < 686) { Accept(cursor); return; }
                 if (click && layout.BeginScroll(x, y, cursor.FirstRow, entries.Count))
                 { cursor.FirstRow = layout.DragScroll(y, entries.Count); return; }
-                if (Input.mouseScrollDelta.y != 0 && y >= layout.GridTop && y < 630)
+                if (Input.mouseScrollDelta.y != 0 && y >= layout.GridTop && y < layout.GridTop + layout.GridHeight)
                 {
                     cursor.FirstRow = Math.Max(0, Math.Min(layout.LastFirstRow(entries.Count),
                         cursor.FirstRow + (Input.mouseScrollDelta.y > 0 ? -1 : 1)));
@@ -467,32 +467,29 @@ namespace OC2DIYChef
                 Box(frame, "Player panel", l.Left, 104, l.Width, 584, PlayerColours[cursor.Player]);
                 Box(frame, "Player paper", l.Left + 3, 107, l.Width - 6, 578, Paper);
                 ui.Player = Label(frame, "Player", "P" + (cursor.Player + 1), l.Left + 10, 108, l.Width - 20, 28, 21, Ink);
-                float imageSize = 128, textX = l.Left + imageSize + 16;
-                ui.Detail = Rect(frame, "Selected portrait", l.Left + 8, 136, imageSize, imageSize).gameObject.AddComponent<RawImage>();
+                float imageSize = 128, textX = l.DetailLeft + imageSize + 8, detailY = l.DetailTop;
+                ui.Detail = Rect(frame, "Selected portrait", l.DetailLeft, detailY, imageSize, imageSize).gameObject.AddComponent<RawImage>();
                 ui.Detail.raycastTarget = false;
-                ui.Name = Label(frame, "Chef name", "", textX, 136, l.Left + l.Width - textX - 8, 66, 22, Ink);
+                ui.Name = Label(frame, "Chef name", "", textX, detailY, l.DetailTextWidth, 66, 22, Ink);
                 ui.Name.resizeTextForBestFit = true; ui.Name.resizeTextMinSize = 16; ui.Name.resizeTextMaxSize = 22;
-                ui.Kind = Label(frame, "Chef kind", "", textX, 202, l.Left + l.Width - textX - 8, 28, 17, Ink);
-                ui.Position = Label(frame, "Position", "", textX, 230, l.Left + l.Width - textX - 8, 28, 17, Ink);
-                ui.Status = Label(frame, "Preview status", "", l.Left + 8, 176, imageSize, 48, 16, Ink);
+                ui.Kind = Label(frame, "Chef kind", "", textX, detailY + 66, l.DetailTextWidth, 28, 17, Ink);
+                ui.Position = Label(frame, "Position", "", textX, detailY + 94, l.DetailTextWidth, 28, 17, Ink);
+                ui.Status = Label(frame, "Preview status", "", l.DetailLeft, detailY + 40, imageSize, 48, 16, Ink);
                 ui.Grid = Rect(frame, "Grid", 0, 0, 1280, 720);
                 ui.Cells = new Cell[l.VisibleCount];
                 for (int slot = 0; slot < ui.Cells.Length; slot++)
                 {
                     var rect = l.Cell(slot); float side = rect.Size;
                     var cell = ui.Cells[slot] = new Cell();
-                    cell.Root = Box(ui.Grid, "Chef", rect.X, rect.Y, side, side, Paper).gameObject;
+                    cell.Background = Box(ui.Grid, "Chef", rect.X, rect.Y, side, side, Paper);
+                    cell.Root = cell.Background.gameObject;
                     cell.Portrait = Rect(cell.Root.transform, "Portrait", 0, 0, side, side).gameObject.AddComponent<RawImage>();
                     cell.Portrait.raycastTarget = false;
                     cell.Shade = Box(cell.Root.transform, "Shade", 0, 0, side, side, Color.clear);
-                    const float stroke = 5;
-                    cell.Highlight = new[] { Box(cell.Root.transform, "Top", -stroke, -stroke, side + 2 * stroke, stroke, Ink),
-                        Box(cell.Root.transform, "Right", side, 0, stroke, side, Ink), Box(cell.Root.transform, "Bottom", -stroke, side, side + 2 * stroke, stroke, Ink),
-                        Box(cell.Root.transform, "Left", -stroke, 0, stroke, side, Ink) };
                 }
-                float trackX = l.GridLeft + l.Columns * l.Side + 4;
-                Box(frame, "Scroll track", trackX, l.GridTop, 6, l.Rows * l.Side, new Color(Ink.r, Ink.g, Ink.b, 0.15f));
-                ui.Scroll = (RectTransform)Box(frame, "Scroll thumb", trackX, l.GridTop, 6, l.Rows * l.Side, Ink).transform;
+                float trackX = l.ScrollLeft;
+                Box(frame, "Scroll track", trackX, l.GridTop, 6, l.GridHeight, new Color(Ink.r, Ink.g, Ink.b, 0.15f));
+                ui.Scroll = (RectTransform)Box(frame, "Scroll thumb", trackX, l.GridTop, 6, l.GridHeight, Ink).transform;
                 ActionButton("Confirm", l.Left + l.Width - 140, 140, out ui.Accept, out ui.Icon, out ui.Key);
             }
             Text backLabel;
@@ -515,9 +512,8 @@ namespace OC2DIYChef
                     var texture = portraits == null ? null : portraits.Get(entries[index]);
                     cell.Portrait.texture = texture; cell.Portrait.enabled = texture != null;
                     cell.Selected = index == cursor.Index;
-                    cell.Shade.color = cell.Selected ? new Color(1, 1, 1, 0.06f) : new Color(0, 0, 0, Mathf.Clamp01(unselectedDimOpacity.Value));
-                    foreach (var edge in cell.Highlight) { edge.enabled = cell.Selected; edge.color = PlayerColours[cursor.Player]; }
-                    if (cell.Selected) cell.Root.transform.SetAsLastSibling();
+                    cell.Background.color = cell.Selected ? PlayerColours[cursor.Player] : Paper;
+                    cell.Shade.color = cell.Selected ? Color.clear : new Color(0, 0, 0, Mathf.Clamp01(unselectedDimOpacity.Value));
                 }
                 var selected = entries[cursor.Index];
                 var detail = portraits == null ? null : portraits.GetDetail(selected);
@@ -531,7 +527,7 @@ namespace OC2DIYChef
                 ui.Position.text = (cursor.Index + 1) + " / " + entries.Count;
                 float height = l.ThumbHeight(entries.Count);
                 ui.Scroll.sizeDelta = new Vector2(6, height);
-                ui.Scroll.anchoredPosition = new Vector2(l.GridLeft + l.Columns * l.Side + 7, -l.ThumbTop(cursor.FirstRow, entries.Count) - height / 2);
+                ui.Scroll.anchoredPosition = new Vector2(l.ScrollLeft + 3, -l.ThumbTop(cursor.FirstRow, entries.Count) - height / 2);
                 ui.Accept.text = confirmed ? L("重新选择", "EDIT") : L("确认", "READY");
                 ui.Prompts.Refresh(cursor.Input, cursor.Buttons[4], cursor.Buttons[5]);
                 ShowPrompt(ui.Icon, ui.Key, ui.Prompts.Accept);

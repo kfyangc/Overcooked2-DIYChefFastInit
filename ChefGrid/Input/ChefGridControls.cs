@@ -13,6 +13,22 @@ namespace OC2DIYChef
         bool acceptWasDown, cancelWasDown, needsNeutral;
         int previousDirection = -1;
         float repeatAt;
+        bool hasBinding;
+        int boundPad, boundSide;
+
+        // Native usersChanged refreshes recreate PlayerGameInput after chef selection.
+        // Preserve held-button edges and repeat deadlines for the same device and side.
+        internal bool Bind(int pad, int side)
+        {
+            if (hasBinding && boundPad == pad && boundSide == side) return false;
+            hasBinding = true;
+            boundPad = pad;
+            boundSide = side;
+            acceptWasDown = cancelWasDown = needsNeutral = false;
+            previousDirection = -1;
+            repeatAt = 0;
+            return true;
+        }
 
         internal ChefGridControlEvents Poll(int direction, bool accept, bool cancel, float now, bool active)
         {

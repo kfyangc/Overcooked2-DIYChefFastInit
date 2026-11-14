@@ -46,6 +46,7 @@ namespace UnityEngine
 public class BaseMenuBehaviour : UnityEngine.MonoBehaviour { }
 public class InGameMenuBehaviour : BaseMenuBehaviour
 {
+    public static int Updates;
     public virtual bool Show(GamepadUser gamer, BaseMenuBehaviour parent, UnityEngine.GameObject invoker, bool hideInvoker)
     {
         if (gameObject.activeSelf) return false;
@@ -59,7 +60,7 @@ public class InGameMenuBehaviour : BaseMenuBehaviour
         return active;
     }
     public virtual void Close() { Hide(); }
-    protected virtual void Update() { }
+    protected virtual void Update() { Updates++; }
     protected virtual void OnDestroy() { }
 }
 public sealed class GamepadUser { }

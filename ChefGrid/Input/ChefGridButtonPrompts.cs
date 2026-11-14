@@ -64,21 +64,42 @@ namespace OC2DIYChef
 
         static ChefGridButtonPrompt KeyboardPrompt(PlayerGameInput input, ILogicalButton logical)
         {
+            InputDevice device;
+            var binding = KeyboardBinding(input, logical, out device);
+            return new ChefGridButtonPrompt { Key = binding == null ? "—" : binding.Name };
+        }
+
+        internal static bool Down(PlayerGameInput input, ILogicalButton logical)
+        {
+            if (input != null && KeyboardUtils.IsKeyboard(input) && input.Side != PadSide.Both)
+            {
+                // Read the very same keyboard combo advertised by the prompt, rather
+                // than the virtual pad action's cached State. Keep chords/remaps intact.
+                InputDevice device;
+                var binding = KeyboardBinding(input, logical, out device);
+                return binding != null && binding.GetState(device);
+            }
+            return logical != null && logical.IsDown();
+        }
+
+        static KeyBindingSource KeyboardBinding(PlayerGameInput input, ILogicalButton logical, out InputDevice device)
+        {
             // A sided input graph contains LogicalPadButton nodes even for a keyboard.
             // Resolve that physical action first, then use its actual InControl key
             // binding. Generic keyboard icon packs cannot represent custom remaps.
             var button = logical == null ? null : PlayerButtonImage.GetControlPadButton<ControlPadInput.Button>(
                 logical, ControllerIconLookup.DeviceContext.Pad);
             var actions = getActionSet == null ? null : (StandardActionSet)getActionSet.Invoke(null, new object[] { input.Pad });
+            device = actions == null ? null : actions.Device;
             if (button.HasValue && actions != null)
             {
                 PlayerAction action;
                 if (actions.ButtonActions.TryGetValue(button.Value, out action))
                     foreach (var binding in action.Bindings)
                         if (binding is KeyBindingSource && !string.IsNullOrEmpty(binding.Name))
-                            return new ChefGridButtonPrompt { Key = binding.Name };
+                            return (KeyBindingSource)binding;
             }
-            return new ChefGridButtonPrompt { Key = "—" };
+            return null;
         }
 
         static ChefGridPromptStyle Style(PlayerGameInput input)

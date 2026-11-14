@@ -37,15 +37,21 @@ namespace OC2DIYChef
             // A click or another native menu may have already established focus.
             var selected = domain.GetPendingSelectedGameObject() ?? domain.currentSelectedGameObject;
             if (selected != null && selected.activeInHierarchy) { Clear(); return; }
+            GameObject fallback = null;
             foreach (var card in root.UIPlayers)
             {
                 var user = card == null ? null : card.UserInfo;
-                if (user == null || !user.IsLocal || (int)user.Engagement != engagement || (int)user.Split != split ||
+                if (user == null || !user.IsLocal ||
                     card.MenuButton == null || !card.MenuButton.isActiveAndEnabled || !card.MenuButton.IsInteractable()) continue;
+                if (fallback == null) fallback = card.MenuButton.gameObject;
+                if ((int)user.Engagement != engagement || (int)user.Split != split) continue;
                 domain.SetSelectedGameObject(card.MenuButton.gameObject);
                 Clear();
                 return;
             }
+            // All locals can participate now. If the original invoker disconnected,
+            // return navigation to a surviving local rather than leave the lobby empty.
+            if (fallback != null) domain.SetSelectedGameObject(fallback);
             Clear();
         }
     }

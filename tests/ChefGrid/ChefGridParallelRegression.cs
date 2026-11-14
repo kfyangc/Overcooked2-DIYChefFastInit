@@ -67,6 +67,12 @@ static class ChefGridParallelRegression
                 Check(panel.Width > 0 && panel.Side > 0 && panel.Columns > 0 && panel.Rows == 5 &&
                     panel.VisibleCount == panel.Columns * panel.Rows,
                     "Every participant receives a usable five-row grid");
+                Check(panel.Columns == new[] { 15, 7, 4, 3 }[participants - 1],
+                    "Available width expands single-player grids and preserves usable multiplayer columns");
+                Check(panel.DetailTop >= panel.GridTop + panel.GridHeight && panel.DetailTop + 128 <= 650 &&
+                    Math.Abs(panel.DetailLeft + (128 + 8 + panel.DetailTextWidth) / 2 - (panel.Left + panel.Width / 2)) < 0.001f &&
+                    panel.DetailLeft >= panel.Left && panel.DetailLeft + 128 + 8 + panel.DetailTextWidth <= panel.Left + panel.Width,
+                    "The portrait and bounded text form one centered group beneath the grid and above the buttons");
                 Check(panel.Left >= 0 && panel.Left + panel.Width <= 1280 && panel.GridLeft >= panel.Left,
                     "Each horizontal panel and its grid remain inside the screen");
                 if (previous != null)
@@ -99,8 +105,16 @@ static class ChefGridParallelRegression
                             if (slot % panel.Columns + 1 < panel.Columns)
                             {
                                 var next = panel.Cell(slot + 1);
-                                Check(Math.Abs(cell.X + cell.Size - next.X) < 0.001f,
-                                    "Horizontal thumbnail edges have no inserted spacing");
+                                Check(Math.Abs(next.X - cell.X - cell.Size - 4) < 0.001f &&
+                                    panel.HitTest(cell.X + cell.Size + 2, cell.Y + 1, first, count) == -1,
+                                    "Four-pixel horizontal gaps separate thumbnails without selecting either neighbor");
+                            }
+                            if (slot / panel.Columns + 1 < panel.Rows)
+                            {
+                                var below = panel.Cell(slot + panel.Columns);
+                                Check(Math.Abs(below.Y - cell.Y - cell.Size - 4) < 0.001f &&
+                                    panel.HitTest(cell.X + 1, cell.Y + cell.Size + 2, first, count) == -1,
+                                    "Four-pixel vertical gaps do not select chefs in adjacent rows");
                             }
                         }
                     }
@@ -119,10 +133,10 @@ static class ChefGridParallelRegression
                     panel.HitTest(origin.X + 1, origin.Y - 0.01f, 0, 109) == -1 &&
                     panel.HitTest(origin.X + 1, origin.Y + 1, 0, 0) == -1,
                     "Panel margins and an empty roster do not hover-select a chef");
-                float trackX = panel.GridLeft + panel.Columns * panel.Side + 4;
+                float trackX = panel.ScrollLeft;
                 Check(panel.BeginScroll(trackX, panel.GridTop + 1, 0, 109) && panel.Dragging &&
                     panel.DragScroll(panel.GridTop - 1000, 109) == 0 &&
-                    panel.DragScroll(panel.GridTop + panel.Rows * panel.Side + 1000, 109) == panel.LastFirstRow(109),
+                    panel.DragScroll(panel.GridTop + panel.GridHeight + 1000, 109) == panel.LastFirstRow(109),
                     "Each independent scrollbar can be grabbed and dragged to both list ends, including beyond its bounds");
                 panel.EndScroll();
                 Check(!panel.Dragging && !panel.BeginScroll(trackX, panel.GridTop + 1, 0, 1),

@@ -62,6 +62,9 @@ static class ChefGridLobbyBindingRegression
                 "A lobby grid opens while a frontend DLC auto-selection request still exists");
             var grid = host.GetComponent<ChefGridMenu>();
             var view = grid.Views[0];
+            Check(grid.Views[1].IsActive() && !grid.Views[1].enabled &&
+                grid.Views[1].GetCurrentSelection() != neighbour.SelectedChefData,
+                "Opening one local name binds every local neighbour read-only with independent selection data");
             Check(ClientMessenger.AvatarMessages == sent && ChefGridRoster.Selected.Count == savedSelections &&
                 target.SelectedChefAvatar == 3 && original.Character == GameUtils.Directory.Avatars[3] &&
                 DIYChefCustomisation.userDIYChefID[0] == 52,
@@ -104,8 +107,8 @@ static class ChefGridLobbyBindingRegression
             menu.Close();
             Check(target.SelectedChefAvatar == 3 && DIYChefCustomisation.userDIYChefID[0] == 52 &&
                 neighbour.SelectedChefAvatar == 8 && DIYChefCustomisation.userDIYChefID[1] == 63 &&
-                ChefGridRoster.Selected.Count == savedSelections + 1,
-                "Explicit cancel still restores the target snapshot once and leaves the neighbour untouched");
+                ChefGridRoster.Selected.Count == savedSelections + 2,
+                "Explicit cancel restores both local snapshots, including the rebuilt target identity");
             Check(replaced.SelectedChefAvatar == 9 && target.SelectedChefAvatar == 3,
                 "Cancel restores the current same-identity User object rather than the obsolete captured object");
             Check(flow.AutoOpenFrontendDlcData == dlc && FrontendChefCustomisation.ActivateCalls == activates &&

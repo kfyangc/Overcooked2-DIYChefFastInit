@@ -1,17 +1,18 @@
 using System;
+using System.Collections.Generic;
 using Team17.Online;
 using UnityEngine;
 
 namespace OC2DIYChef
 {
     // The arcade scene has UI chefs rather than FrontendChefMenu. Bind the same
-    // native customisation views to those chefs, editing only the clicked user.
+    // native customisation views to every local chef; the clicked user is only the invoker.
     public sealed class ChefGridLobbyMenu : InGameMenuBehaviour
     {
         readonly FrontendChefCustomisation[] views = new FrontendChefCustomisation[4];
         GameInputConfig initialInput, ownedInput;
         ChefGridLobby lobby;
-        ChefGridLobbySelection target;
+        readonly List<ChefGridLobbySelection> selections = new List<ChefGridLobbySelection>();
         bool showing;
 
         internal bool Open(ChefGridLobby source, GamepadUser gamer, ChefGridLobbySelection selection)
@@ -30,7 +31,7 @@ namespace OC2DIYChef
                 }
             }
             if (!base.Show(gamer, null, null, false)) return false;
-            target = selection;
+            selections.Clear();
             showing = true;
             initialInput = PlayerInputLookup.GetInputConfig();
             try
@@ -66,10 +67,17 @@ namespace OC2DIYChef
                 view.SetChefMeshReplacer(replacer);
                 view.SetChefAnimator(replacer == null || replacer.ChefModel == null ? null :
                     replacer.ChefModel.GetComponent<Animator>());
-                if (!target.Owns(user) || user.SelectedChefData == null || replacer == null)
+                if (user == null || !user.IsLocal || user.SelectedChefData == null || replacer == null)
                 {
                     ChefGridLobbyView.Unbind(view);
                     continue;
+                }
+                // Joined/rebuilt users are identified by their input identity, never their
+                // array index or object reference. Capture each participant before editing.
+                if (!selections.Exists(snapshot => snapshot.Owns(user)))
+                {
+                    var snapshot = ChefGridLobbySelection.Capture(user);
+                    if (snapshot != null) selections.Add(snapshot);
                 }
                 var previous = view.GetAssignedInput();
                 if (previous != null && previous.Pad == (ControlPadInput.PadNum)user.Engagement &&
@@ -82,7 +90,9 @@ namespace OC2DIYChef
 
         protected override void Update()
         {
-            base.Update();
+            // InGameMenuBehaviour.Update polls its own unsided cancel graph. While our
+            // modal is open only its P1-specific back binding may close the transaction.
+            if (!showing) { base.Update(); return; }
             var grid = GetComponent<ChefGridMenu>();
             if (showing && grid != null && grid.IsOpen) grid.Tick();
             if (showing && (grid == null || !grid.IsOpen)) Hide();
@@ -91,7 +101,8 @@ namespace OC2DIYChef
         public override void Close()
         {
             if (!showing) return;
-            target.Restore(views);
+            // Restore sends usersChanged synchronously, so enumerate a stable snapshot.
+            foreach (var selection in selections.ToArray()) selection.Restore(views);
             Hide();
         }
 
@@ -117,7 +128,7 @@ namespace OC2DIYChef
                 if (initialInput != null && (ownedInput == null || PlayerInputLookup.GetInputConfig() == ownedInput))
                     PlayerInputLookup.SetInputConfig(initialInput);
                 initialInput = ownedInput = null;
-                target = null;
+                selections.Clear();
                 if (lobby != null) lobby.EndInput();
             }
             return base.Hide(restoreInvokerState, isTabSwitch);

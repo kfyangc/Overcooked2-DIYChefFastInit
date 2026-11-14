@@ -69,6 +69,26 @@ static class ChefGridPromptRegression
             ((MappedPromptButton)ChefGridButtonPrompts.Binding(rightKeyboard, false)).Button == ControlPadInput.Button.Y &&
             PlayerInputLookup.FixedCalls == fixedBefore,
             "Split-keyboard polling and prompts share sided mappings without constructing global Space/Escape composites");
+        var leftBack = ChefGridButtonPrompts.Binding(leftKeyboard, false);
+        var rightBack = ChefGridButtonPrompts.Binding(rightKeyboard, false);
+        PCPadInputProvider.Pressed(keyboard.Pad, ControlPadInput.Button.B, true);
+        Check(!leftBack.IsDown() && ChefGridButtonPrompts.Down(leftKeyboard, leftBack) &&
+            !ChefGridButtonPrompts.Down(rightKeyboard, rightBack),
+            "The displayed Left Control combo operates P1 even when the virtual pad action state is false; P2 does not inherit it");
+        PCPadInputProvider.Pressed(keyboard.Pad, ControlPadInput.Button.B, false);
+        PCPadInputProvider.Pressed(keyboard.Pad, ControlPadInput.Button.Y, true);
+        Check(!ChefGridButtonPrompts.Down(leftKeyboard, leftBack) && ChefGridButtonPrompts.Down(rightKeyboard, rightBack),
+            "Right-side cancel input cannot masquerade as P1's return combo");
+        PCPadInputProvider.Pressed(keyboard.Pad, ControlPadInput.Button.Y, false);
+        PCPadInputProvider.Key(keyboard.Pad, ControlPadInput.Button.B, "Left Alt + Q");
+        PCPadInputProvider.Pressed(keyboard.Pad, ControlPadInput.Button.B, true);
+        prompts.Reset();
+        prompts.Refresh(leftKeyboard, accept, back);
+        Check(prompts.Back.Key == "Left Alt + Q" && ChefGridButtonPrompts.Down(leftKeyboard, leftBack),
+            "Prompt and polling use the same rebound keyboard chord without parsing or hardcoding key names");
+        PCPadInputProvider.Key(keyboard.Pad, ControlPadInput.Button.B, null);
+        Check(!ChefGridButtonPrompts.Down(leftKeyboard, leftBack), "Removing a split binding removes its executable return action too");
+        Check(!ChefGridButtonPrompts.Down(pad, back), "Controller polling keeps the native logical state rather than keyboard binding state");
         PCPadInputProvider.Key(keyboard.Pad, ControlPadInput.Button.A, "E");
         UnityEngine.Time.unscaledTime = 1;
         prompts.Refresh(leftKeyboard, accept, back);
@@ -178,6 +198,8 @@ static class PCPadInputProvider
         if (name != null) action.Bindings.Add(new InControl.KeyBindingSource(name));
         devices[pad].ButtonActions[button] = action;
     }
+    internal static void Pressed(ControlPadInput.PadNum pad, ControlPadInput.Button button, bool state)
+    { ((InControl.KeyBindingSource)devices[pad].ButtonActions[button].Bindings[0]).Pressed = state; }
 }
 sealed class MappedPromptButton : ILogicalButton
 {
@@ -226,8 +248,10 @@ namespace InControl
     sealed class KeyBindingSource : BindingSource
     {
         readonly string name;
+        internal bool Pressed;
         internal KeyBindingSource(string name) { this.name = name; }
         internal override string Name { get { return name; } }
+        internal bool GetState(InputDevice device) { return Pressed; }
     }
     sealed class PlayerAction { internal readonly List<BindingSource> Bindings = new List<BindingSource>(); }
     class InputDevice { internal string Name; internal string Meta { get { return ""; } } }
