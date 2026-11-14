@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>DIYChef.PortraitCacheProbe</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GameDir Condition="'$(GameDir)' == ''">$(OC2_GAME_DIR)</GameDir>
+    <GameDir Condition="'$(GameDir)' == ''">D:/Games/Steam Games/steamapps/common/Overcooked! 2</GameDir>
+    <ManagedDir>$(GameDir)/Overcooked2_Data/Managed</ManagedDir>
+    <FrameworkPathOverride>$(ManagedDir)</FrameworkPathOverride>
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>../../../artifacts/portrait-cache-formats/bin/$(Configuration)/</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="MonoPortraitCacheProbe.cs;GdiPngDecoder.cs;../../../AssetPipeline/Native/AssetHash.cs;../../../AssetPipeline/Native/NativePixelBuffer.cs;../../../AssetPipeline/Native/Lz4Codec.cs;../../../AssetPipeline/Cache/AssetDiskCache.cs;../../../AssetPipeline/Cache/CachedTexture.cs;../../../AssetPipeline/Cache/TextureDiskCache.cs;../../../AssetPipeline/Cache/TextureCacheCompression.cs" />
+    <Reference Include="$(ManagedDir)/mscorlib.dll;$(ManagedDir)/System.dll;$(ManagedDir)/System.Core.dll;$(ManagedDir)/UnityEngine*.dll" Private="false" />
+    <EmbeddedResource Include="../../../lib/lz4-win-x86.dll" LogicalName="OC2DIYChef.Native.LZ4.x86" />
+    <EmbeddedResource Include="../../../third_party/lz4/LICENSE" LogicalName="OC2DIYChef.Native.LZ4.LICENSE" />
+  </ItemGroup>
+</Project>

@@ -2,7 +2,7 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.2.0**
+**Current version: 2.2.0.25 (test build)**
 
 This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248/Overcooked2-DIYChef) to reduce startup waits when many custom chefs and hats are installed, and to speed up loading previously cached resources. Existing chef resources, `prefer.txt` and BepInEx configuration remain compatible.
 
@@ -14,6 +14,7 @@ This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248
 - **Lossless texture compression:** Compress texture caches with LZ4HC in the background, reducing disk usage while preserving pixels, image quality and mipmaps.
 - **ModelTest particle compatibility:** Reapply particle effects after chef replacement without modifying the ModelTest DLL. The bridge stays inactive when ModelTest is absent.
 - **Custom default chefs:** Put a custom chef first to select it automatically when entering the game or adding a local player. The official online fallback is selected separately. This feature has not been tested in-game, and online behavior has not been verified.
+- **Chef selection panels:** Up to four local players select simultaneously in one horizontal row. Each panel has its own four-row grid above a larger, centered preview/info group, with confirmation at bottom right. Thumbnails have small gaps, a player-coloured selection background and an exterior highlight around the selected chef; a single player sees 15 columns. Hover selects; one click confirms. Confirm again to edit only that player's choice. Only P1 can cancel using the bottom-left back action. Device prompts follow actual bindings. Grey 512-pixel detail caches are shared; dimming is configurable. See the [usage guide](docs/CHEF_GRID.md) (Chinese). Actual input and appearance need in-game verification.
 
 ## Installation and upgrades
 
@@ -92,9 +93,17 @@ After each chef in `prefer.txt`, you can add `HAT=xxx` (separated by spaces) to 
 
 - Copy the DIY hat resource folder released by the modeler into the `OC2DIYChef/Resources/HATS` folder. Use the DIY hat resource folder name as the hat's name. 
 
-### Switching chefs at the arcade lobby
+### Switching chefs in the arcade lobby or world map
 
-Add a line `LOBBYSWITCHCHEF=TRUE` to `prefer.txt` to switch chefs at the lobby by pressing up / down.
+In the arcade lobby's theme/matchmaking screen, click any local player name and select **CHANGE CHEF** to edit all local players together. Confirmation closes the player submenu; cancellation restores each participant's initial choice. Remote users are excluded. Navigation focus is restored after closing.
+
+On the world-map pause screen, use the game's existing **CHANGE CHEF** button to open the same panels. Local players select independently. Completing selection closes the pause screen; cancellation restores the starting choices and returns to the pause screen. The map player-name menus no longer receive an extra entry.
+
+All generated thumbnails and detail previews use the game's grey **No_Team** outfit, sharing the same image cache across players and scenes. Existing grey v8 portraits remain reusable; missing grey portraits are generated once. Actual player/team outfits retain their normal game colours.
+
+Chef selection runs entirely in this mod. The arcade entry follows the native-template interaction pattern used by HostUtilities: an independent action with its own click, hover, focus and navigation handling. It does not modify the game's native option list. Opening names, focusing actions and preparing the grid do not change a chef. There is no hard or soft HostUtilities dependency, detection, registration or invocation. No prefer.txt changes are required. The item follows `[ChefSelection] GridEnabled`. Actual menu appearance, input and online synchronization still need in-game testing.
+
+The older `LOBBYSWITCHCHEF=TRUE` up/down shortcut is available only with `GridEnabled=false`. With the grid enabled it is retired, including while navigating the player-name menu, so those navigation keys cannot also change a chef.
 
 ### Warning messages
 

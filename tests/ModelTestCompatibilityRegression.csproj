@@ -6,6 +6,6 @@
     <OutputPath>bin/modeltest/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ModelTestCompatibilityRegression.cs;../ModelTestCompatibility.cs" />
+    <Compile Include="ModelTestCompatibilityRegression.cs;../Compatibility/ModelTestCompatibility.cs" />
   </ItemGroup>
 </Project>

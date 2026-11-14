@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <OutputPath>bin/chef-grid/</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="ChefGrid/ChefGridParallelRegression.cs;../ChefGrid/Input/ChefGridReadySet.cs;../ChefGrid/Layout/ChefGridPanelLayout.cs" />
+    <Compile Include="ChefGrid/ChefGridVisibilityRegression.cs;../ChefGrid/Portraits/ChefGridVisibility.cs" />
+    <Compile Include="ChefGrid/ChefGridPoseRegression.cs;../ChefGrid/Portraits/ChefGridPose.cs" />
+    <Compile Include="ChefGrid/ChefGridFaceRegression.cs" />
+    <Compile Include="ChefGrid/ChefGridCacheWarmupRegression.cs;../ChefGrid/Portraits/ChefGridCacheWarmup.cs" />
+    <Compile Include="ChefGrid/ChefGridInteractionRegression.cs;../ChefGrid/Input/ChefGridTurnOrder.cs;../ChefGrid/Input/ChefGridControls.cs" />
+    <Compile Include="ChefGrid/ChefGridEngagementRegression.cs;../ChefGrid/Input/ChefGridEngagementGuard.cs" />
+    <Compile Include="ChefGrid/ChefGridScrollBarRegression.cs;../ChefGrid/Layout/ChefGridScrollBar.cs" />
+    <Compile Include="ChefGrid/ChefGridMouseRegression.cs;../ChefGrid/Input/ChefGridDoubleClick.cs" />
+    <Compile Include="ChefGrid/ChefGridPromptRegression.cs;../ChefGrid/Input/ChefGridButtonPrompts.cs;../ChefGrid/Input/ChefGridPromptRules.cs" />
+    <Compile Include="ChefGrid/ChefGridPortraitColourRegression.cs;../ChefGrid/Portraits/ChefGridPortraitColour.cs" />
+    <Compile Include="ChefGrid/ChefGridRegression.cs;ChefGrid/ChefGridFramingRegression.cs;ChefGrid/ChefGridTransparencyRegression.cs;ChefGrid/ChefGridLayoutRegression.cs;../ChefGrid/Layout/ChefGridNavigation.cs;../ChefGrid/ChefGridRoster.cs;../ChefGrid/Portraits/ChefGridFraming.cs;../ChefGrid/Portraits/ChefGridTransparency.cs;../ChefGrid/Layout/ChefGridLayout.cs" />
+  </ItemGroup>
+</Project>

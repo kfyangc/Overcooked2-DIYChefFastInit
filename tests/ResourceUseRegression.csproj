@@ -6,6 +6,6 @@
     <OutputPath>bin/resource-use/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ResourceUseRegression.cs;../ResourceUse.cs" />
+    <Compile Include="ResourceUseRegression.cs;../Loading/ResourceUse.cs" />
   </ItemGroup>
 </Project>

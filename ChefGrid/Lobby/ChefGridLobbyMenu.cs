@@ -1,0 +1,143 @@
+using System;
+using System.Collections.Generic;
+using Team17.Online;
+using UnityEngine;
+
+namespace OC2DIYChef
+{
+    // The arcade scene has UI chefs rather than FrontendChefMenu. Bind the same
+    // native customisation views to every local chef; the clicked user is only the invoker.
+    public sealed class ChefGridLobbyMenu : InGameMenuBehaviour
+    {
+        readonly FrontendChefCustomisation[] views = new FrontendChefCustomisation[4];
+        GameInputConfig initialInput, ownedInput;
+        ChefGridLobby lobby;
+        readonly List<ChefGridLobbySelection> selections = new List<ChefGridLobbySelection>();
+        bool showing;
+
+        internal bool Open(ChefGridLobby source, GamepadUser gamer, ChefGridLobbySelection selection)
+        {
+            if (selection == null || selection.Find() < 0) return false;
+            lobby = source;
+            if (views[0] == null)
+            {
+                for (int i = 0; i < views.Length; i++)
+                {
+                    var child = new GameObject("Lobby chef input " + (i + 1));
+                    child.transform.SetParent(transform, false);
+                    views[i] = child.AddComponent<FrontendChefCustomisation>();
+                    views[i].enabled = false;
+                    views[i].m_actualPlayer = (PlayerInputLookup.Player)i;
+                }
+            }
+            if (!base.Show(gamer, null, null, false)) return false;
+            selections.Clear();
+            showing = true;
+            initialInput = PlayerInputLookup.GetInputConfig();
+            try
+            {
+                UserSystemUtils.BuildGameInputConfig();
+                ownedInput = PlayerInputLookup.GetInputConfig();
+                BindPlayers();
+                ClientUserSystem.usersChanged += BindPlayers;
+                lobby.BeginInput(views);
+                ChefGridMenu.Show(this, views, Close);
+                var grid = GetComponent<ChefGridMenu>();
+                if (grid == null || !grid.IsOpen) { Hide(); return false; }
+                return true;
+            }
+            catch
+            {
+                Hide();
+                throw;
+            }
+        }
+
+        void BindPlayers()
+        {
+            if (!showing || lobby == null || lobby.Players == null) return;
+            var users = ClientUserSystem.m_Users;
+            var manager = GameUtils.RequireManager<PlayerManager>();
+            for (int i = 0; i < views.Length; i++)
+            {
+                var view = views[i];
+                var user = i < users.Count ? users._items[i] : null;
+                var player = user == null ? null : lobby.Players.GetUIPlayerForUser(user);
+                var replacer = player == null ? null : player.GetComponent<ChefMeshReplacer>();
+                view.SetChefMeshReplacer(replacer);
+                view.SetChefAnimator(replacer == null || replacer.ChefModel == null ? null :
+                    replacer.ChefModel.GetComponent<Animator>());
+                if (user == null || !user.IsLocal || user.SelectedChefData == null || replacer == null)
+                {
+                    ChefGridLobbyView.Unbind(view);
+                    continue;
+                }
+                // Joined/rebuilt users are identified by their input identity, never their
+                // array index or object reference. Capture each participant before editing.
+                if (!selections.Exists(snapshot => snapshot.Owns(user)))
+                {
+                    var snapshot = ChefGridLobbySelection.Capture(user);
+                    if (snapshot != null) selections.Add(snapshot);
+                }
+                var previous = view.GetAssignedInput();
+                if (previous != null && previous.Pad == (ControlPadInput.PadNum)user.Engagement &&
+                    previous.Side == user.PadSide) continue;
+                var mapping = user.PadSide == PadSide.Both ? manager.UnsidedAmbiMapping : manager.SidedAmbiMapping;
+                var input = new PlayerGameInput((ControlPadInput.PadNum)user.Engagement, user.PadSide, mapping);
+                ChefGridLobbyView.Bind(view, input, user.SelectedChefData);
+            }
+        }
+
+        protected override void Update()
+        {
+            // InGameMenuBehaviour.Update polls its own unsided cancel graph. While our
+            // modal is open only its P1-specific back binding may close the transaction.
+            if (!showing) { base.Update(); return; }
+            var grid = GetComponent<ChefGridMenu>();
+            if (showing && grid != null && grid.IsOpen) grid.Tick();
+            if (showing && (grid == null || !grid.IsOpen)) Hide();
+        }
+
+        public override void Close()
+        {
+            if (!showing) return;
+            // Restore sends usersChanged synchronously, so enumerate a stable snapshot.
+            foreach (var selection in selections.ToArray()) selection.Restore(views);
+            Hide();
+        }
+
+        internal void Commit()
+        {
+            if (!showing) return;
+            var source = lobby;
+            Hide();
+            if (source != null) source.Committed();
+        }
+
+        public override bool Hide(bool restoreInvokerState = true, bool isTabSwitch = false)
+        {
+            if (showing)
+            {
+                showing = false;
+                ClientUserSystem.usersChanged -= BindPlayers;
+                var grid = GetComponent<ChefGridMenu>();
+                if (grid != null) grid.CloseGrid();
+                foreach (var view in views) if (view != null) ChefGridLobbyView.Unbind(view);
+                // A level-load callback may already have installed gameplay mappings.
+                // Only restore the configuration while this menu still owns it.
+                if (initialInput != null && (ownedInput == null || PlayerInputLookup.GetInputConfig() == ownedInput))
+                    PlayerInputLookup.SetInputConfig(initialInput);
+                initialInput = ownedInput = null;
+                selections.Clear();
+                if (lobby != null) lobby.EndInput();
+            }
+            return base.Hide(restoreInvokerState, isTabSwitch);
+        }
+
+        protected override void OnDestroy()
+        {
+            if (showing) Hide(false);
+            base.OnDestroy();
+        }
+    }
+}

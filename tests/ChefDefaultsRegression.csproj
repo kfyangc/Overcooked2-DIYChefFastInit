@@ -6,6 +6,6 @@
     <OutputPath>bin/defaults/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ChefDefaultsRegression.cs;../ChefDefaults.cs" />
+    <Compile Include="ChefDefaultsRegression.cs;../Customisation/ChefDefaults.cs" />
   </ItemGroup>
 </Project>

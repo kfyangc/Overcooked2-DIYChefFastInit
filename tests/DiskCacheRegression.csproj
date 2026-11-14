@@ -9,7 +9,7 @@
     <NoWarn>$(NoWarn);SYSLIB0021</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="DiskCacheRegression.cs;../AssetDiskCache.cs;../TextureCacheCompression.cs;../Lz4Codec.cs;../AssetHash.cs;../NativePixelBuffer.cs;../MeshCacheCodec.cs;../ObjImporter.cs;../ImportWorker.cs" />
+    <Compile Include="DiskCacheRegression.cs;TextureCacheWriteQueueRegression.cs;../AssetPipeline/Native/Lz4Codec.cs;../AssetPipeline/Native/AssetHash.cs;../AssetPipeline/Native/NativePixelBuffer.cs;../AssetPipeline/Import/ObjImporter.cs;../AssetPipeline/Import/ImportWorker.cs;../AssetPipeline/Cache/*.cs" />
     <Reference Include="$(GameDir)/Overcooked2_Data/Managed/UnityEngine*.dll" />
     <EmbeddedResource Include="../lib/lz4-win-x86.dll" LogicalName="OC2DIYChef.Native.LZ4.x86" />
   </ItemGroup>

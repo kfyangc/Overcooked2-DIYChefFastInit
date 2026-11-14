@@ -78,6 +78,9 @@ static class ChefSelectionRegression
             DIYChefCustomisation.userDIYChefID[2] == accepted, "reopened menu uses most recently accepted choice");
         ChefSelectionMenu.Clear();
         Check(!ChefSelectionMenu.RestoreBeforeAvatars(customiser), "shutdown discards session snapshots");
+        ChefSelectionMenu.Capture(customiser);
+        ChefSelectionMenu.Release(customiser); // Native map customisation owns this same transaction.
+        Check(!ChefSelectionMenu.RestoreBeforeAvatars(customiser), "native map Hide releases its customiser snapshot");
         Console.WriteLine("PASS: " + assertions + " selection cancellation assertions; no Unity/game process used.");
     }
 }

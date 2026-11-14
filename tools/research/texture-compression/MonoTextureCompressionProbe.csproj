@@ -15,7 +15,7 @@
     <OutputPath>../../../artifacts/texture-compression/bin/$(Configuration)/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="MonoTextureCompressionProbe.cs;../../../AssetHash.cs;../../../NativePixelBuffer.cs" />
+    <Compile Include="MonoTextureCompressionProbe.cs;../../../AssetPipeline/Native/AssetHash.cs;../../../AssetPipeline/Native/NativePixelBuffer.cs" />
     <Reference Include="$(ManagedDir)/mscorlib.dll;$(ManagedDir)/System.dll;$(ManagedDir)/System.Core.dll" Private="false" />
   </ItemGroup>
 </Project>
