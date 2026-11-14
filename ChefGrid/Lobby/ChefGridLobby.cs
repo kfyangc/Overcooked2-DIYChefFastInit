@@ -22,6 +22,7 @@ namespace OC2DIYChef
         readonly List<ILogicalButton> watched = new List<ILogicalButton>();
         readonly List<Suppressor> suppressors = new List<Suppressor>();
         readonly HashSet<T17EventSystem> eventSystems = new HashSet<T17EventSystem>();
+        readonly ChefGridReturnFocus returnFocus = new ChefGridReturnFocus();
         ChefGridLobbyMenu menu;
         internal UIPlayerRootMenu Players { get; private set; }
         internal static bool Blocking { get { return current != null && current.session.Blocking; } }
@@ -68,6 +69,7 @@ namespace OC2DIYChef
         {
             var target = ChefGridLobbySelection.Capture(card.UserInfo);
             if (target == null) return;
+            returnFocus.Capture(card);
             if (menu == null)
             {
                 var host = new GameObject("DIYChef arcade selection");
@@ -137,7 +139,11 @@ namespace OC2DIYChef
 
         void Advance()
         {
-            if (!session.Blocking) return;
+            if (!session.Blocking)
+            {
+                RestoreFocus();
+                return;
+            }
             bool held = Input.GetMouseButton(0);
             foreach (var code in new[] { KeyCode.Return, KeyCode.KeypadEnter, KeyCode.Escape, KeyCode.Space,
                 KeyCode.LeftArrow, KeyCode.RightArrow, KeyCode.UpArrow, KeyCode.DownArrow }) held |= Input.GetKey(code);
@@ -148,7 +154,14 @@ namespace OC2DIYChef
                 ReleaseInput();
                 ChefGridPlayerMenu.HideAll(Players);
                 ChefGridPlayerMenu.Refresh(Players);
+                RestoreFocus();
             }
+        }
+
+        void RestoreFocus()
+        {
+            if (Application.isFocused && !T17DialogBoxManager.HasAnyOpenDialogs())
+                returnFocus.Restore(ChefGridPlayerContext.CurrentPlayers());
         }
 
         static void Claim(ILogicalButton logical)
@@ -176,6 +189,7 @@ namespace OC2DIYChef
         {
             if (menu != null) { menu.Hide(false); Object.Destroy(menu.gameObject); menu = null; }
             session.Reset(); ReleaseInput();
+            returnFocus.Clear();
             if (current == this) current = null;
         }
 

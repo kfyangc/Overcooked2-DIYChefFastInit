@@ -394,8 +394,56 @@ static class ChefGridPlayerMenuRegression
         Check(pending.NativePointerEnters > 0, "Destroy preserves unrelated native toggle handlers");
     }
 
+    static void ReturnFromModal()
+    {
+        var root = Root();
+        var card = Card(root, new User { Engagement = 2, Split = 1 });
+        var back = new ChefGridReturnFocus();
+        var events = root.CachedEventSystem;
+        back.Capture(card);
+        ChefGridPlayerMenu.HideAll(root);
+        ChefGridLobby.Blocking = true;
+        back.Restore(root);
+        Check(back.Pending && events.Pending == null, "closing keys retain input ownership before restoring focus");
+        ChefGridLobby.Blocking = false;
+        events.Disabled = true;
+        back.Restore(root);
+        Check(back.Pending && events.Pending == null, "focus waits for native suppression-controller update");
+        events.Disabled = false;
+        // Native usersChanged can replace User objects during the selection.
+        card.UserInfo = new User { Engagement = 2, Split = 1 };
+        ChefGridPlayerMenu.Refresh(root);
+        back.Restore(root);
+        Check(!back.Pending && events.Pending == card.MenuButton.gameObject && !card.Menu.activeSelf,
+            "keyboard/gamepad regain the stable local name selection after the final HideAll");
+        events.Current = events.Pending; events.Pending = null;
+        Check(card.MenuButton.navigation.selectOnUp == null || !card.Menu.activeSelf,
+            "return leaves the name submenu closed");
+        back.Capture(card);
+        var other = new GameObject("Native theme button");
+        events.Pending = other;
+        back.Restore(root);
+        Check(!back.Pending && events.Pending == other, "deferred restoration never steals a new native or mouse selection");
+        back.Capture(card);
+        ChefGridPlayerMenu.HideAll(root);
+        card.UserInfo = new User { Engagement = 3, Split = 1 };
+        back.Restore(root);
+        Check(!back.Pending && events.Pending == null, "a removed player cannot redirect focus to a different user in the old slot");
+        back.Capture(card);
+        back.Restore(new UIPlayerRootMenu());
+        Check(!back.Pending && events.Pending == null, "scene/root changes discard obsolete return focus");
+        back.Capture(card);
+        root.CachedEventSystem = new T17EventSystem();
+        back.Restore(root);
+        Check(!back.Pending && root.CachedEventSystem.Pending == null, "event-domain changes discard obsolete return focus");
+        card.UserInfo.IsLocal = false;
+        back.Capture(card);
+        Check(!back.Pending, "remote cards never become a return target");
+    }
+
     static void Main()
     {
+        ReturnFromModal();
         NameAndAction(); PointerAndSelection(); StopAtProfile(); CoexistingLayouts(); FocusRestore(); ParentLayouts(); VisibilityAndOwnership();
         Console.WriteLine("PASS: " + checks + " production standalone-menu event, pointer, focus, layout-order and modal-ownership assertions; no Unity/game process used.");
     }

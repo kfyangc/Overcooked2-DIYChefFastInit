@@ -8,6 +8,48 @@ using Object = UnityEngine.Object;
 
 namespace OC2DIYChef
 {
+    // Closing menus clear both current and queued selection. Restore only after
+    // held closing keys and our event-system suppression have both been released.
+    internal sealed class ChefGridReturnFocus
+    {
+        UIPlayerRootMenu root;
+        T17EventSystem domain;
+        int engagement, split;
+
+        internal bool Pending { get { return root != null; } }
+        internal void Clear() { root = null; domain = null; }
+
+        internal void Capture(UIPlayerMenuBehaviour card)
+        {
+            Clear();
+            if (card == null || card.UserInfo == null || !card.UserInfo.IsLocal || card.m_rootMenu == null) return;
+            root = card.m_rootMenu;
+            domain = root.CachedEventSystem;
+            engagement = (int)card.UserInfo.Engagement;
+            split = (int)card.UserInfo.Split;
+        }
+
+        internal void Restore(UIPlayerRootMenu current)
+        {
+            if (!Pending) return;
+            if (current != root || domain == null || root.CachedEventSystem != domain) { Clear(); return; }
+            if (ChefGridLobby.BlocksMenus(root) || domain.IsDisabled()) return;
+            // A click or another native menu may have already established focus.
+            var selected = domain.GetPendingSelectedGameObject() ?? domain.currentSelectedGameObject;
+            if (selected != null && selected.activeInHierarchy) { Clear(); return; }
+            foreach (var card in root.UIPlayers)
+            {
+                var user = card == null ? null : card.UserInfo;
+                if (user == null || !user.IsLocal || (int)user.Engagement != engagement || (int)user.Split != split ||
+                    card.MenuButton == null || !card.MenuButton.isActiveAndEnabled || !card.MenuButton.IsInteractable()) continue;
+                domain.SetSelectedGameObject(card.MenuButton.gameObject);
+                Clear();
+                return;
+            }
+            Clear();
+        }
+    }
+
     // Independent native-template action and interaction, following the same
     // approach as HostUtilities without registering with or calling that mod.
     [HarmonyPatch]
