@@ -42,6 +42,7 @@ namespace OC2DIYChef
         {
             internal GameObject Root;
             internal Image Background;
+            internal Image[] Highlight;
             internal Image Shade;
             internal RawImage Portrait;
             internal bool Selected;
@@ -467,14 +468,14 @@ namespace OC2DIYChef
                 Box(frame, "Player panel", l.Left, 104, l.Width, 584, PlayerColours[cursor.Player]);
                 Box(frame, "Player paper", l.Left + 3, 107, l.Width - 6, 578, Paper);
                 ui.Player = Label(frame, "Player", "P" + (cursor.Player + 1), l.Left + 10, 108, l.Width - 20, 28, 21, Ink);
-                float imageSize = 128, textX = l.DetailLeft + imageSize + 8, detailY = l.DetailTop;
+                float imageSize = l.DetailImageSize, textX = l.DetailLeft + imageSize + 8, detailY = l.DetailTop;
                 ui.Detail = Rect(frame, "Selected portrait", l.DetailLeft, detailY, imageSize, imageSize).gameObject.AddComponent<RawImage>();
                 ui.Detail.raycastTarget = false;
-                ui.Name = Label(frame, "Chef name", "", textX, detailY, l.DetailTextWidth, 66, 22, Ink);
+                ui.Name = Label(frame, "Chef name", "", textX, l.DetailTextTop, l.DetailTextWidth, 66, 22, Ink);
                 ui.Name.resizeTextForBestFit = true; ui.Name.resizeTextMinSize = 16; ui.Name.resizeTextMaxSize = 22;
-                ui.Kind = Label(frame, "Chef kind", "", textX, detailY + 66, l.DetailTextWidth, 28, 17, Ink);
-                ui.Position = Label(frame, "Position", "", textX, detailY + 94, l.DetailTextWidth, 28, 17, Ink);
-                ui.Status = Label(frame, "Preview status", "", l.DetailLeft, detailY + 40, imageSize, 48, 16, Ink);
+                ui.Kind = Label(frame, "Chef kind", "", textX, l.DetailTextTop + 66, l.DetailTextWidth, 28, 17, Ink);
+                ui.Position = Label(frame, "Position", "", textX, l.DetailTextTop + 94, l.DetailTextWidth, 28, 17, Ink);
+                ui.Status = Label(frame, "Preview status", "", l.DetailLeft, detailY + (imageSize - 48) / 2, imageSize, 48, 16, Ink);
                 ui.Grid = Rect(frame, "Grid", 0, 0, 1280, 720);
                 ui.Cells = new Cell[l.VisibleCount];
                 for (int slot = 0; slot < ui.Cells.Length; slot++)
@@ -486,6 +487,12 @@ namespace OC2DIYChef
                     cell.Portrait = Rect(cell.Root.transform, "Portrait", 0, 0, side, side).gameObject.AddComponent<RawImage>();
                     cell.Portrait.raycastTarget = false;
                     cell.Shade = Box(cell.Root.transform, "Shade", 0, 0, side, side, Color.clear);
+                    const float stroke = 5;
+                    cell.Highlight = new[] {
+                        Box(cell.Root.transform, "Selected top", -stroke, -stroke, side + stroke * 2, stroke, Ink),
+                        Box(cell.Root.transform, "Selected right", side, 0, stroke, side, Ink),
+                        Box(cell.Root.transform, "Selected bottom", -stroke, side, side + stroke * 2, stroke, Ink),
+                        Box(cell.Root.transform, "Selected left", -stroke, 0, stroke, side, Ink) };
                 }
                 float trackX = l.ScrollLeft;
                 Box(frame, "Scroll track", trackX, l.GridTop, 6, l.GridHeight, new Color(Ink.r, Ink.g, Ink.b, 0.15f));
@@ -514,6 +521,8 @@ namespace OC2DIYChef
                     cell.Selected = index == cursor.Index;
                     cell.Background.color = cell.Selected ? PlayerColours[cursor.Player] : Paper;
                     cell.Shade.color = cell.Selected ? Color.clear : new Color(0, 0, 0, Mathf.Clamp01(unselectedDimOpacity.Value));
+                    foreach (var edge in cell.Highlight) { edge.enabled = cell.Selected; edge.color = PlayerColours[cursor.Player]; }
+                    if (cell.Selected) cell.Root.transform.SetAsLastSibling();
                 }
                 var selected = entries[cursor.Index];
                 var detail = portraits == null ? null : portraits.GetDetail(selected);

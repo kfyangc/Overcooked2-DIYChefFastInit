@@ -2,7 +2,7 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.2.0.23 (test build)**
+**Current version: 2.2.0.24 (test build)**
 
 This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248/Overcooked2-DIYChef) to reduce startup waits when many custom chefs and hats are installed, and to speed up loading previously cached resources. Existing chef resources, `prefer.txt` and BepInEx configuration remain compatible.
 
@@ -14,7 +14,7 @@ This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248
 - **Lossless texture compression:** Compress texture caches with LZ4HC in the background, reducing disk usage while preserving pixels, image quality and mipmaps.
 - **ModelTest particle compatibility:** Reapply particle effects after chef replacement without modifying the ModelTest DLL. The bridge stays inactive when ModelTest is absent.
 - **Custom default chefs:** Put a custom chef first to select it automatically when entering the game or adding a local player. The official online fallback is selected separately. This feature has not been tested in-game, and online behavior has not been verified.
-- **Chef selection panels:** Up to four local players select simultaneously in one horizontal row. Each panel has its own five-row grid above a centered preview/info group, with confirmation at bottom right. Thumbnails have small gaps and a player-coloured selection background; a single player sees 15 columns. Hover selects; one click confirms. Confirm again to edit only that player's choice. Only P1 can cancel using the bottom-left back action. Device prompts follow actual bindings. Grey portrait caches are shared; dimming is configurable. See the [usage guide](docs/CHEF_GRID.md) (Chinese). Actual input and appearance need in-game verification.
+- **Chef selection panels:** Up to four local players select simultaneously in one horizontal row. Each panel has its own four-row grid above a larger, centered preview/info group, with confirmation at bottom right. Thumbnails have small gaps, a player-coloured selection background and an exterior highlight around the selected chef; a single player sees 15 columns. Hover selects; one click confirms. Confirm again to edit only that player's choice. Only P1 can cancel using the bottom-left back action. Device prompts follow actual bindings. Grey 512-pixel detail caches are shared; dimming is configurable. See the [usage guide](docs/CHEF_GRID.md) (Chinese). Actual input and appearance need in-game verification.
 
 ## Installation and upgrades
 

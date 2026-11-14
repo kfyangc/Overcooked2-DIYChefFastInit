@@ -64,14 +64,16 @@ static class ChefGridParallelRegression
             for (int player = 0; player < participants; player++)
             {
                 var panel = new ChefGridPanelLayout(player, participants);
-                Check(panel.Width > 0 && panel.Side > 0 && panel.Columns > 0 && panel.Rows == 5 &&
+                Check(panel.Width > 0 && panel.Side > 0 && panel.Columns > 0 && panel.Rows == 4 &&
                     panel.VisibleCount == panel.Columns * panel.Rows,
-                    "Every participant receives a usable five-row grid");
+                    "Every participant receives a usable four-row grid");
                 Check(panel.Columns == new[] { 15, 7, 4, 3 }[participants - 1],
                     "Available width expands single-player grids and preserves usable multiplayer columns");
-                Check(panel.DetailTop >= panel.GridTop + panel.GridHeight && panel.DetailTop + 128 <= 650 &&
-                    Math.Abs(panel.DetailLeft + (128 + 8 + panel.DetailTextWidth) / 2 - (panel.Left + panel.Width / 2)) < 0.001f &&
-                    panel.DetailLeft >= panel.Left && panel.DetailLeft + 128 + 8 + panel.DetailTextWidth <= panel.Left + panel.Width,
+                Check(panel.DetailImageSize > 128 && panel.DetailTop >= panel.GridTop + panel.GridHeight && panel.DetailTop + panel.DetailImageSize <= 650 &&
+                    Math.Abs(panel.DetailLeft + (panel.DetailImageSize + 8 + panel.DetailTextWidth) / 2 - (panel.Left + panel.Width / 2)) < 0.001f &&
+                    panel.DetailLeft >= panel.Left && panel.DetailLeft + panel.DetailImageSize + 8 + panel.DetailTextWidth <= panel.Left + panel.Width &&
+                    panel.DetailTextWidth >= 92 && panel.DetailTextTop >= panel.DetailTop &&
+                    panel.DetailTextTop + 122 <= panel.DetailTop + panel.DetailImageSize,
                     "The portrait and bounded text form one centered group beneath the grid and above the buttons");
                 Check(panel.Left >= 0 && panel.Left + panel.Width <= 1280 && panel.GridLeft >= panel.Left,
                     "Each horizontal panel and its grid remain inside the screen");

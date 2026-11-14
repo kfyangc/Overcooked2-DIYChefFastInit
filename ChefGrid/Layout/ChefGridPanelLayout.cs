@@ -4,13 +4,14 @@ namespace OC2DIYChef
     internal sealed class ChefGridPanelLayout
     {
         internal readonly float Left, Width, GridLeft, GridTop = 140, Side = 72, Gap = 4;
-        internal readonly float DetailLeft, DetailTextWidth;
+        internal readonly float DetailLeft, DetailTextWidth, DetailImageSize;
         internal float GridWidth { get { return Columns * Side + (Columns - 1) * Gap; } }
         internal float GridHeight { get { return Rows * Side + (Rows - 1) * Gap; } }
         internal float ScrollLeft { get { return GridLeft + GridWidth + 4; } }
         internal float DetailTop { get { return GridTop + GridHeight + 4; } }
+        internal float DetailTextTop { get { return DetailTop + (DetailImageSize - 122) / 2; } }
         internal readonly int Columns;
-        internal int Rows { get { return 5; } }
+        internal int Rows { get { return 4; } }
         internal int VisibleCount { get { return Rows * Columns; } }
         internal bool Dragging { get; private set; }
         float grab;
@@ -21,8 +22,9 @@ namespace OC2DIYChef
             Left = 40 + index * (Width + 8);
             Columns = Math.Max(1, (int)((Width - 36 + Gap) / (Side + Gap)));
             GridLeft = Left + (Width - GridWidth - 14) / 2;
-            DetailTextWidth = Math.Min(240, Width - 152);
-            DetailLeft = Left + (Width - 128 - 8 - DetailTextWidth) / 2;
+            DetailImageSize = Math.Min(200, Width - 116);
+            DetailTextWidth = Math.Min(240, Width - DetailImageSize - 24);
+            DetailLeft = Left + (Width - DetailImageSize - 8 - DetailTextWidth) / 2;
         }
         internal ChefGridCellRect Cell(int slot) { return new ChefGridCellRect { X = GridLeft + slot % Columns * (Side + Gap), Y = GridTop + slot / Columns * (Side + Gap), Size = Side }; }
         internal int HitTest(float x, float y, int firstRow, int count)
