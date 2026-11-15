@@ -1,5 +1,9 @@
 # 厨师网格选择（2.3.1.3 测试版）
 
+2.3.1.5 根据用户复现的 2.3.1.4 日志处理原版页面 Esc／B 失效：厨师菜单关闭后，inputConfig 已回到进入前实例，菜单栈已移除厨师菜单，root.allowCancel=True、事件域未屏蔽；但 root.shownThisFrame 在首次主菜单返回及后续厨师关闭时始终为 True，整个日志没有收到 FrontendRootMenu.Update 的诊断回调。原版 InvokeNavigateOnUICancel 会拒绝 shownThisFrame=True 的菜单。因此本版恢复缺失的原版更新路径，不另写一套返回键处理，不清空屏蔽器／菜单栈／返回权限。
+
+恢复器在主菜单厨师网格打开后启用，网格关闭后于插件 LateUpdate 检查实际 Root.Update 是否已在当前帧运行；仅对 active 且 enabled 的原根菜单补跑缺失更新，每个根菜单每帧至多一次。正常原版更新、其他根实例的更新、网格仍打开、故意禁用或隐藏的根菜单均不重复处理。菜单开关安装从 Root.Awake 移到前端流程 Start 结束后，减少对原菜单初始化的干预。保留诊断日志，并从插件主动观察返回键，避免被观察的原版 Update 本身缺失时无法记录；新增 enabled 状态。具体导致原版回调缺失的上游机制仍未在游戏运行中确认。本轮未启动游戏。
+
 2.3.1.4 为返回键故障诊断版。用户确认 2.3.1 正常，2.3.1.3 关闭网格后，故事／设置等原版页面 Esc／B 无法返回，网格内返回正常。此次不声称修复；新增 `[CancelTrace]` 观察日志，记录主菜单原生返回按钮与按实际输入槽位构造的按钮状态、按下／松开前后菜单栈、active／allowCancel／shownThisFrame／gamer、事件域屏蔽、输入配置实例、网格及参与者保护状态。记录 ChefMenu.Show／Hide 和原生取消分发入口；不调用 JustPressed／JustReleased／HasUnclaimed，不 Claim、不释放屏蔽令牌、不触发返回操作。
 
 复现方式：先在原版设置页面按一次返回；打开并关闭厨师网格，再进入设置页面按返回，复现后检查游戏 `BepInEx/LogOutput.log` 的 `[CancelTrace]`。诊断 DLL 从本次提交独立构建，不混入工作区尚未提交的其他构图修改。未启动游戏。

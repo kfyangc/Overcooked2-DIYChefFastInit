@@ -100,7 +100,10 @@ namespace OC2DIYChef
     [HarmonyPatch]
     internal static class ChefGridTogglePatches
     {
-        [HarmonyPostfix, HarmonyPatch(typeof(FrontendRootMenu), "Awake")]
-        static void Awake(FrontendRootMenu __instance) { ChefGridToggle.Install(__instance); }
+        [HarmonyPostfix, HarmonyPatch(typeof(T17FrontendFlow), "Start")]
+        static void Start(T17FrontendFlow __instance)
+        {
+            if (__instance.m_Rootmenu != null) ChefGridToggle.Install(__instance.m_Rootmenu);
+        }
     }
 }

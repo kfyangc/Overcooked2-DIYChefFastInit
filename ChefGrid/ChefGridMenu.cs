@@ -782,7 +782,13 @@ namespace OC2DIYChef
         [HarmonyPostfix, HarmonyPatch(typeof(FrontendChefMenu), "Show")]
         static void Show(FrontendChefMenu __instance, bool __result)
         {
-            if (__result) ChefGridMenu.Show(__instance);
+            if (__result)
+            {
+                ChefGridMenu.Show(__instance);
+                var grid = __instance.GetComponent<ChefGridMenu>();
+                if (grid != null && grid.IsOpen && T17FrontendFlow.Instance != null)
+                    ChefGridFrontendUpdate.Arm(T17FrontendFlow.Instance.m_Rootmenu);
+            }
         }
 
         [HarmonyPostfix, HarmonyPatch(typeof(FrontendChefMenu), "Hide")]

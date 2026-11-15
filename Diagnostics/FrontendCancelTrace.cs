@@ -42,6 +42,7 @@ namespace OC2DIYChef
             if (menu == null) { text.Append("null"); return; }
             text.Append(menu.gameObject.name).Append('[').Append(menu.GetType().Name)
                 .Append(" active=").Append(menu.gameObject.activeInHierarchy)
+                .Append(" enabled=").Append(menu.enabled)
                 .Append(" allowCancel=").Append(Bit(Read(menu, "m_bAllowCancelHandeling")))
                 .Append(" shownThisFrame=").Append(Bit(Read(menu, "m_bShownThisFrame")))
                 .Append(" gamer=").Append(menu.CurrentGamepadUser != null)
@@ -121,6 +122,14 @@ namespace OC2DIYChef
             bool down = Input.GetKey(KeyCode.Escape);
             foreach (var button in probe.Physical) down |= button != null && button.IsDown();
             return down;
+        }
+
+        internal static void Observe()
+        {
+            var root = Root;
+            if (root == null || !root.gameObject.activeInHierarchy) return;
+            BeforeUpdate(root);
+            AfterUpdate(root);
         }
 
         [HarmonyPrefix, HarmonyPriority(Priority.First), HarmonyPatch(typeof(FrontendRootMenu), "Update")]

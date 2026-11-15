@@ -239,7 +239,18 @@ public class BaseMenuBehaviour : MonoBehaviour
     public Navigation m_BorderSelectables;
     public void AddAllowedSelectables(Selectable selectable) { }
 }
-public sealed class FrontendRootMenu : BaseMenuBehaviour { }
+public sealed class FrontendRootMenu : BaseMenuBehaviour
+{
+    public int Updates, Returns;
+    public bool ShownThisFrame = true, ReturnReleased;
+    public void Update()
+    {
+        OC2DIYChef.ChefGridFrontendUpdate.Updated(this);
+        Updates++; ShownThisFrame = false;
+        if (ReturnReleased) { Returns++; ReturnReleased = false; }
+    }
+}
+public sealed class T17FrontendFlow { public FrontendRootMenu m_Rootmenu; }
 public sealed class T17Button : Button
 {
     public Action<T17Button> OnButtonSelect, OnButtonDeselect, OnButtonPointerEnter, OnButtonPointerExit;
@@ -411,8 +422,10 @@ static class MenuHooks
 }
 namespace OC2DIYChef
 {
+    static class DIYChefPlugin { internal static void Log(string text) { } internal static void Warn(string text) { throw new Exception(text); } }
     static class ChefGridMenu
     {
+        internal static object Active;
         internal static bool Enabled = true;
         internal static void SetEnabled(bool enabled) { Enabled = enabled; }
     }
@@ -445,7 +458,7 @@ namespace HarmonyLib
     [AttributeUsage(AttributeTargets.Method)] sealed class HarmonyPrefix : Attribute { }
     [AttributeUsage(AttributeTargets.Method)] sealed class HarmonyPostfix : Attribute { }
     [AttributeUsage(AttributeTargets.Method)] sealed class HarmonyPriority : Attribute { public HarmonyPriority(int value) { } }
-    static class Priority { internal const int Last = 0; }
+    static class Priority { internal const int Last = 0, First = 800; }
     static class AccessTools
     {
         internal static FieldInfo Field(Type type, string name) { return type.GetField(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance); }

@@ -24,6 +24,7 @@ namespace OC2DIYChef
             patcher.PatchAll(typeof(ChefGridPatches));
             patcher.PatchAll(typeof(ChefGridTogglePatches));
             patcher.PatchAll(typeof(FrontendCancelTrace));
+            patcher.PatchAll(typeof(ChefGridFrontendUpdate));
             patcher.PatchAll(typeof(ChefGridLobbyPatches));
             patcher.PatchAll(typeof(ChefGridPlayerMenu));
             patcher.PatchAll(typeof(ChefGridWorldMap));
@@ -46,6 +47,8 @@ namespace OC2DIYChef
 
         void LateUpdate()
         {
+            ChefGridFrontendUpdate.Tick();
+            FrontendCancelTrace.Observe();
             ChefGridLobby.UpdateFrame();
             ChefGridPlayerMenu.UpdateFrame();
             ModelTestCompatibility.LateUpdate();

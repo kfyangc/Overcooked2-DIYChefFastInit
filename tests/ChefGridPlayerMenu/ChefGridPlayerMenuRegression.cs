@@ -455,6 +455,7 @@ static class ChefGridPlayerMenuRegression
     {
         FrontendGridToggle();
         NativeMenuOwnership();
+        FrontendReturnLifecycle();
         ReturnFromModal();
         NameAndAction(); PointerAndSelection(); StopAtProfile(); CoexistingLayouts(); FocusRestore(); ParentLayouts(); VisibilityAndOwnership();
         Console.WriteLine("PASS: " + checks + " production standalone-menu event, pointer, focus, layout-order and modal-ownership assertions; no Unity/game process used.");
@@ -530,5 +531,39 @@ static class ChefGridPlayerMenuRegression
         Check(!Chef(card).gameObject.activeInHierarchy && end.navigation.selectOnDown == next,
             "A hidden grid entry cannot overwrite the native menu's new navigation");
         Check((bool)MenuHooks.Call("Toggle", card), "Hidden grid entry leaves native menu toggle handling in place");
+    }
+
+    static void FrontendReturnLifecycle()
+    {
+        var root = new GameObject("Native frontend").AddComponent<FrontendRootMenu>();
+        Time.frameCount = 1000;
+        ChefGridFrontendUpdate.Tick();
+        Check(root.Updates == 0, "No frontend callback recovery is active before opening a grid");
+        ChefGridFrontendUpdate.Arm(root);
+        root.ReturnReleased = true;
+        ChefGridMenu.Active = new object();
+        ChefGridFrontendUpdate.Tick();
+        Check(root.Updates == 0, "Grid keeps sole ownership of return while its modal is open");
+        ChefGridMenu.Active = null;
+        ChefGridFrontendUpdate.Tick();
+        Check(root.Updates == 1 && root.Returns == 1 && !root.ShownThisFrame,
+            "Missing native Update is restored, clearing opening protection and dispatching a released return");
+        ChefGridFrontendUpdate.Tick();
+        Check(root.Updates == 1 && root.Returns == 1, "Fallback runs at most once in a frame");
+        Time.frameCount++;
+        root.Update();
+        var other = new GameObject("Another frontend").AddComponent<FrontendRootMenu>();
+        other.Update();
+        ChefGridFrontendUpdate.Tick();
+        Check(root.Updates == 2, "An observed native callback is never duplicated, even with multiple root instances");
+        Time.frameCount++; root.enabled = false;
+        ChefGridFrontendUpdate.Tick();
+        Check(root.Updates == 2, "Intentionally disabled roots are not forced to process input");
+        root.enabled = true; root.gameObject.SetActive(false);
+        ChefGridFrontendUpdate.Tick();
+        Check(root.Updates == 2, "Hidden roots remain inactive");
+        root.gameObject.SetActive(true); root.ReturnReleased = true;
+        ChefGridFrontendUpdate.Tick();
+        Check(root.Updates == 3 && root.Returns == 2, "A later native return is processed after callback loss resumes");
     }
 }
