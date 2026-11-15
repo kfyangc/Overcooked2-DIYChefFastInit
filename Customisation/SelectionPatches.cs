@@ -31,7 +31,7 @@ namespace OC2DIYChef
         [HarmonyPatch(typeof(ClientEmoteWheel), "Update")]
         public static void ClientEmoteWheelUpdatePatch(ClientEmoteWheel __instance)
         {
-            if (ChefGridMenu.Enabled || ChefGridLobby.Blocking) return;
+            if (ChefGridMenu.Active != null || ChefGridLobby.Blocking) return;
             if (!DIYChefCustomisation.Enabled || !DIYChefCustomisation.enableLobbySwitchChef) return;
             EmoteWheel emoteWheel = __instance.get_m_emoteWheel();
             EmoteSelector emoteSelector = __instance.get_m_emoteSelector();
