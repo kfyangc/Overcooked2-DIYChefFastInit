@@ -6,32 +6,35 @@ namespace OC2DIYChef
         internal int Direction;
     }
 
-    // Observe raw mapped button state even for waiting players. Claimed UI events cannot
-    // swallow confirmation, and a held shared key cannot confirm the following turn.
+    // Own binding changes, first observation, press edges and directional repeat.
+    // Callers supply raw mapped state even while disabled; opening/held input is
+    // consumed here rather than requiring a second observation flag in each menu.
     internal sealed class ChefGridControls
     {
         bool acceptWasDown, cancelWasDown, needsNeutral;
         int previousDirection = -1;
         float repeatAt;
-        bool hasBinding;
+        bool hasBinding, observed;
         int boundPad, boundSide;
 
         // Native usersChanged refreshes recreate PlayerGameInput after chef selection.
         // Preserve held-button edges and repeat deadlines for the same device and side.
-        internal bool Bind(int pad, int side)
+        internal void Bind(int pad, int side)
         {
-            if (hasBinding && boundPad == pad && boundSide == side) return false;
+            if (hasBinding && boundPad == pad && boundSide == side) return;
             hasBinding = true;
+            observed = false;
             boundPad = pad;
             boundSide = side;
             acceptWasDown = cancelWasDown = needsNeutral = false;
             previousDirection = -1;
             repeatAt = 0;
-            return true;
         }
 
         internal ChefGridControlEvents Poll(int direction, bool accept, bool cancel, float now, bool active)
         {
+            active &= observed;
+            observed = true;
             var result = new ChefGridControlEvents {
                 Accept = active && accept && !acceptWasDown,
                 Cancel = active && cancel && !cancelWasDown,

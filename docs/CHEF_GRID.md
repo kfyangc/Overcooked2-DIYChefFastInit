@@ -4,6 +4,8 @@
 
 菜单通过 `PlayerHats.Cycle` 切换帽子，选项顺序和循环规则封装在帽子模块内；网络接收传入原版 Machine／Engagement／Split，身份键仅由帽子模块生成。动态预览观察实际应用的帽子变化后自行重新构图，菜单无需干预加载与构图时序。
 
+输入模块 `ChefGridControls` 统一拥有绑定变更、首次采样、确认／返回边沿与方向连发。调用方只需 `Bind(pad, side)` 和持续 `Poll(..., active)`，对话框或失焦期间也继续采样；相同设备／键盘侧的绑定刷新保留边沿与连发计时，真正换绑后先消费打开时已按住的输入，回中／释放后才响应新操作。菜单不再维护额外的 InputObserved／backObserved 标记，每次关闭后创建新的返回输入状态。测试直接使用该接口，删除重复模拟采样规则的 BoundControls；仅剩旧测试引用的 ChefGridTurnOrder 及顺序确认测试一并移除，多人独立确认继续由 ChefGridReadySet 与现有并行回归覆盖。
+
 预览资源所有权回归：`dotnet run --project tests/ChefGridPreviewRegression.csproj -c Release`。通过模块接口检查两个场景隔离、原版模板与 shader 设置、动画静音、取消加载、创建失败后释放、重复清理以及关闭后拒绝新建目标；引擎调用使用离线替身，不代表游戏内画面验收。
 
 以下为历版记录。

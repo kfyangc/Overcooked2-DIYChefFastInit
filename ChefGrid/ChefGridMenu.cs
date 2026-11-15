@@ -29,7 +29,6 @@ namespace OC2DIYChef
             internal long Key;
             internal int Player, Index;
             internal bool Chosen;
-            internal bool InputObserved;
             internal FrontendChefCustomisation View;
             internal PlayerGameInput Input;
             internal readonly ILogicalButton[] Buttons = new ILogicalButton[6];
@@ -80,11 +79,10 @@ namespace OC2DIYChef
         Image backIcon;
         Text backKey;
         readonly ChefGridButtonPrompts backPrompts = new ChefGridButtonPrompts();
-        readonly ChefGridControls backControls = new ChefGridControls();
+        ChefGridControls backControls = new ChefGridControls();
         PlayerGameInput backInput;
         ILogicalButton backButton;
         long? backIdentity;
-        bool backObserved;
         Vector3 lastMouse;
         string panelSignature;
         ChefGridPortraits portraits;
@@ -204,8 +202,7 @@ namespace OC2DIYChef
                 if (cursor.Input != input)
                 {
                     cursor.Input = input;
-                    if (cursor.Controls.Bind((int)input.Pad, (int)input.Side))
-                        cursor.InputObserved = false;
+                    cursor.Controls.Bind((int)input.Pad, (int)input.Side);
                     var ids = new[] { PlayerInputLookup.LogicalButtonID.UILeftPlayerSpecific,
                         PlayerInputLookup.LogicalButtonID.UIRightPlayerSpecific, PlayerInputLookup.LogicalButtonID.UIUp,
                         PlayerInputLookup.LogicalButtonID.UIDown, PlayerInputLookup.LogicalButtonID.UISelect,
@@ -262,7 +259,7 @@ namespace OC2DIYChef
                     backInput = new PlayerGameInput((ControlPadInput.PadNum)user.Engagement, user.PadSide,
                         user.PadSide == PadSide.Both ? manager.UnsidedAmbiMapping : manager.SidedAmbiMapping);
                     backButton = ChefGridButtonPrompts.Binding(backInput, false);
-                    backObserved = false;
+                    backControls.Bind((int)backInput.Pad, (int)backInput.Side);
                 }
                 break;
             }
@@ -349,18 +346,14 @@ namespace OC2DIYChef
                 bool accept = ChefGridButtonPrompts.Down(cursor.Input, cursor.Buttons[4]) || (keyboard && (Input.GetKey(KeyCode.Space) ||
                     Input.GetKey(KeyCode.Return) || Input.GetKey(KeyCode.KeypadEnter)));
                 bool cancel = ChefGridButtonPrompts.Down(cursor.Input, cursor.Buttons[5]) || (keyboard && Input.GetKey(KeyCode.Escape));
-                cursor.Events = cursor.Controls.Poll(direction, accept, cancel, Time.unscaledTime,
-                    enabled && cursor.InputObserved);
+                cursor.Events = cursor.Controls.Poll(direction, accept, cancel, Time.unscaledTime, enabled);
                 cursor.Customizing = ChefGridButtonPrompts.Down(cursor.Input, cursor.Customize);
-                cursor.InputObserved = true;
-
             }
             foreach (var cursor in cursors) foreach (var button in cursor.Buttons) Claim(button);
             foreach (var cursor in cursors) Claim(cursor.Customize);
             bool keyboardBack = backInput != null && KeyboardUtils.IsKeyboard(backInput) && backInput.Side == PadSide.Both;
             var back = backControls.Poll(-1, false, ChefGridButtonPrompts.Down(backInput, backButton) || (keyboardBack && Input.GetKey(KeyCode.Escape)),
-                Time.unscaledTime, enabled && backObserved);
-            backObserved = true;
+                Time.unscaledTime, enabled);
             Claim(backButton);
             return back.Cancel;
         }
@@ -743,7 +736,8 @@ namespace OC2DIYChef
             if (rotating != null) rotating.Angle.Value = rotating.Yaw;
             rotating = null;
             backPrompts.Reset();
-            backIdentity = null; backObserved = false;
+            backIdentity = null;
+            backControls = new ChefGridControls();
             open = false;
             if (Active == this)
             {
