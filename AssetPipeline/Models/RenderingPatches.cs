@@ -183,6 +183,7 @@ namespace OC2DIYChef
                 }
             }
 
+            PlayerHats.Bind(chef.gameObject, user);
             chef.SetChefData(selectedChefData, _force);
             chef.SetChefHat(HatMeshVisibility.VisState.Fancy);
             chef.SetShaderMode(FrontendChef.ShaderMode.eUI);
@@ -213,7 +214,10 @@ namespace OC2DIYChef
                         selectedChefData = new GameSession.SelectedChefData(diyChef, selectedChefData.Colour);
                     }
                     if (selectedChefData != null)
+                    {
+                        PlayerHats.Bind(y.gameObject, user);
                         __instance.m_PlayerChefs[i].SetChefData(selectedChefData, _force);
+                    }
                     __instance.m_PlayerChefs[i].SetChefHat(__instance.m_ChefHat);
                     __instance.m_PlayerChefs[i].SetAnimationSet((FrontendChef.AnimationSet)i);
                     __instance.m_PlayerChefs[i].gameObject.SetActive(true);
@@ -233,6 +237,8 @@ namespace OC2DIYChef
             FastList<User> users = ClientUserSystem.m_Users;
             int player = users.FindIndex(x => x.EntityID == uEntityID || x.Entity2ID == uEntityID);
             if (player < 0 || player >= DIYChefCustomisation.userDIYChefID.Length) return true;
+            var entity = EntitySerialisationRegistry.GetEntry(uEntityID);
+            if (entity != null && entity.m_GameObject != null) PlayerHats.Bind(entity.m_GameObject, users._items[player]);
             byte diyChefID = DIYChefCustomisation.userDIYChefID[player];
             var diyChef = DIYChefCustomisation.diyChefs.Find(x => x.id == diyChefID);
             if (diyChef != null)

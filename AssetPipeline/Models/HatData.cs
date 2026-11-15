@@ -75,12 +75,11 @@ namespace OC2DIYChef
 
         public static void SetChefHat(GameObject chef, ref HatMeshVisibility.VisState _hat)
         {
-            if (DIYChefCustomisation.preferredChefs == null) return;
+            PlayerHats.RememberDefault(chef, _hat);
             ChefMeshReplacer replacer = chef.GetComponent<ChefMeshReplacer>();
             if (replacer == null) return;
             string headName = replacer.get_m_currentHeadName();
-            int index = DIYChefCustomisation.preferredChefs.FindIndex_Predicate(x => x.Key == headName);
-            string hatName = index < 0 ? "" : DIYChefCustomisation.preferredChefs[index].Value;
+            string hatName = PlayerHats.Resolve(chef, headName);
             if (hatName != "")
                 _hat =
                     !originalHats.Contains(hatName) ? HatMeshVisibility.VisState.None : (
@@ -118,7 +117,13 @@ namespace OC2DIYChef
             {
                 var child = parent.GetChild(i);
                 if (child.name.StartsWith("Hat_"))
+                {
                     child.gameObject.SetActive(child.name.Substring(4) == hatName);
+                    // Dynamic selection must not pin every previously visited DIY
+                    // hat for the lifetime of this player's chef model.
+                    if (child.name.Substring(4) != hatName && child.GetComponent<ResourceUse>() != null)
+                        GameObject.Destroy(child.gameObject);
+                }
             }
             if (hatName == "")
             {

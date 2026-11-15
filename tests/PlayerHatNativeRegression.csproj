@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    <GameDir Condition="'$(GameDir)' == ''">D:/Games/Steam Games/steamapps/common/Overcooked! 2</GameDir>
+    <ManagedDir>$(GameDir)/Overcooked2_Data/Managed</ManagedDir>
+    <FrameworkPathOverride>$(ManagedDir)</FrameworkPathOverride>
+    <OutputPath>bin/player-hat-native/</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="PlayerHatNativeCodec.cs;../Networking/PlayerHatMessage.cs" />
+    <Reference Include="$(ManagedDir)/mscorlib.dll;$(ManagedDir)/System.dll;$(ManagedDir)/System.Core.dll;$(ManagedDir)/Assembly-CSharp.dll;$(ManagedDir)/UnityEngine.CoreModule.dll" Private="false" />
+  </ItemGroup>
+</Project>

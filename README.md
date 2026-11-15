@@ -2,7 +2,11 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.3.1.1 (test build)**
+**Current version: 2.3.1.2 (test build)**
+
+The grid's large preview now shows an animated chef. Drag the model or use the angle arrows to rotate; click the angle to reset. Use the hat arrows to cycle original and installed DIY hats, or click the hat name to restore the prefer.txt default. Hold the player's chop/interact binding and use left/right to rotate or up/down to change hats. Each player can wear a different hat on the same chef. Confirm to keep changes; cancel to restore the original hats.
+
+`PortraitYaw` now affects thumbnails only. `DetailYaw` sets the initial live-preview angle; panel adjustments are saved separately per local input slot. Hats are saved in the BepInEx `[PlayerHats]` configuration without editing prefer.txt. Network hat sync requires this test build on the host and clients. Missing DIY hat resources fall back to the author's default on the receiving machine.
 
 Use **CHEF GRID: ON/OFF** below the original **CHOOSE CHEF** action in the main menu's Chef tab. The setting is saved automatically. Turning it off restores the original chef selection and hides the lobby grid entry; turn it on again to restore the grid.
 

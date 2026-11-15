@@ -136,6 +136,18 @@ static class ChefGridParallelRegression
                     panel.HitTest(origin.X + 1, origin.Y + 1, 0, 0) == -1,
                     "Panel margins and an empty roster do not hover-select a chef");
                 float trackX = panel.ScrollLeft;
+                float controlsX = panel.DetailLeft + panel.DetailImageSize + 8;
+                Check(panel.DetailAction(controlsX + 1, panel.DetailTop + 95) == 0 &&
+                    panel.DetailAction(controlsX + panel.DetailTextWidth / 2, panel.DetailTop + 95) == 1 &&
+                    panel.DetailAction(controlsX + panel.DetailTextWidth - 1, panel.DetailTop + 95) == 2,
+                    "Every player can rotate left, reset, or rotate right without hitting the chef grid");
+                Check(panel.DetailAction(controlsX + 1, panel.DetailTop + 125) == 3 &&
+                    panel.DetailAction(controlsX + panel.DetailTextWidth / 2, panel.DetailTop + 125) == 4 &&
+                    panel.DetailAction(controlsX + panel.DetailTextWidth - 1, panel.DetailTop + 125) == 5,
+                    "Hat controls have independent previous, default and next targets");
+                Check(panel.DetailAction(panel.DetailLeft + 1, panel.DetailTop + 1) == 6 &&
+                    panel.DetailAction(panel.Left, panel.GridTop) == -1 && panel.DetailTop + 178 < 650,
+                    "Model dragging and all customization rows fit above confirmation in one to four panels");
                 Check(panel.BeginScroll(trackX, panel.GridTop + 1, 0, 109) && panel.Dragging &&
                     panel.DragScroll(panel.GridTop - 1000, 109) == 0 &&
                     panel.DragScroll(panel.GridTop + panel.GridHeight + 1000, 109) == panel.LastFirstRow(109),

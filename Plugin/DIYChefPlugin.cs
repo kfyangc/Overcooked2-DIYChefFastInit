@@ -16,6 +16,7 @@ namespace OC2DIYChef
             pluginInstance = this;
             ChefLoading.Configure(Config);
             ChefGridMenu.Configure(Config);
+            PlayerHats.Configure(Config);
             Log("Version " + PluginVersion.Value + "; " + typeof(DIYChefPlugin).Assembly.Location);
             patcher = new Harmony("dev.gua.overcooked.diychef");
             patcher.PatchAll(typeof(Patch));
@@ -39,6 +40,7 @@ namespace OC2DIYChef
         void Update()
         {
             ChefLoading.Update();
+            PlayerHats.Update();
         }
 
         void LateUpdate()
@@ -46,6 +48,7 @@ namespace OC2DIYChef
             ChefGridLobby.UpdateFrame();
             ChefGridPlayerMenu.UpdateFrame();
             ModelTestCompatibility.LateUpdate();
+            if (ChefGridMenu.Active != null) ChefGridMenu.Active.RenderPreviews();
         }
 
         void OnDestroy()
@@ -56,6 +59,7 @@ namespace OC2DIYChef
             ChefGridPortraitCache.Shutdown();
             ModelTestCompatibility.Shutdown();
             ChefLoading.Shutdown();
+            PlayerHats.Shutdown();
         }
 
         public static void Log(string msg) { pluginInstance.Logger.LogInfo(msg); }

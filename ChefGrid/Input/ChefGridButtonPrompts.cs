@@ -82,6 +82,12 @@ namespace OC2DIYChef
             return logical != null && logical.IsDown();
         }
 
+        internal static string Describe(PlayerGameInput input, ILogicalButton logical)
+        {
+            if (input == null || KeyboardUtils.IsKeyboard(input)) return KeyboardPrompt(input, logical).Key;
+            return Resolve(GameUtils.RequestManager<ControllerIconLookup>(), Style(input), logical, ControlPadInput.Button.X).Key;
+        }
+
         static KeyBindingSource KeyboardBinding(PlayerGameInput input, ILogicalButton logical, out InputDevice device)
         {
             // A sided input graph contains LogicalPadButton nodes even for a keyboard.

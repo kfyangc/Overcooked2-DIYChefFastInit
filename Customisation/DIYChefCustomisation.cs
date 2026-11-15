@@ -126,8 +126,6 @@ namespace OC2DIYChef
         static IEnumerator LoadAllDIYHat()
         {
             diyHats.Clear();
-            if (preferredChefs.Length == 0)
-                yield break;
             diyHats.Add(HatData.Create("Santa"));
             diyHats.Add(HatData.Create("Baseballcap"));
 
@@ -141,8 +139,7 @@ namespace OC2DIYChef
             {
                 string name = folder.Name;
                 if (File.Exists($"{path}/{name}/t_{name}.png") &&
-                    File.Exists($"{path}/{name}/m_{name}.txt") &&
-                    preferredChefs.Any(x => x.Value == name))
+                    File.Exists($"{path}/{name}/m_{name}.txt"))
                 {
                     diyHats.Add(HatData.Create(name));
                 }

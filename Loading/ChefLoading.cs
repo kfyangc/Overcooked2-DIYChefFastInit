@@ -26,6 +26,8 @@ namespace OC2DIYChef
         }
 
         static readonly Dictionary<int, Request> pending = new Dictionary<int, Request>();
+        static readonly HashSet<HatData> requestedHats = new HashSet<HatData>();
+        internal static void RequestHat(HatData hat) { requestedHats.Add(hat); }
         static readonly FieldInfo modelType = AccessTools.Field(typeof(ChefMeshReplacer), "m_modelType");
         static ConfigEntry<int> budget, count;
         static ConfigEntry<bool> diagnostics;
@@ -62,11 +64,11 @@ namespace OC2DIYChef
             return (ChefMeshReplacer.ChefModelType)modelType.GetValue(replacer);
         }
 
-        static HatData Hat(GameSession.SelectedChefData data)
+        static HatData Hat(Request request)
         {
-            if (data == null || DIYChefCustomisation.preferredChefs == null) return null;
-            var pair = DIYChefCustomisation.preferredChefs.FirstOrDefault(x => x.Key == data.Character.HeadName);
-            return DIYChefCustomisation.diyHats.Find(x => x.HatName == "Hat_" + pair.Value);
+            if (request.Data == null) return null;
+            string name = PlayerHats.Resolve(request.Replacer.gameObject, request.Data.Character.HeadName);
+            return DIYChefCustomisation.diyHats.Find(x => x.HatName == "Hat_" + name);
         }
 
         static ResourceCache Needed(Request request)
@@ -74,17 +76,18 @@ namespace OC2DIYChef
             var chef = request.Data.Character as DIYChefAvatarData;
             if (chef != null && !chef.Resources.Ready(request.Type) && !chef.Resources.Failed(request.Type))
                 return chef.Resources;
-            var hat = Hat(request.Data);
+            var hat = Hat(request);
             if (hat != null && hat.prefab == null && !hat.Resources.Failed(request.Type)) return hat.Resources;
             return null;
         }
 
         static bool Wants(ResourceCache resource)
         {
+            foreach (var hat in requestedHats) if (hat.Resources == resource) return true;
             foreach (var request in pending.Values)
             {
                 var chef = request.Data.Character as DIYChefAvatarData;
-                var hat = Hat(request.Data);
+                var hat = Hat(request);
                 if ((chef != null && chef.Resources == resource) ||
                     (hat != null && hat.Resources == resource)) return true;
             }
@@ -197,6 +200,7 @@ namespace OC2DIYChef
 
         internal static void Update()
         {
+            requestedHats.RemoveWhere(hat => hat.prefab != null || hat.Resources.Failed(ChefMeshReplacer.ChefModelType.FrontEnd));
             foreach (var item in pending.ToArray())
                 if (item.Value.View == null || item.Value.Replacer == null ||
                     !item.Value.View.isActiveAndEnabled)
@@ -212,6 +216,12 @@ namespace OC2DIYChef
                     StartWork(needed, request.Type);
                     break;
                 }
+                if (work == null)
+                    foreach (var hat in requestedHats)
+                    {
+                        StartWork(hat.Resources, ChefMeshReplacer.ChefModelType.FrontEnd);
+                        break;
+                    }
             }
             var slice = Stopwatch.StartNew();
             // No fixed "one operation per frame" latency; consume up to 3 ms of ready work.
@@ -307,7 +317,7 @@ namespace OC2DIYChef
         internal static void Shutdown()
         {
             AssetDiskCache.StopTextureCompression();
-            pending.Clear(); CancelWork();
+            pending.Clear(); requestedHats.Clear(); CancelWork();
             ChefSelectionMenu.Clear();
             DIYChefCustomisation.Shutdown();
             foreach (var resource in ResourceCache.All) if (resource.References == 0) resource.Evict();

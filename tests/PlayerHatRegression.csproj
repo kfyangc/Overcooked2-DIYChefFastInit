@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <LangVersion>7.3</LangVersion>
+    <OutputPath>bin/player-hats/</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="PlayerHats/*.cs;../Customisation/PlayerHats.cs;../Customisation/PlayerHatTransaction.cs;../Networking/PlayerHatMessage.cs;../Networking/PlayerHatNetwork.cs" />
+  </ItemGroup>
+</Project>
