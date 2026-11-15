@@ -454,6 +454,7 @@ static class ChefGridPlayerMenuRegression
     static void Main()
     {
         FrontendGridToggle();
+        NativeMenuOwnership();
         ReturnFromModal();
         NameAndAction(); PointerAndSelection(); StopAtProfile(); CoexistingLayouts(); FocusRestore(); ParentLayouts(); VisibilityAndOwnership();
         Console.WriteLine("PASS: " + checks + " production standalone-menu event, pointer, focus, layout-order and modal-ownership assertions; no Unity/game process used.");
@@ -501,5 +502,33 @@ static class ChefGridPlayerMenuRegression
             "Reopened tabs rebind the current event domain and refresh the active language");
         Localization.Language = SupportedLanguages.Chinese;
         ChefGridMenu.Enabled = true;
+    }
+
+    static void NativeMenuOwnership()
+    {
+        Root();
+        var frontend = new UIPlayerRootMenu();
+        var native = Card(frontend);
+        native.UserInfo = new User { IsLocal = false };
+        native.MenuButton.interactable = true;
+        ChefGridPlayerMenu.Refresh(frontend);
+        Check(native.MenuButton.interactable && Chef(native) == null,
+            "Arcade refresh cannot disable a native frontend player-name action");
+        native.UserInfo = new User(); native.MenuButton.interactable = false;
+        ChefGridPlayerMenu.Refresh(frontend);
+        Check(!native.MenuButton.interactable, "Arcade refresh also preserves native disabled frontend actions");
+
+        var root = Root(); var card = Card(root);
+        Time.frameCount++; card.ShowMenu();
+        Check(Chef(card).gameObject.activeInHierarchy, "Arcade action is active before leaving its context");
+        ChefGridLobby.Root = frontend;
+        ChefGridPlayerMenu.Refresh(root);
+        var end = card.Options[0].m_button;
+        var next = new GameObject("Native next action").AddComponent<T17Button>();
+        end.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnDown = next };
+        ChefGridPlayerMenu.UpdateFrame();
+        Check(!Chef(card).gameObject.activeInHierarchy && end.navigation.selectOnDown == next,
+            "A hidden grid entry cannot overwrite the native menu's new navigation");
+        Check((bool)MenuHooks.Call("Toggle", card), "Hidden grid entry leaves native menu toggle handling in place");
     }
 }

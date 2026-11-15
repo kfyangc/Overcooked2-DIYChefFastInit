@@ -11,6 +11,7 @@ namespace OC2DIYChef
     {
         internal User User;
         internal bool DefaultOnly;
+        internal bool HideHat;
         internal GameObject AppliedModel;
         internal string AppliedHat;
         internal HatMeshVisibility.VisState DefaultState = HatMeshVisibility.VisState.Fancy;
@@ -89,6 +90,7 @@ namespace OC2DIYChef
         internal static string Resolve(GameObject actor, string head)
         {
             var owner = actor.GetComponent<PlayerHatOwner>();
+            if (owner != null && owner.HideHat) return "None";
             string hat = owner == null || owner.DefaultOnly ? Inherit : Get(owner.User);
             if (hat != Inherit && Available(hat)) return hat;
             var pairs = DIYChefCustomisation.preferredChefs;
@@ -109,6 +111,12 @@ namespace OC2DIYChef
         {
             var owner = actor.GetComponent<PlayerHatOwner>();
             if (!applying && owner != null) owner.DefaultState = state;
+        }
+
+        internal static void BindThumbnail(GameObject actor)
+        {
+            Bind(actor, null, true);
+            actor.GetComponent<PlayerHatOwner>().HideHat = true;
         }
 
         static void Invalidate()

@@ -2,7 +2,9 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.3.1.2 (test build)**
+**Current version: 2.3.1.3 (test build)**
+
+2.3.1.3 keeps live previews rendering while dragging. Thumbnails are always hatless and their cache no longer depends on hats; author preview.png images are not reused. Arcade menu extensions now leave native frontend actions and navigation alone when their own entry is unavailable.
 
 The grid's large preview now shows an animated chef. Drag the model or use the angle arrows to rotate; click the angle to reset. Use the hat arrows to cycle original and installed DIY hats, or click the hat name to restore the prefer.txt default. Hold the player's chop/interact binding and use left/right to rotate or up/down to change hats. Each player can wear a different hat on the same chef. Confirm to keep changes; cancel to restore the original hats.
 

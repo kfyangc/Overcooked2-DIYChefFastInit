@@ -60,6 +60,7 @@ namespace OC2DIYChef
                 actor.transform.SetParent(stage.transform, false);
                 actor.transform.localRotation = Quaternion.Euler(0, yaw, 0);
                 actor.AddComponent<ChefGridPortraitActor>();
+                PlayerHats.BindThumbnail(actor);
                 var placeholder = new GameObject("Chef");
                 placeholder.transform.SetParent(actor.transform, false);
                 replacer = actor.AddComponent<ChefMeshReplacer>();
@@ -167,14 +168,12 @@ namespace OC2DIYChef
         {
             string path;
             if (paths.TryGetValue(entry, out path)) return size == Size ? path : Path.ChangeExtension(path, ".512.png");
-            var key = new StringBuilder("portrait-v8|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
+            var key = new StringBuilder("portrait-v9-nohat|" + entry.Avatar.HeadName + "|" +
                 stage.transform.GetChild(0).localEulerAngles.y + "|" + colour.name);
             var game = new FileInfo(typeof(ChefAvatarData).Assembly.Location);
             key.Append('|').Append(game.Length).Append('|').Append(game.LastWriteTimeUtc.Ticks);
             var custom = entry.Avatar as DIYChefAvatarData;
             if (custom != null) AppendFiles(key, custom.Resources.Path);
-            var hat = DIYChefCustomisation.diyHats.Find(x => x.HatName == "Hat_" + entry.Hat);
-            if (hat != null) AppendFiles(key, hat.Resources.Path);
             // This is a disposable visual cache. Resource loading still uses full content checksums.
             byte[] bytes = Encoding.UTF8.GetBytes(key.ToString());
             byte[] hash;
@@ -310,8 +309,8 @@ namespace OC2DIYChef
 
         bool TryLoad(ChefGridEntry entry, int size)
         {
-            var custom = entry.Avatar as DIYChefAvatarData;
-            string supplied = custom == null ? null : Path.Combine(custom.Resources.Path, "preview.png");
+            // Author previews may contain hats; regenerate the uniform hatless image.
+            string supplied = null;
             Texture2D cached = null;
             try
             {
@@ -354,7 +353,7 @@ namespace OC2DIYChef
             view.ChefModel.SetActive(true);
             SilenceModel();
             ChefGridPose.Prepare(replacer, replacer.GetChefData().Character);
-            view.SetChefHat(HatMeshVisibility.VisState.Fancy);
+            view.SetChefHat(HatMeshVisibility.VisState.None);
             ChefLoading.Capture(view);
             using (var snapshot = new ChefGridSnapshot())
             {

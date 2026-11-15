@@ -106,7 +106,6 @@ namespace OC2DIYChef
                     yaw = angle;
                     actor.transform.localRotation = Quaternion.Euler(0, angle, 0);
                     prepared = null;
-                    changedFrame = Time.frameCount;
                 }
             }
             catch (Exception ex)

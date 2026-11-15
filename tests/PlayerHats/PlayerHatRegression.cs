@@ -53,6 +53,12 @@ static class PlayerHatRegression
         Check(first.GetComponent<PlayerHatOwner>().AppliedHat == "巫师帽", "loaded hat attaches after asynchronous completion");
         var thumbnail = Actor(p1); PlayerHats.Bind(thumbnail, p1, true);
         Check(PlayerHats.Resolve(thumbnail, "Chef_Fox") == "Fancy", "shared thumbnail actor keeps author defaults rather than a player's override");
+        PlayerHats.BindThumbnail(thumbnail);
+        Check(PlayerHats.Resolve(thumbnail, "Chef_Fox") == "None" && PlayerHats.Resolve(thumbnail, "Chef_Other") == "None",
+            "thumbnail actor hides both configured hats and native fallback hats independently of chef selection");
+        PlayerHats.Set(p1, "Santa");
+        Check(PlayerHats.Resolve(thumbnail, "Chef_Fox") == "None", "switching a player's hat cannot affect thumbnail rendering or its resource request");
+        PlayerHats.Set(p1, "巫师帽");
         PlayerHats.Shutdown(); PlayerHats.Configure(config);
         Check(PlayerHats.Get(Local(EngagementSlot.One)) == "巫师帽" && PlayerHats.Get(Local(EngagementSlot.Two)) == "Santa",
             "input-slot preferences survive service recreation and new User instances");

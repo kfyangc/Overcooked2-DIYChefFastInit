@@ -145,7 +145,8 @@ namespace OC2DIYChef
             {
                 if (card == null) continue;
                 Prepare(card);
-                if (card.MenuButton != null) card.MenuButton.interactable = card.CanBeInteractedWith();
+                if (Visible(card) && items.ContainsKey(card) && card.MenuButton != null)
+                    card.MenuButton.interactable = card.CanBeInteractedWith();
             }
         }
 
@@ -157,6 +158,7 @@ namespace OC2DIYChef
                 if (item.Card != null && item.Menu != null && item.Menu.activeInHierarchy)
                 {
                     Prepare(item.Card);
+                    if (!item.Button.gameObject.activeInHierarchy) continue;
                     Arrange(item);
                     RefreshNavigation(item);
                 }
@@ -289,7 +291,7 @@ namespace OC2DIYChef
         }
         static void Navigate(Item item)
         {
-            if (item.Card.MenuButton == null || !item.Menu.activeInHierarchy) return;
+            if (item.Card.MenuButton == null || !item.Menu.activeInHierarchy || !item.Button.gameObject.activeInHierarchy) return;
             var rows = new List<List<T17Button>>();
             foreach (Transform child in item.Menu.transform)
             {
@@ -327,7 +329,8 @@ namespace OC2DIYChef
         {
             Prepare(__instance);
             Item item;
-            if (items.TryGetValue(__instance, out item)) { Arrange(item); RefreshNavigation(item); }
+            if (items.TryGetValue(__instance, out item) && item.Button.gameObject.activeInHierarchy)
+            { Arrange(item); RefreshNavigation(item); }
         }
 
         [HarmonyPostfix, HarmonyPriority(Priority.Last), HarmonyPatch(typeof(UIPlayerMenuBehaviour), "UpdateNavigation")]
@@ -348,7 +351,7 @@ namespace OC2DIYChef
         {
             if (ChefGridLobby.BlocksMenus(__instance.m_rootMenu)) return false;
             Item item;
-            if (items.TryGetValue(__instance, out item))
+            if (Visible(__instance) && items.TryGetValue(__instance, out item))
             {
                 item.Hovered = item.ToggleHovered = false;
                 item.OpenedFrame = Time.frameCount;
@@ -361,7 +364,7 @@ namespace OC2DIYChef
         static bool Toggle(UIPlayerMenuBehaviour __instance)
         {
             Item item;
-            if (!items.TryGetValue(__instance, out item) || !item.Menu.activeSelf) return true;
+            if (!items.TryGetValue(__instance, out item) || !item.Menu.activeSelf || !item.Button.gameObject.activeInHierarchy) return true;
             __instance.HideMenu(true);
             return false;
         }
@@ -394,7 +397,7 @@ namespace OC2DIYChef
         static void IsSelected(UIPlayerMenuBehaviour __instance, ref bool __result)
         {
             Item item;
-            if (!items.TryGetValue(__instance, out item) || !item.Menu.activeInHierarchy || item.Domain == null) return;
+            if (!items.TryGetValue(__instance, out item) || !item.Button.gameObject.activeInHierarchy || item.Domain == null) return;
             var selected = item.Domain.GetPendingSelectedGameObject() ?? item.Domain.currentSelectedGameObject;
             __result |= selected != null && selected.activeInHierarchy && selected.transform.IsChildOf(item.Menu.transform);
         }
