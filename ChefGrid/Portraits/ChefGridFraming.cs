@@ -42,6 +42,17 @@ namespace OC2DIYChef
 
     internal static class ChefGridFraming
     {
+        internal static bool ContributesToFraming(ChefPortraitBounds part, ChefPortraitBounds head)
+        {
+            if (!part.Valid) return false;
+            if (!head.Valid) return true;
+            // Some authors hide optional parts by exporting them far from the body.
+            // Keep their geometry intact, but do not zoom out to include those parts.
+            float margin = Math.Max(0.01f, Math.Max(head.Width, head.Height)) * 8;
+            return part.MaxX >= head.MinX - margin && part.MinX <= head.MaxX + margin &&
+                part.MaxY >= head.MinY - margin && part.MinY <= head.MaxY + margin;
+        }
+
         internal static ChefPortraitFrame Calculate(ChefPortraitBounds all, ChefPortraitBounds head, bool thumbnail)
         {
             return Calculate(all, head, new ChefPortraitBounds(), thumbnail);

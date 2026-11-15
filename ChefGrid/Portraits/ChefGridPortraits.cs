@@ -167,7 +167,7 @@ namespace OC2DIYChef
         string CachePath(ChefGridEntry entry, int size)
         {
             string path;
-            if (paths.TryGetValue(entry, out path)) return size == Size ? path : Path.ChangeExtension(path, ".512.png");
+            if (paths.TryGetValue(entry, out path)) return size == Size ? path : Path.ChangeExtension(path, ".framed.512.png");
             var key = new StringBuilder("portrait-v9-nohat|" + entry.Avatar.HeadName + "|" +
                 stage.transform.GetChild(0).localEulerAngles.y + "|" + colour.name);
             var game = new FileInfo(typeof(ChefAvatarData).Assembly.Location);
@@ -181,7 +181,7 @@ namespace OC2DIYChef
             path = Path.Combine(Path.Combine(Paths.CachePath, "DIYChefFastInit/portraits"),
                 BitConverter.ToString(hash).Replace("-", "") + ".png");
             paths[entry] = path;
-            return size == Size ? path : Path.ChangeExtension(path, ".512.png");
+            return size == Size ? path : Path.ChangeExtension(path, ".framed.512.png");
         }
 
         static void AppendFiles(StringBuilder key, string directory)
@@ -363,6 +363,8 @@ namespace OC2DIYChef
                 var upper = new ChefPortraitBounds();
                 var anchors = FaceAnchors();
                 float front = 0;
+                var measured = new List<ChefPortraitBounds>();
+                var depths = new List<float>();
                 var renderers = view.ChefModel.GetComponentsInChildren<Renderer>();
                 foreach (var renderer in renderers)
                 {
@@ -371,11 +373,18 @@ namespace OC2DIYChef
                     bool headPart = renderer.name == headName || renderer.name == "Head1" || renderer.name == "Head2";
                     bool fallbackPart = !renderer.name.StartsWith("Hat", StringComparison.OrdinalIgnoreCase) &&
                         !renderer.name.StartsWith("Knife", StringComparison.OrdinalIgnoreCase);
-                    var part = Measure(snapshot.Freeze(renderer, out roles), roles, headPart,
-                        ChefGridPose.IsOpenEye(renderer.name), fallbackPart, anchors, ref head, ref eyes, ref upper, ref front);
-                    all.Include(part);
+                    float partFront = 0;
+                    measured.Add(Measure(snapshot.Freeze(renderer, out roles), roles, headPart,
+                        ChefGridPose.IsOpenEye(renderer.name), fallbackPart, anchors, ref head, ref eyes, ref upper, ref partFront));
+                    depths.Add(partFront);
                 }
                 if (!head.Valid) head = upper;
+                for (int i = 0; i < measured.Count; i++)
+                    if (ChefGridFraming.ContributesToFraming(measured[i], head))
+                    {
+                        all.Include(measured[i]);
+                        front = Mathf.Max(front, depths[i]);
+                    }
                 var framing = ChefGridFraming.Calculate(all, head, eyes, anchors, size == Size);
                 camera.transform.localPosition = new Vector3(framing.X, framing.Y, front + 8);
                 camera.transform.localRotation = Quaternion.Euler(0, 180, 0);
