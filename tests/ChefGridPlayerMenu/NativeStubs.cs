@@ -48,6 +48,7 @@ namespace UnityEngine
     public class Component : Object
     {
         public GameObject gameObject;
+        public string name { get { return gameObject.name; } }
         public Transform transform { get { return gameObject.transform; } }
         public T GetComponent<T>() where T : Component { return gameObject.GetComponent<T>(); }
         public T[] GetComponentsInChildren<T>(bool inactive) where T : Component { return gameObject.GetComponentsInChildren<T>(inactive); }
@@ -83,6 +84,7 @@ namespace UnityEngine
             parent.Children.Remove(this); parent.Children.Add(this);
         }
         public int GetSiblingIndex() { return parent == null ? 0 : parent.Children.IndexOf(this); }
+        public void SetSiblingIndex(int index) { parent.Children.Remove(this); parent.Children.Insert(index, this); }
         public bool IsChildOf(Transform other)
         {
             for (var node = this; node != null; node = node.parent) if (node == other) return true;
@@ -186,7 +188,12 @@ namespace UnityEngine.UI
         public bool IsInteractable() { return interactable; }
         public virtual void Select() { }
     }
-    public class Text : MonoBehaviour { public string text; }
+    public class Text : MonoBehaviour
+    {
+        public string text;
+        public bool resizeTextForBestFit;
+        public int fontSize = 25, resizeTextMaxSize, resizeTextMinSize;
+    }
     public class Button : Selectable
     {
         public sealed class ButtonClickedEvent
@@ -226,6 +233,13 @@ namespace UnityEngine.UI
     }
 }
 public sealed class T17GridLayoutGroup : LayoutGroup { public Vector2 cellSize; }
+public class BaseMenuBehaviour : MonoBehaviour
+{
+    public T17EventSystem CachedEventSystem = new T17EventSystem();
+    public Navigation m_BorderSelectables;
+    public void AddAllowedSelectables(Selectable selectable) { }
+}
+public sealed class FrontendRootMenu : BaseMenuBehaviour { }
 public sealed class T17Button : Button
 {
     public Action<T17Button> OnButtonSelect, OnButtonDeselect, OnButtonPointerEnter, OnButtonPointerExit;
@@ -397,6 +411,11 @@ static class MenuHooks
 }
 namespace OC2DIYChef
 {
+    static class ChefGridMenu
+    {
+        internal static bool Enabled = true;
+        internal static void SetEnabled(bool enabled) { Enabled = enabled; }
+    }
     static class ChefGridPlayerContext
     {
         internal static UIPlayerRootMenu CurrentPlayers() { return ChefGridLobby.Root; }

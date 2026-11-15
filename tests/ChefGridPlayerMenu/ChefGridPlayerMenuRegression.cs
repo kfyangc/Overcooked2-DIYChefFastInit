@@ -453,8 +453,53 @@ static class ChefGridPlayerMenuRegression
 
     static void Main()
     {
+        FrontendGridToggle();
         ReturnFromModal();
         NameAndAction(); PointerAndSelection(); StopAtProfile(); CoexistingLayouts(); FocusRestore(); ParentLayouts(); VisibilityAndOwnership();
         Console.WriteLine("PASS: " + checks + " production standalone-menu event, pointer, focus, layout-order and modal-ownership assertions; no Unity/game process used.");
+    }
+
+    static void FrontendGridToggle()
+    {
+        var root = new GameObject("Frontend").AddComponent<FrontendRootMenu>();
+        var menu = new GameObject("CustomizationOptions").AddComponent<BaseMenuBehaviour>();
+        menu.transform.SetParent(root.transform);
+        var choose = new GameObject("CustomChef").AddComponent<T17Button>();
+        choose.transform.SetParent(menu.transform);
+        choose.gameObject.AddComponent<T17Text>();
+        int opens = 0;
+        choose.onClick.AddListener(() => opens++);
+        var left = new GameObject("Versus").AddComponent<T17Button>();
+        var right = new GameObject("Settings").AddComponent<T17Button>();
+        choose.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnLeft = left, selectOnRight = right };
+        menu.m_BorderSelectables = new Navigation { selectOnUp = choose, selectOnDown = choose };
+        menu.gameObject.SetActive(false);
+        ChefGridMenu.Enabled = false;
+        ChefGridToggle.Install(root);
+        ChefGridToggle.Install(root);
+        var buttons = menu.GetComponentsInChildren<T17Button>(true);
+        Check(buttons.Length == 2, "Disabled grid and hidden native tab still install exactly one reachable toggle");
+        var toggle = buttons[1];
+        Check(toggle.GetComponent<T17Text>().text == "网格菜单：关", "Toggle reflects saved disabled state");
+        menu.gameObject.SetActive(true);
+        toggle.Click();
+        Check(ChefGridMenu.Enabled && opens == 0 && toggle.GetComponent<T17Text>().text == "网格菜单：开",
+            "Enabling changes preference without invoking the cloned original chef-menu callback");
+        toggle.Click();
+        Check(!ChefGridMenu.Enabled && opens == 0, "A second activation disables grid without opening a chef menu");
+        choose.Click();
+        Check(opens == 1, "Original Choose Chef callback survives cloning and toggling");
+        Check(choose.navigation.selectOnDown == toggle && toggle.navigation.selectOnUp == choose &&
+            toggle.navigation.selectOnLeft == left && toggle.navigation.selectOnRight == right &&
+            menu.m_BorderSelectables.selectOnUp == choose && menu.m_BorderSelectables.selectOnDown == toggle,
+            "Keyboard and pad can enter the tab, move between rows, and return to neighboring tabs");
+        Localization.Language = SupportedLanguages.English;
+        var domain = menu.CachedEventSystem = new T17EventSystem();
+        typeof(ChefGridToggle).GetMethod("LateUpdate", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            .Invoke(menu.GetComponent<ChefGridToggle>(), null);
+        Check(toggle.Domain == domain && toggle.GetComponent<T17Text>().text == "CHEF GRID: OFF",
+            "Reopened tabs rebind the current event domain and refresh the active language");
+        Localization.Language = SupportedLanguages.Chinese;
+        ChefGridMenu.Enabled = true;
     }
 }

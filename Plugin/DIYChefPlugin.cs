@@ -21,6 +21,7 @@ namespace OC2DIYChef
             patcher.PatchAll(typeof(Patch));
             patcher.PatchAll(typeof(Patch.FrontendChefCustomisationPatch));
             patcher.PatchAll(typeof(ChefGridPatches));
+            patcher.PatchAll(typeof(ChefGridTogglePatches));
             patcher.PatchAll(typeof(ChefGridLobbyPatches));
             patcher.PatchAll(typeof(ChefGridPlayerMenu));
             patcher.PatchAll(typeof(ChefGridWorldMap));

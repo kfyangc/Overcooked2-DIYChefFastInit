@@ -13,6 +13,7 @@ namespace OC2DIYChef
     public sealed class ChefGridMenu : MonoBehaviour
     {
         static ConfigEntry<bool> configured;
+        static ConfigFile configuration;
         static ConfigEntry<float> portraitYaw, unselectedDimOpacity;
         static readonly MethodInfo fixedValue = AccessTools.Method(typeof(PlayerInputLookup), "GetFixedValue",
             new[] { typeof(PlayerInputLookup.LogicalValueID), typeof(PlayerGameInput) });
@@ -93,6 +94,7 @@ namespace OC2DIYChef
 
         internal static void Configure(ConfigFile config)
         {
+            configuration = config;
             configured = config.Bind("ChefSelection", "GridEnabled", true,
                 "Show independent horizontal player panels with scrolling chef grids. Disable to use the original carousel.");
             unselectedDimOpacity = config.Bind("ChefSelection", "UnselectedDimOpacity", 0.4f,
@@ -100,6 +102,14 @@ namespace OC2DIYChef
                     new AcceptableValueRange<float>(0f, 1f)));
             portraitYaw = config.Bind("ChefSelection", "PortraitYaw", 0f,
                 "Rotation in degrees of generated portraits; changing this rebuilds their visual cache.");
+        }
+
+        internal static void SetEnabled(bool enabled)
+        {
+            if (configured == null || configured.Value == enabled) return;
+            configured.Value = enabled;
+            configuration.Save();
+            DIYChefPlugin.Log("Chef grid " + (enabled ? "enabled" : "disabled"));
         }
 
         internal static void Show(FrontendChefMenu menu)

@@ -2,7 +2,9 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.2.0.25 (test build)**
+**Current version: 2.3.1.1 (test build)**
+
+Use **CHEF GRID: ON/OFF** below the original **CHOOSE CHEF** action in the main menu's Chef tab. The setting is saved automatically. Turning it off restores the original chef selection and hides the lobby grid entry; turn it on again to restore the grid.
 
 This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248/Overcooked2-DIYChef) to reduce startup waits when many custom chefs and hats are installed, and to speed up loading previously cached resources. Existing chef resources, `prefer.txt` and BepInEx configuration remain compatible.
 
