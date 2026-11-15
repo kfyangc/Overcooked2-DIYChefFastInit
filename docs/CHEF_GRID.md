@@ -1,4 +1,12 @@
-# 厨师网格选择（2.3.1.3 测试版）
+# 厨师网格选择
+
+当前预览模块分工：`ChefGridPreviewScene` 统一拥有离屏厨师、原版模板与 shader 初始化、相机、灯光、加载取消及 RenderTexture 生命周期；它是静态与动态绘制之间的内部 seam，不向菜单暴露 Unity 初始化顺序。`ChefGridPortraits` 仅负责 128×128 无帽缩略图、缓存和生成调度；已删除动态预览接管后不再使用的静态高清缓存、第二张渲染目标及 selected 参数。`ChefGridLivePreview` 负责每位玩家的动画、转向与高清绘制，静态／动态共用 `ChefGridFraming.ContributesToFraming` 判断远处隐藏零件，保留各自的取景方式。缩略图缓存键及网络报文格式保持不变。
+
+菜单通过 `PlayerHats.Cycle` 切换帽子，选项顺序和循环规则封装在帽子模块内；网络接收传入原版 Machine／Engagement／Split，身份键仅由帽子模块生成。动态预览观察实际应用的帽子变化后自行重新构图，菜单无需干预加载与构图时序。
+
+预览资源所有权回归：`dotnet run --project tests/ChefGridPreviewRegression.csproj -c Release`。通过模块接口检查两个场景隔离、原版模板与 shader 设置、动画静音、取消加载、创建失败后释放、重复清理以及关闭后拒绝新建目标；引擎调用使用离线替身，不代表游戏内画面验收。
+
+以下为历版记录。
 
 2.3.1.5 根据用户复现的 2.3.1.4 日志处理原版页面 Esc／B 失效：厨师菜单关闭后，inputConfig 已回到进入前实例，菜单栈已移除厨师菜单，root.allowCancel=True、事件域未屏蔽；但 root.shownThisFrame 在首次主菜单返回及后续厨师关闭时始终为 True，整个日志没有收到 FrontendRootMenu.Update 的诊断回调。原版 InvokeNavigateOnUICancel 会拒绝 shownThisFrame=True 的菜单。因此本版恢复缺失的原版更新路径，不另写一套返回键处理，不清空屏蔽器／菜单栈／返回权限。
 

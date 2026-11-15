@@ -90,9 +90,10 @@ namespace Team17.Online
     public enum TeamID { Count }
     public sealed class User
     {
+        public enum MachineID { One = 1, Two, Three, Four }
         public enum SplitStatus { Whole, SplitPadMain, SplitPadGuest }
         public bool IsLocal;
-        public byte Machine;
+        public MachineID Machine;
         public EngagementSlot Engagement;
         public SplitStatus Split;
     }
@@ -105,7 +106,7 @@ namespace Team17.Online
     public static class ServerUserSystem { public static UserList m_Users = new UserList(); }
     public static class UserSystemUtils
     {
-        public static User FindUser(UserList users, object unused, byte machine, EngagementSlot slot, TeamID team, User.SplitStatus split)
+        public static User FindUser(UserList users, object unused, User.MachineID machine, EngagementSlot slot, TeamID team, User.SplitStatus split)
         { foreach (var user in users._items) if (user.Machine == machine && user.Engagement == slot && user.Split == split) return user; return null; }
     }
 }
@@ -114,15 +115,15 @@ namespace Team17.Online.Multiplayer.Messaging
     public enum MessageType { }
     public sealed class ChefAvatarMessage : Serialisable
     {
-        public byte m_Machine;
+        public Team17.Online.User.MachineID m_Machine;
         public Team17.Online.EngagementSlot m_EngagementSlot;
         public Team17.Online.User.SplitStatus m_Split;
-        public void Initialise(uint avatar, byte machine, Team17.Online.EngagementSlot slot, Team17.Online.User.SplitStatus split)
+        public void Initialise(uint avatar, Team17.Online.User.MachineID machine, Team17.Online.EngagementSlot slot, Team17.Online.User.SplitStatus split)
         { m_Machine = machine; m_EngagementSlot = slot; m_Split = split; }
         public void Serialise(BitStream.BitStreamWriter writer)
-        { writer.Write(m_Machine, 8); writer.Write((byte)m_EngagementSlot, 8); writer.Write((byte)m_Split, 8); }
+        { writer.Write((byte)m_Machine, 8); writer.Write((byte)m_EngagementSlot, 8); writer.Write((byte)m_Split, 8); }
         public bool Deserialise(BitStream.BitStreamReader reader)
-        { m_Machine = reader.ReadByte(8); m_EngagementSlot = (Team17.Online.EngagementSlot)reader.ReadByte(8); m_Split = (Team17.Online.User.SplitStatus)reader.ReadByte(8); return true; }
+        { m_Machine = (Team17.Online.User.MachineID)reader.ReadByte(8); m_EngagementSlot = (Team17.Online.EngagementSlot)reader.ReadByte(8); m_Split = (Team17.Online.User.SplitStatus)reader.ReadByte(8); return true; }
     }
 }
 namespace OC2DIYChef

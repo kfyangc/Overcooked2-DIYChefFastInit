@@ -1,0 +1,93 @@
+using System;
+using OC2DIYChef;
+using UnityEngine;
+
+static class ChefGridPreviewRegression
+{
+    static int checks;
+    static void Check(bool condition, string message) { if (!condition) throw new Exception(message); checks++; }
+
+    static FrontendChefCustomisation Source()
+    {
+        var actor = new GameObject("Original chef");
+        var source = actor.AddComponent<FrontendChefCustomisation>();
+        source.m_chef = actor.AddComponent<ChefMeshReplacer>();
+        source.m_chef.m_chefTemplatePrefab = new GameObject("Native prefab");
+        var hats = actor.AddComponent<HatMeshVisibility>();
+        hats.m_meshes = new object(); hats.m_stateFlags = new object();
+        var view = actor.AddComponent<FrontendChef>();
+        view.m_StandardSkinShader = new object(); view.m_StandardClothesShader = new object();
+        view.m_UISkinShader = new object(); view.m_UIClothesShader = new object();
+        return source;
+    }
+
+    static void Main()
+    {
+        var source = Source();
+        var thumbnail = new ChefGridPreviewScene(source, new Vector3(10000, -10000, 10000), new Color(0, 0, 0, 0));
+        var live = new ChefGridPreviewScene(source, new Vector3(10100, -10000, 10000), new Color(1, 0.9f, 0.9f));
+        Check(thumbnail.Stage != live.Stage && thumbnail.Actor != live.Actor && thumbnail.Camera != live.Camera,
+            "thumbnail and animated renderers own independent scenes");
+        Check(thumbnail.Stage.transform.position.x != live.Stage.transform.position.x &&
+            live.Actor.transform.parent == live.Stage.transform,
+            "chef instances stay attached to their isolated stage");
+        Check(live.Replacer.m_chefTemplatePrefab == source.m_chef.m_chefTemplatePrefab &&
+            live.Actor.GetComponent<ChefGridPortraitActor>() != null,
+            "preview uses the native chef template and retains the integration marker");
+        var originalView = source.GetComponent<FrontendChef>();
+        Check(live.View.m_StandardSkinShader == originalView.m_StandardSkinShader &&
+            live.View.m_StandardClothesShader == originalView.m_StandardClothesShader &&
+            live.View.m_UISkinShader == originalView.m_UISkinShader &&
+            live.View.m_UIClothesShader == originalView.m_UIClothesShader && live.View.Ambient.r == 0.8f,
+            "both preview kinds inherit native shaders and UI lighting");
+        Check(live.Actor.GetComponent<HatMeshVisibility>().m_meshes == source.GetComponent<HatMeshVisibility>().m_meshes,
+            "native hat visibility metadata is copied onto the preview actor");
+        Check(!live.Camera.enabled && live.Camera.orthographic && live.Camera.cullingMask == ((1 << live.Actor.layer) | (1 << HatData.hatLayer)) &&
+            live.Camera.backgroundColor.a == 1 && thumbnail.Camera.backgroundColor.a == 0,
+            "manual cameras retain the caller's background and include the hat layer");
+
+        var small = thumbnail.CreateTarget(128, RenderTextureFormat.ARGB32);
+        var large = live.CreateTarget(512, RenderTextureFormat.RGB111110Float);
+        thumbnail.Camera.targetTexture = small; live.Camera.targetTexture = large;
+        var model = new GameObject("Loaded chef"); live.View.ChefModel = model;
+        var audio = model.AddComponent<AudioSource>();
+        var events = model.AddComponent<AnimatorAudioComponent>();
+        var rumble = model.AddComponent<AnimatorRumbleComponent>();
+        live.SilenceModel();
+        Check(!audio.enabled && !events.enabled && !rumble.enabled, "preview animation produces no sound or rumble");
+
+        live.Dispose();
+        Check(live.Camera.targetTexture == null && large.Releases == 1 && large.DestroyCalls == 1 &&
+            live.Stage.DestroyCalls == 1 && !live.Stage.activeSelf && ChefLoading.Cancelled.Contains(live.Replacer),
+            "closing a scene cancels its deferred load, detaches the target and releases its owned objects");
+        Check(small.DestroyCalls == 0 && thumbnail.Stage.activeSelf && source.gameObject.activeSelf,
+            "disposing one preview leaves the other preview and source chef intact");
+        int cancellations = ChefLoading.Cancelled.Count;
+        live.Dispose();
+        Check(large.Releases == 1 && ChefLoading.Cancelled.Count == cancellations, "repeated cleanup is idempotent");
+        bool rejected = false;
+        try { live.CreateTarget(512, RenderTextureFormat.RGB111110Float); }
+        catch (ObjectDisposedException) { rejected = true; }
+        Check(rejected, "a disposed scene cannot allocate a leaked GPU target");
+
+        RenderTexture.FailCreate = true;
+        bool failed = false;
+        try { thumbnail.CreateTarget(128, RenderTextureFormat.ARGB32); }
+        catch (InvalidOperationException) { failed = true; }
+        var partialTarget = RenderTexture.Last;
+        thumbnail.Dispose();
+        Check(failed && partialTarget.Releases == 1 && partialTarget.DestroyCalls == 1 && small.Releases == 1,
+            "cleanup also owns targets whose allocation threw");
+        RenderTexture.FailCreate = false;
+
+        var broken = new GameObject("Missing native replacer").AddComponent<FrontendChefCustomisation>();
+        int firstCreated = GameObject.Created.Count;
+        failed = false;
+        try { new ChefGridPreviewScene(broken, new Vector3(), new Color()); }
+        catch (Exception) { failed = true; }
+        var partialStage = GameObject.Created[firstCreated];
+        Check(failed && partialStage.DestroyCalls == 1 && !partialStage.activeSelf,
+            "failed native setup removes the partial offscreen scene before propagating the error");
+        Console.WriteLine("PASS: " + checks + " preview scene setup and resource ownership checks; no game process used.");
+    }
+}

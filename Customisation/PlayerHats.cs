@@ -27,7 +27,9 @@ namespace OC2DIYChef
         static readonly List<PlayerHatOwner> owners = new List<PlayerHatOwner>();
 
         internal static void Configure(ConfigFile file) { config = file; }
-        internal static string Key(User user) { return user.Machine + ":" + (int)user.Engagement + ":" + (int)user.Split; }
+        static string Key(User.MachineID machine, EngagementSlot slot, User.SplitStatus split)
+        { return machine + ":" + (int)slot + ":" + (int)split; }
+        internal static string Key(User user) { return Key(user.Machine, user.Engagement, user.Split); }
         static ConfigEntry<string> Preference(User user)
         {
             string key = "Player" + (int)user.Engagement + "Split" + (int)user.Split;
@@ -57,20 +59,27 @@ namespace OC2DIYChef
 
         internal static void Receive(User user, string hat)
         {
-            Receive(Key(user), hat);
+            Receive(user.Machine, user.Engagement, user.Split, hat);
         }
 
-        internal static void Receive(string identity, string hat)
+        internal static void Receive(User.MachineID machine, EngagementSlot slot, User.SplitStatus split, string hat)
         {
             // Preserve unknown names for forwarding: the host may not own a hat
             // that two other clients have installed. Resolve handles local fallback.
-            remote[identity] = hat;
+            remote[Key(machine, slot, split)] = hat;
             Invalidate();
         }
 
         internal static void Remove(User user) { remote.Remove(Key(user)); }
 
-        internal static List<string> Choices()
+        internal static void Cycle(User user, int step)
+        {
+            var choices = Choices();
+            int index = Math.Max(0, choices.IndexOf(Get(user)));
+            Set(user, choices[(index + step % choices.Count + choices.Count) % choices.Count]);
+        }
+
+        static List<string> Choices()
         {
             var result = new List<string> { Inherit, "None", "Fancy", "Santa", "Baseballcap" };
             foreach (var hat in DIYChefCustomisation.diyHats)
@@ -81,7 +90,7 @@ namespace OC2DIYChef
             return result;
         }
 
-        internal static bool Available(string hat)
+        static bool Available(string hat)
         {
             if (hat == Inherit || hat == "None" || hat == "Fancy" || hat == "Santa" || hat == "Baseballcap") return true;
             return DIYChefCustomisation.diyHats.Exists(item => item.HatName == "Hat_" + hat);

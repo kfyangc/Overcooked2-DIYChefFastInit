@@ -44,7 +44,7 @@ namespace OC2DIYChef
                 var identity = packet.Users[i];
                 if (packet.ServerSnapshot)
                 {
-                    PlayerHats.Receive(identity.m_Machine + ":" + (int)identity.m_EngagementSlot + ":" + (int)identity.m_Split, packet.Hats[i]);
+                    PlayerHats.Receive(identity.m_Machine, identity.m_EngagementSlot, identity.m_Split, packet.Hats[i]);
                     continue;
                 }
                 var user = UserSystemUtils.FindUser(users, null, identity.m_Machine,

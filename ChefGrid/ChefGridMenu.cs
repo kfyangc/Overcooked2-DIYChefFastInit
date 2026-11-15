@@ -382,7 +382,7 @@ namespace OC2DIYChef
                     for (int i = start; i < Math.Min(entries.Count, start + cursor.Layout.VisibleCount); i++)
                         if (!wanted.Contains(entries[i])) wanted.Add(entries[i]);
                 }
-                portraits.Tick(wanted, new ChefGridEntry[0]);
+                portraits.Tick(wanted);
             }
             foreach (var cursor in cursors)
                 if (cursor.Preview != null)
@@ -405,11 +405,7 @@ namespace OC2DIYChef
         void ChangeHat(Cursor cursor, int step)
         {
             if (ready.IsConfirmed(cursor.Key)) return;
-            var user = ClientUserSystem.m_Users._items[cursor.Player];
-            var choices = PlayerHats.Choices();
-            int index = Math.Max(0, choices.IndexOf(PlayerHats.Get(user)));
-            PlayerHats.Set(user, choices[(index + step + choices.Count) % choices.Count]);
-            if (cursor.Preview != null) cursor.Preview.Reframe();
+            PlayerHats.Cycle(ClientUserSystem.m_Users._items[cursor.Player], step);
         }
 
         static void Claim(ILogicalButton button)

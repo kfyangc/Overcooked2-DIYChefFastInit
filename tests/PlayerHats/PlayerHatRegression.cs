@@ -18,7 +18,7 @@ static class PlayerHatRegression
         return copy;
     }
     static User Local(EngagementSlot slot, User.SplitStatus split = User.SplitStatus.Whole)
-    { return new User { IsLocal = true, Machine = 1, Engagement = slot, Split = split }; }
+    { return new User { IsLocal = true, Machine = User.MachineID.One, Engagement = slot, Split = split }; }
     static GameObject Actor(User user)
     {
         var actor = new GameObject(); actor.AddComponent<ChefMeshReplacer>(); actor.AddComponent<HatMeshVisibility>();
@@ -46,8 +46,13 @@ static class PlayerHatRegression
         transaction.Begin(); transaction.Capture(p1); PlayerHats.Set(p1, "Fancy"); transaction.Commit(); transaction.Dispose();
         Check(PlayerHats.Get(p1) == "Fancy", "confirmation preserves the edited hat");
         var custom = new HatData { HatName = "Hat_巫师帽" }; DIYChefCustomisation.diyHats.Add(custom);
-        Check(PlayerHats.Choices().Contains("巫师帽"), "installed DIY hats are offered independently of prefer.txt assignments");
-        PlayerHats.Set(p1, "巫师帽"); PlayerHats.Update();
+        PlayerHats.Set(p1, "Baseballcap"); PlayerHats.Cycle(p1, 1);
+        Check(PlayerHats.Get(p1) == "巫师帽", "cycling offers installed DIY hats independently of prefer.txt assignments");
+        PlayerHats.Cycle(p1, 1);
+        Check(PlayerHats.Get(p1) == PlayerHats.Inherit, "cycling wraps from the last installed hat to the default");
+        PlayerHats.Cycle(p1, -1);
+        Check(PlayerHats.Get(p1) == "巫师帽" && PlayerHats.Get(p2) == "Santa", "cycling backward wraps and preserves the other player's choice");
+        PlayerHats.Update();
         Check(ChefLoading.Requests > 0, "unprepared DIY hats enter deferred resource loading");
         custom.prefab = new GameObject(); PlayerHats.Update();
         Check(first.GetComponent<PlayerHatOwner>().AppliedHat == "巫师帽", "loaded hat attaches after asynchronous completion");
@@ -62,14 +67,14 @@ static class PlayerHatRegression
         PlayerHats.Shutdown(); PlayerHats.Configure(config);
         Check(PlayerHats.Get(Local(EngagementSlot.One)) == "巫师帽" && PlayerHats.Get(Local(EngagementSlot.Two)) == "Santa",
             "input-slot preferences survive service recreation and new User instances");
-        var remote = new User { Machine = 2, Engagement = EngagementSlot.One };
+        var remote = new User { Machine = User.MachineID.Two, Engagement = EngagementSlot.One };
         var remoteActor = Actor(remote);
         PlayerHats.Receive(remote, "PeerOnlyHat");
         Check(PlayerHats.Get(remote) == "PeerOnlyHat" && PlayerHats.Resolve(remoteActor, "Chef_Fox") == "Fancy",
             "missing peer resource falls back locally while preserving its name for forwarding");
         DIYChefCustomisation.localClient = new Client(); PlayerHatNetwork.Send(p1);
         var clientPacket = Roundtrip(DIYChefCustomisation.localClient.Last);
-        Check(!clientPacket.ServerSnapshot && clientPacket.Hats[0] == "巫师帽" && clientPacket.Users[0].m_Machine == 1,
+        Check(!clientPacket.ServerSnapshot && clientPacket.Hats[0] == "巫师帽" && clientPacket.Users[0].m_Machine == User.MachineID.One,
             "client transport preserves UTF-8 hat name and stable user identity");
         DIYChefCustomisation.localServer = new Server();
         ServerUserSystem.m_Users._items = new[] { p1, remote, p2, split };
@@ -77,7 +82,7 @@ static class PlayerHatRegression
         var snapshot = Roundtrip(DIYChefCustomisation.localServer.Last);
         Check(snapshot.ServerSnapshot && snapshot.Users.Length == 4 && snapshot.Hats[1] == "PeerOnlyHat" && snapshot.Hats[3] == "Baseballcap",
             "server snapshots include distinct whole/split hats and forward hats absent on the host");
-        var identity = new ChefAvatarMessage(); identity.Initialise(127, 2, EngagementSlot.One, User.SplitStatus.Whole);
+        var identity = new ChefAvatarMessage(); identity.Initialise(127, User.MachineID.Two, EngagementSlot.One, User.SplitStatus.Whole);
         PlayerHatNetwork.Receive(Roundtrip(new PlayerHatMessage { Users = new[] { identity }, Hats = new[] { "Baseballcap" } }));
         Check(PlayerHats.Get(remote) == "Baseballcap" && DIYChefCustomisation.localServer.Last.Hats[1] == "Baseballcap",
             "a remote client's change is applied by the server and rebroadcast by stable identity");
