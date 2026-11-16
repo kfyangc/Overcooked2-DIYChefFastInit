@@ -1,8 +1,20 @@
 using System;
 namespace OC2DIYChef
 {
+    internal struct ChefGridActionRect
+    {
+        internal readonly float X, Y, Width, Height;
+        internal ChefGridActionRect(float x, float y, float width, float height)
+        { X = x; Y = y; Width = width; Height = height; }
+        internal bool Contains(float x, float y)
+        { return x >= X && x < X + Width && y >= Y && y < Y + Height; }
+    }
+
     internal sealed class ChefGridPanelLayout
     {
+        internal const float ActionTop = 632;
+        internal static readonly ChefGridActionRect Back = new ChefGridActionRect(48, ActionTop, 140, 32);
+        internal readonly ChefGridActionRect Confirm;
         internal readonly float Left, Width, GridLeft, GridTop = 140, Side = 72, Gap = 4;
         internal readonly float DetailLeft, DetailTextWidth, DetailImageSize;
         internal float GridWidth { get { return Columns * Side + (Columns - 1) * Gap; } }
@@ -20,9 +32,10 @@ namespace OC2DIYChef
             count = Math.Max(1, Math.Min(4, count));
             Width = 1200f / count - 8;
             Left = 40 + index * (Width + 8);
+            Confirm = new ChefGridActionRect(Left + Width - 140, ActionTop, 140, 32);
             Columns = Math.Max(1, (int)((Width - 36 + Gap) / (Side + Gap)));
             GridLeft = Left + (Width - GridWidth - 14) / 2;
-            DetailImageSize = Math.Min(200, Width - 116);
+            DetailImageSize = Math.Min(180, Width - 116);
             DetailTextWidth = Math.Min(240, Width - DetailImageSize - 24);
             DetailLeft = Left + (Width - DetailImageSize - 8 - DetailTextWidth) / 2;
         }

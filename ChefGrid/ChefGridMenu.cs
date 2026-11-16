@@ -479,12 +479,12 @@ namespace OC2DIYChef
                     return;
                 }
             }
+            if (click && ChefGridPanelLayout.Back.Contains(x, y)) { RequestExit(ExitRequest.Cancel); return; }
             foreach (var cursor in cursors)
             {
                 var layout = cursor.Layout;
                 if (x < layout.Left || x >= layout.Left + layout.Width) continue;
-                if (click && x >= 48 && x < 188 && y >= 650 && y < 686) { RequestExit(ExitRequest.Cancel); return; }
-                if (click && x >= layout.Left + layout.Width - 140 && y >= 650 && y < 686) { Accept(cursor); return; }
+                if (click && layout.Confirm.Contains(x, y)) { Accept(cursor); return; }
                 if (click && !ready.IsConfirmed(cursor.Key))
                 {
                     int action = layout.DetailAction(x, y);
@@ -537,23 +537,27 @@ namespace OC2DIYChef
             backRect.anchorMin = Vector2.zero; backRect.anchorMax = Vector2.one;
             backRect.offsetMin = backRect.offsetMax = Vector2.zero;
             backdrop.GetComponent<Image>().color = new Color(0.04f, 0.08f, 0.12f, 0.68f);
+            var panel = Box(canvasObject.transform, "Native menu background", 0, 24, 1280, 672, Color.white);
+            var panelRect = panel.rectTransform;
+            panelRect.anchorMin = new Vector2(0, 0.5f);
+            panelRect.anchorMax = new Vector2(1, 0.5f);
+            panelRect.sizeDelta = new Vector2(0, 672);
+            panelRect.anchoredPosition = Vector2.zero;
             frame = Rect(canvasObject.transform, "Frame", 0, 0, 1280, 720);
             frame.anchorMin = frame.anchorMax = new Vector2(0.5f, 0.5f);
             frame.anchoredPosition = Vector2.zero;
-            var panel = Box(frame, "Native menu background", 24, 24, 1232, 672, Color.white);
-            var header = Box(frame, "Native menu header", 24, 24, 880, 80, Color.white);
+            var header = Box(frame, "Native menu header", 0, 24, 880, 80, Color.white);
             ChefGridTheme.Apply(panel, header);
-            Label(frame, "Title", L("选择厨师", "CHEFS"), 56, 42, 650, 54, 34, Color.white);
-            Label(frame, "Total", entries.Count + L(" 位厨师", " CHEFS"), 1016, 49, 208, 40, 22, Ink);
+            Label(frame, "Title", L("选择厨师", "CHEFS"), 0, 24, 880, 64, 34, Color.white);
+            Label(frame, "Total", entries.Count + L(" 位厨师", " CHEFS"), 1016, 24, 208, 64, 22, Ink);
             foreach (var cursor in cursors)
             {
                 var l = cursor.Layout;
                 var ui = cursor.UI = new Panel();
-                // Leave the cutlery artwork visible between portraits and controls;
-                // player identity remains in the header strip and selected outline.
-                Box(frame, "Player strip", l.Left + 3, 108, l.Width - 6, 28, ChefGridTheme.Control);
-                Box(frame, "Player colour", l.Left + 3, 108, 5, 28, PlayerColours[cursor.Player]);
-                ui.Player = Label(frame, "Player", "P" + (cursor.Player + 1), l.Left + 10, 108, l.Width - 20, 28, 21, Color.white);
+                // Keep the cutlery visible between portraits, with a solid player
+                // colour strip and dark text for legibility on bright team colours.
+                Box(frame, "Player strip", l.Left + 3, 108, l.Width - 6, 28, PlayerColours[cursor.Player]);
+                ui.Player = Label(frame, "Player", "P" + (cursor.Player + 1), l.Left + 10, 108, l.Width - 20, 28, 21, Ink);
                 float imageSize = l.DetailImageSize, textX = l.DetailLeft + imageSize + 8, detailY = l.DetailTop;
                 ui.Detail = Rect(frame, "Selected portrait", l.DetailLeft, detailY, imageSize, imageSize).gameObject.AddComponent<RawImage>();
                 ui.Detail.raycastTarget = false;
@@ -590,10 +594,10 @@ namespace OC2DIYChef
                 float trackX = l.ScrollLeft;
                 Box(frame, "Scroll track", trackX, l.GridTop, 6, l.GridHeight, new Color(Ink.r, Ink.g, Ink.b, 0.15f));
                 ui.Scroll = (RectTransform)Box(frame, "Scroll thumb", trackX, l.GridTop, 6, l.GridHeight, Ink).transform;
-                ActionButton("Confirm", l.Left + l.Width - 140, 140, out ui.Accept, out ui.Icon, out ui.Key);
+                ActionButton("Confirm", l.Confirm, out ui.Accept, out ui.Icon, out ui.Key);
             }
             Text backLabel;
-            ActionButton("Back", 48, 140, out backLabel, out backIcon, out backKey);
+            ActionButton("Back", ChefGridPanelLayout.Back, out backLabel, out backIcon, out backKey);
             backLabel.text = L("返回 P1", "BACK P1");
         }
 
@@ -707,18 +711,18 @@ namespace OC2DIYChef
             return text;
         }
 
-        void ActionButton(string name, float x, float width, out Text label, out Image icon, out Text key)
+        void ActionButton(string name, ChefGridActionRect rect, out Text label, out Image icon, out Text key)
         {
-            var background = Box(frame, name, x, 650, width, 36, ChefGridTheme.Control);
-            label = Label(background.transform, "Label", "", 6, 0, width - 66, 36, 19, Color.white);
+            var background = Box(frame, name, rect.X, rect.Y, rect.Width, rect.Height, ChefGridTheme.Control);
+            label = Label(background.transform, "Label", "", 6, 0, rect.Width - 66, rect.Height, 17, Color.white);
             label.resizeTextForBestFit = true;
             label.resizeTextMinSize = 14;
-            label.resizeTextMaxSize = 19;
-            key = Label(background.transform, "Key", "", width - 56, 0, 50, 36, 17, Color.white);
+            label.resizeTextMaxSize = 17;
+            key = Label(background.transform, "Key", "", rect.Width - 56, 0, 50, rect.Height, 13, Color.white);
             key.resizeTextForBestFit = true;
-            key.resizeTextMinSize = 12;
-            key.resizeTextMaxSize = 17;
-            icon = Rect(background.transform, "Key icon", width - 44, 4, 28, 28).gameObject.AddComponent<Image>();
+            key.resizeTextMinSize = 10;
+            key.resizeTextMaxSize = 13;
+            icon = Rect(background.transform, "Key icon", rect.Width - 42, (rect.Height - 24) / 2, 24, 24).gameObject.AddComponent<Image>();
             icon.preserveAspect = true;
             icon.raycastTarget = false;
         }

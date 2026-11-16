@@ -69,12 +69,29 @@ static class ChefGridParallelRegression
                     "Every participant receives a usable four-row grid");
                 Check(panel.Columns == new[] { 15, 7, 4, 3 }[participants - 1],
                     "Available width expands single-player grids and preserves usable multiplayer columns");
-                Check(panel.DetailImageSize > 128 && panel.DetailTop >= panel.GridTop + panel.GridHeight && panel.DetailTop + panel.DetailImageSize <= 650 &&
+                Check(panel.DetailImageSize > 128 && panel.DetailTop >= panel.GridTop + panel.GridHeight && panel.DetailTop + panel.DetailImageSize < panel.Confirm.Y &&
                     Math.Abs(panel.DetailLeft + (panel.DetailImageSize + 8 + panel.DetailTextWidth) / 2 - (panel.Left + panel.Width / 2)) < 0.001f &&
                     panel.DetailLeft >= panel.Left && panel.DetailLeft + panel.DetailImageSize + 8 + panel.DetailTextWidth <= panel.Left + panel.Width &&
                     panel.DetailTextWidth >= 92 && panel.DetailTextTop >= panel.DetailTop &&
                     panel.DetailTextTop + 122 <= panel.DetailTop + panel.DetailImageSize,
                     "The portrait and bounded text form one centered group beneath the grid and above the buttons");
+                var confirm = panel.Confirm;
+                float confirmX = confirm.X + confirm.Width / 2, confirmY = confirm.Y + confirm.Height / 2;
+                Check(confirm.X >= panel.Left && confirm.X + confirm.Width <= panel.Left + panel.Width &&
+                    confirm.Y + confirm.Height <= 668 && confirm.Height >= 32 &&
+                    confirm.Contains(confirmX, confirmY) && !confirm.Contains(confirm.X + confirm.Width, confirmY) &&
+                    !confirm.Contains(confirmX, confirm.Y + confirm.Height),
+                    "Confirmation has a usable hit rectangle inside its own panel and above the white lower edge");
+                Check(panel.HitTest(confirmX, confirmY, 0, 109) == -1 && panel.DetailAction(confirmX, confirmY) == -1,
+                    "Clicking the moved confirmation cannot select a thumbnail, rotate the preview or change its hat");
+                if (player == 0)
+                {
+                    var back = ChefGridPanelLayout.Back;
+                    Check(back.Y == confirm.Y && back.Height == confirm.Height && back.X + back.Width <= confirm.X &&
+                        back.Contains(back.X + back.Width / 2, back.Y + back.Height / 2) &&
+                        !back.Contains(confirmX, confirmY),
+                        "Back and P1 confirmation share the footer row without overlapping, even with four players");
+                }
                 Check(panel.Left >= 0 && panel.Left + panel.Width <= 1280 && panel.GridLeft >= panel.Left,
                     "Each horizontal panel and its grid remain inside the screen");
                 if (previous != null)
@@ -146,7 +163,7 @@ static class ChefGridParallelRegression
                     panel.DetailAction(controlsX + panel.DetailTextWidth - 1, panel.DetailTop + 125) == 5,
                     "Hat controls have independent previous, default and next targets");
                 Check(panel.DetailAction(panel.DetailLeft + 1, panel.DetailTop + 1) == 6 &&
-                    panel.DetailAction(panel.Left, panel.GridTop) == -1 && panel.DetailTop + 178 < 650,
+                    panel.DetailAction(panel.Left, panel.GridTop) == -1 && panel.DetailTop + 178 < panel.Confirm.Y,
                     "Model dragging and all customization rows fit above confirmation in one to four panels");
                 Check(panel.BeginScroll(trackX, panel.GridTop + 1, 0, 109) && panel.Dragging &&
                     panel.DragScroll(panel.GridTop - 1000, 109) == 0 &&

@@ -54,10 +54,20 @@ namespace OC2DIYChef
             float height = source.height - padding.y - padding.w;
             if (width <= 0 || height <= 0) return;
             var rect = image.rectTransform;
-            float x = rect.sizeDelta.x / width, y = rect.sizeDelta.y / height;
-            rect.sizeDelta = new Vector2(source.width * x, source.height * y);
-            rect.anchoredPosition += new Vector2((padding.z - padding.x) * x * 0.5f,
-                (padding.w - padding.y) * y * 0.5f);
+            // Keep an unpadded axis stretched to its parent. The dialog has no
+            // horizontal padding, so it continues to fill wider aspect ratios.
+            if (padding.x != 0 || padding.z != 0)
+            {
+                float x = rect.rect.width / width;
+                rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, source.width * x);
+                rect.anchoredPosition += new Vector2((padding.z - padding.x) * x * 0.5f, 0);
+            }
+            if (padding.y != 0 || padding.w != 0)
+            {
+                float y = rect.rect.height / height;
+                rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, source.height * y);
+                rect.anchoredPosition += new Vector2(0, (padding.w - padding.y) * y * 0.5f);
+            }
         }
 
         static void Resolve()
