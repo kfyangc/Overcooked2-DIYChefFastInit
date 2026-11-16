@@ -1,0 +1,6 @@
+Tool: built-in image_gen (imagegen skill), precise-object-edit.
+Source: native t_ui_dialog_large_01_d sprite exported from Overcooked 2 bundle24.
+Output: grid-background-flat.png (2043 x 770, RGBA).
+
+Final prompt:
+Use case: precise-object-edit. Asset type: an existing Overcooked 2 game UI background, edit target is the provided wide pale blue panel with subtle fork/knife silhouettes and a white border. Make ONLY this edit: remove the upward-pointing ^ shaped notch in the bottom border near the left side (about x=310 of the 1920px width), and make this bottom border a single continuous straight horizontal white border with its existing thin pale grey shadow. Fill the tiny triangular area above the new straight bottom border with the same local blue gradient so it merges seamlessly. Preserve all other pixels/composition as closely as possible: same blue gradient, exact utensil pattern positions, exact top border including its small original right-side detail, same overall very wide aspect ratio. Do NOT crop away any of the main panel, add text, invent decorations, change colors, or redesign the pattern. Keep transparency outside the panel silhouette, with a clean alpha edge. Return the edited panel only, ideally the same 1920 x 723 pixel dimensions.

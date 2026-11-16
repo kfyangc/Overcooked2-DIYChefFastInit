@@ -24,6 +24,16 @@ static class ChefGridFramingRegression
         var head = Box(-0.4f, 0.8f, 0.3f, 1.4f);
         var thumbnail = ChefGridFraming.Calculate(all, head, true);
         var detail = ChefGridFraming.Calculate(all, head, false);
+        foreach (bool small in new[] { true, false })
+        {
+            var beforeScale = ChefGridFraming.Calculate(all, head, small);
+            var nativeScale = ChefGridFraming.Calculate(
+                Box(all.MinX * 150, all.MinY * 150, all.MaxX * 150, all.MaxY * 150),
+                Box(head.MinX * 150, head.MinY * 150, head.MaxX * 150, head.MaxY * 150), small);
+            Check(Near(nativeScale.X / 150, beforeScale.X) && Near(nativeScale.Y / 150, beforeScale.Y) &&
+                Near(nativeScale.HalfSize / 150, beforeScale.HalfSize),
+                "native UI scaling preserves the screen composition of the face and full model");
+        }
         Check(Near(thumbnail.X, -0.05f) && Near(detail.X, -0.05f), "face, rather than asymmetric full-body bounds, sets the horizontal center");
         Check(thumbnail.HalfSize * 2 < detail.HalfSize, "headshot is over twice the full-body scale in the same square");
         Check(head.MinX >= thumbnail.X - thumbnail.HalfSize && head.MaxX <= thumbnail.X + thumbnail.HalfSize &&
@@ -70,6 +80,18 @@ static class ChefGridFramingRegression
         var foxAfter = ChefGridFraming.Calculate(all, foxHead, foxEyes, true);
         Check(Near(foxBefore.HalfSize, foxAfter.HalfSize) && Near(foxBefore.Y, foxAfter.Y),
             "normal head proportions retain their previous framing");
+        // Installed 68-Rabbit exports both left-hand variants about 123 units below its body.
+        var rabbitHead = Box(-0.626153f, 0.215915f, 0.409769f, 1.518164f);
+        Check(!ChefGridFraming.ContributesToFraming(Box(-0.41714f, -122.55291f, -0.296672f, -122.337791f), rabbitHead),
+            "Rabbit's distant open left hand cannot shrink the full-model preview");
+        Check(!ChefGridFraming.ContributesToFraming(Box(-0.40257f, -122.506966f, -0.294196f, -122.338676f), rabbitHead),
+            "Rabbit's distant gripping left hand cannot shrink the full-model preview");
+        Check(ChefGridFraming.ContributesToFraming(Box(-0.208799f, 0.000071f, 0.209947f, 0.722297f), rabbitHead),
+            "Rabbit's full body remains in the detail frame");
+        Check(ChefGridFraming.ContributesToFraming(Box(0.155286f, 0.198655f, 0.806235f, 0.721093f), rabbitHead),
+            "Rabbit's knife remains in the detail frame");
+        Check(ChefGridFraming.ContributesToFraming(tallHat, head), "ordinary tall hats remain in the detail frame");
+        Check(ChefGridFraming.ContributesToFraming(all, new ChefPortraitBounds()), "missing head bounds keep the full-model fallback");
         return checks;
     }
 }

@@ -59,11 +59,11 @@ static class ChefGridPromptRegression
         PCPadInputProvider.Key(keyboard.Pad, ControlPadInput.Button.Y, "Right Shift");
         int fixedBefore = PlayerInputLookup.FixedCalls;
         prompts.Refresh(leftKeyboard, accept, back);
-        Check(prompts.Accept.Icon == null && prompts.Accept.Key == "Left Shift" && prompts.Back.Key == "Left Control",
-            "Split-left prompts show actual InControl keyboard bindings rather than shared Enter/Esc or generic icon packs");
+        Check(prompts.Accept.Icon == null && prompts.Accept.Key == "Left Shift" && prompts.Back.Key == "Esc",
+            "Split-left confirmation follows its mapping while grid return has a separate Escape prompt");
         prompts.Refresh(rightKeyboard, accept, back);
-        Check(prompts.Accept.Key == "Right Control" && prompts.Back.Key == "Right Shift",
-            "The right half of the same keyboard resolves its independent physical actions");
+        Check(prompts.Accept.Key == "Right Control" && prompts.Back.Key == "Esc",
+            "The right half keeps its own confirmation and the shared Escape return");
         Check(((MappedPromptButton)ChefGridButtonPrompts.Binding(leftKeyboard, true)).Button == ControlPadInput.Button.A &&
             ((MappedPromptButton)ChefGridButtonPrompts.Binding(rightKeyboard, true)).Button == ControlPadInput.Button.RB &&
             ((MappedPromptButton)ChefGridButtonPrompts.Binding(rightKeyboard, false)).Button == ControlPadInput.Button.Y &&
@@ -72,6 +72,13 @@ static class ChefGridPromptRegression
         var leftBack = ChefGridButtonPrompts.Binding(leftKeyboard, false);
         var rightBack = ChefGridButtonPrompts.Binding(rightKeyboard, false);
         PCPadInputProvider.Pressed(keyboard.Pad, ControlPadInput.Button.B, true);
+        Check(!ChefGridButtonPrompts.ReturnDown(leftKeyboard, ChefGridButtonPrompts.ReturnBinding(leftKeyboard)),
+            "Left Control remains available for customization without closing the grid");
+        UnityEngine.Input.Escape = true;
+        Check(ChefGridButtonPrompts.ReturnDown(leftKeyboard, ChefGridButtonPrompts.ReturnBinding(leftKeyboard)) &&
+            ChefGridButtonPrompts.ReturnDown(rightKeyboard, ChefGridButtonPrompts.ReturnBinding(rightKeyboard)),
+            "Escape returns from either keyboard side without using the customization modifier");
+        UnityEngine.Input.Escape = false;
         Check(!leftBack.IsDown() && ChefGridButtonPrompts.Down(leftKeyboard, leftBack) &&
             !ChefGridButtonPrompts.Down(rightKeyboard, rightBack),
             "The displayed Left Control combo operates P1 even when the virtual pad action state is false; P2 does not inherit it");
@@ -84,8 +91,9 @@ static class ChefGridPromptRegression
         PCPadInputProvider.Pressed(keyboard.Pad, ControlPadInput.Button.B, true);
         prompts.Reset();
         prompts.Refresh(leftKeyboard, accept, back);
-        Check(prompts.Back.Key == "Left Alt + Q" && ChefGridButtonPrompts.Down(leftKeyboard, leftBack),
-            "Prompt and polling use the same rebound keyboard chord without parsing or hardcoding key names");
+        Check(prompts.Back.Key == "Esc" && ChefGridButtonPrompts.Down(leftKeyboard, leftBack) &&
+            !ChefGridButtonPrompts.ReturnDown(leftKeyboard, ChefGridButtonPrompts.ReturnBinding(leftKeyboard)),
+            "Rebinding native cancel does not replace the independent Escape return");
         PCPadInputProvider.Key(keyboard.Pad, ControlPadInput.Button.B, null);
         Check(!ChefGridButtonPrompts.Down(leftKeyboard, leftBack), "Removing a split binding removes its executable return action too");
         Check(!ChefGridButtonPrompts.Down(pad, back), "Controller polling keeps the native logical state rather than keyboard binding state");
@@ -257,4 +265,9 @@ namespace InControl
     class InputDevice { internal string Name; internal string Meta { get { return ""; } } }
     sealed class UnityInputDevice : InputDevice { internal object Profile { get { return null; } } }
 }
-namespace UnityEngine { sealed class Sprite { internal readonly string name; internal Sprite(string value) { name = value; } } }
+namespace UnityEngine
+{
+    sealed class Sprite { internal readonly string name; internal Sprite(string value) { name = value; } }
+    enum KeyCode { Escape }
+    static class Input { internal static bool Escape; internal static bool GetKey(KeyCode key) { return Escape; } }
+}

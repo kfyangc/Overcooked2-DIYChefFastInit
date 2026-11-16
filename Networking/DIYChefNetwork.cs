@@ -82,9 +82,11 @@ namespace OC2DIYChef
 
         private static void OnUserRemoved(User _user, int _idx)
         {
+            PlayerHats.Remove(_user);
             for (int i = _idx; i < 3; i++) userDIYChefID[i] = userDIYChefID[i + 1];
             userDIYChefID[3] = 255;
             SendServerDIYChefMessage();
+            PlayerHatNetwork.Broadcast();
         }
 
         public static void OnUserAdded(User _user)
@@ -97,6 +99,7 @@ namespace OC2DIYChef
                 userDIYChefID[player] = 255;
             }
             SendServerDIYChefMessage();
+            PlayerHatNetwork.Broadcast();
         }
 
     }

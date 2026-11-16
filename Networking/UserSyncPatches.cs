@@ -64,7 +64,10 @@ namespace OC2DIYChef
             {
                 User user = ClientUserSystem.m_Users._items[i];
                 if (user.IsLocal)
+                {
                     DIYChefCustomisation.SendClientDIYChefMessage(DIYChefCustomisation.userDIYChefID[i], user);
+                    PlayerHatNetwork.Send(user);
+                }
             }
         }
 

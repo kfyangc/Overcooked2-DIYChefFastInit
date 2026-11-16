@@ -1,15 +1,32 @@
 using System;
 namespace OC2DIYChef
 {
+    internal struct ChefGridActionRect
+    {
+        internal readonly float X, Y, Width, Height;
+        internal ChefGridActionRect(float x, float y, float width, float height)
+        { X = x; Y = y; Width = width; Height = height; }
+        internal bool Contains(float x, float y)
+        { return x >= X && x < X + Width && y >= Y && y < Y + Height; }
+    }
+
     internal sealed class ChefGridPanelLayout
     {
+        internal const float ActionTop = 632;
+        internal const float NameHeight = 40, InfoRowHeight = 22, HintHeight = 22, DetailTextHeight = 176;
+        internal static readonly ChefGridActionRect Back = new ChefGridActionRect(32, ActionTop, 128, 32);
+        internal readonly ChefGridActionRect Confirm;
         internal readonly float Left, Width, GridLeft, GridTop = 140, Side = 72, Gap = 4;
         internal readonly float DetailLeft, DetailTextWidth, DetailImageSize;
         internal float GridWidth { get { return Columns * Side + (Columns - 1) * Gap; } }
         internal float GridHeight { get { return Rows * Side + (Rows - 1) * Gap; } }
         internal float ScrollLeft { get { return GridLeft + GridWidth + 4; } }
         internal float DetailTop { get { return GridTop + GridHeight + 4; } }
-        internal float DetailTextTop { get { return DetailTop + (DetailImageSize - 122) / 2; } }
+        internal float DetailTextTop { get { return DetailTop + (DetailImageSize - DetailTextHeight) / 2; } }
+        internal float KindTop { get { return DetailTextTop + 50; } }
+        internal float PositionTop { get { return DetailTextTop + 82; } }
+        internal float HatTop { get { return DetailTextTop + 116; } }
+        internal float HintTop { get { return DetailTextTop + 154; } }
         internal readonly int Columns;
         internal int Rows { get { return 4; } }
         internal int VisibleCount { get { return Rows * Columns; } }
@@ -20,9 +37,10 @@ namespace OC2DIYChef
             count = Math.Max(1, Math.Min(4, count));
             Width = 1200f / count - 8;
             Left = 40 + index * (Width + 8);
+            Confirm = new ChefGridActionRect(Left + Width - 140, ActionTop, 140, 32);
             Columns = Math.Max(1, (int)((Width - 36 + Gap) / (Side + Gap)));
             GridLeft = Left + (Width - GridWidth - 14) / 2;
-            DetailImageSize = Math.Min(200, Width - 116);
+            DetailImageSize = Math.Min(180, Width - 116);
             DetailTextWidth = Math.Min(240, Width - DetailImageSize - 24);
             DetailLeft = Left + (Width - DetailImageSize - 8 - DetailTextWidth) / 2;
         }
@@ -59,5 +77,16 @@ namespace OC2DIYChef
             return travel <= 0 ? 0 : (int)Math.Floor(Math.Max(0, Math.Min(1, (y - GridTop - grab) / travel)) * LastFirstRow(count) + 0.5f);
         }
         internal void EndScroll() { Dragging = false; }
+        // 0/1/2: hat previous/default/next. No hit target on the fixed-angle model.
+        internal int HatAction(float x, float y)
+        {
+            float controlX = DetailLeft + DetailImageSize + 8;
+            if (x >= controlX && x < controlX + DetailTextWidth)
+            {
+                int column = x < controlX + 22 ? 0 : x >= controlX + DetailTextWidth - 22 ? 2 : 1;
+                if (y >= HatTop && y < HatTop + 28) return column;
+            }
+            return -1;
+        }
     }
 }

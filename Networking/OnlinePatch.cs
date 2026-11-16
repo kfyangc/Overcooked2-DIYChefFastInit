@@ -28,6 +28,11 @@ namespace OC2DIYChef
 
         public static bool MailboxOnMessageReceivedPrefix(MessageType type, Serialisable message)
         {
+            if (type == PlayerHatNetwork.Type)
+            {
+                PlayerHatNetwork.Receive((PlayerHatMessage)message);
+                return false;
+            }
             if (type != DIYChefCustomisation.diyChefMessageType)
                 return true;
             DIYChefMessage diyChefMessage = (DIYChefMessage)message;
@@ -56,6 +61,13 @@ namespace OC2DIYChef
         {
             if (!__runOriginal) return false;
             var messageType = (MessageType)reader.ReadByteAhead(8);
+            if (messageType == PlayerHatNetwork.Type)
+            {
+                __instance.Type = (MessageType)reader.ReadByte(8);
+                __instance.Payload = new PlayerHatMessage();
+                __result = __instance.Payload.Deserialise(reader);
+                return false;
+            }
             if (messageType == DIYChefCustomisation.diyChefMessageType)
             {
                 __instance.Type = (MessageType)reader.ReadByte(8);
@@ -74,14 +86,14 @@ namespace OC2DIYChef
         [HarmonyPatch(typeof(NetworkMessageTracker), "TrackSentGlobalEvent")]
         public static bool NetworkMessageTrackerTrackSentGlobalEventPatch(MessageType type)
         {
-            return type != DIYChefCustomisation.diyChefMessageType;
+            return type != DIYChefCustomisation.diyChefMessageType && type != PlayerHatNetwork.Type;
         }
 
         [HarmonyPrefix]
         [HarmonyPatch(typeof(NetworkMessageTracker), "TrackReceivedGlobalEvent")]
         public static bool NetworkMessageTrackerTrackReceivedGlobalEventPatch(MessageType type)
         {
-            return type != DIYChefCustomisation.diyChefMessageType;
+            return type != DIYChefCustomisation.diyChefMessageType && type != PlayerHatNetwork.Type;
         }
 
     }

@@ -11,7 +11,7 @@
     <Compile Include="ChefGrid/ChefGridPoseRegression.cs;../ChefGrid/Portraits/ChefGridPose.cs" />
     <Compile Include="ChefGrid/ChefGridFaceRegression.cs" />
     <Compile Include="ChefGrid/ChefGridCacheWarmupRegression.cs;../ChefGrid/Portraits/ChefGridCacheWarmup.cs" />
-    <Compile Include="ChefGrid/ChefGridInteractionRegression.cs;../ChefGrid/Input/ChefGridTurnOrder.cs;../ChefGrid/Input/ChefGridControls.cs" />
+    <Compile Include="ChefGrid/ChefGridInteractionRegression.cs;../ChefGrid/Input/ChefGridControls.cs" />
     <Compile Include="ChefGrid/ChefGridEngagementRegression.cs;../ChefGrid/Input/ChefGridEngagementGuard.cs" />
     <Compile Include="ChefGrid/ChefGridScrollBarRegression.cs;../ChefGrid/Layout/ChefGridScrollBar.cs" />
     <Compile Include="ChefGrid/ChefGridMouseRegression.cs;../ChefGrid/Input/ChefGridDoubleClick.cs" />

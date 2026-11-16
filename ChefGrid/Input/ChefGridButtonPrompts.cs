@@ -35,7 +35,7 @@ namespace OC2DIYChef
                 if (input != null && input.Side != PadSide.Both)
                 {
                     Accept = KeyboardPrompt(input, Binding(input, true));
-                    Back = KeyboardPrompt(input, Binding(input, false));
+                    Back = new ChefGridButtonPrompt { Key = "Esc" };
                     return;
                 }
                 // The unsplit keyboard still has these explicit grid fallback keys.
@@ -62,6 +62,13 @@ namespace OC2DIYChef
                 PlayerInputLookup.LogicalButtonID.UICancel, input);
         }
 
+        // Split-keyboard Cancel is commonly Left Control, also used by the
+        // customization modifier. The grid's shared keyboard return is Escape.
+        internal static ILogicalButton ReturnBinding(PlayerGameInput input)
+        { return input == null || KeyboardUtils.IsKeyboard(input) ? null : Binding(input, false); }
+        internal static bool ReturnDown(PlayerGameInput input, ILogicalButton logical)
+        { return input == null || KeyboardUtils.IsKeyboard(input) ? Input.GetKey(KeyCode.Escape) : Down(input, logical); }
+
         static ChefGridButtonPrompt KeyboardPrompt(PlayerGameInput input, ILogicalButton logical)
         {
             InputDevice device;
@@ -80,6 +87,12 @@ namespace OC2DIYChef
                 return binding != null && binding.GetState(device);
             }
             return logical != null && logical.IsDown();
+        }
+
+        internal static string Describe(PlayerGameInput input, ILogicalButton logical)
+        {
+            if (input == null || KeyboardUtils.IsKeyboard(input)) return KeyboardPrompt(input, logical).Key;
+            return Resolve(GameUtils.RequestManager<ControllerIconLookup>(), Style(input), logical, ControlPadInput.Button.X).Key;
         }
 
         static KeyBindingSource KeyboardBinding(PlayerGameInput input, ILogicalButton logical, out InputDevice device)

@@ -16,11 +16,15 @@ namespace OC2DIYChef
             pluginInstance = this;
             ChefLoading.Configure(Config);
             ChefGridMenu.Configure(Config);
+            PlayerHats.Configure(Config);
             Log("Version " + PluginVersion.Value + "; " + typeof(DIYChefPlugin).Assembly.Location);
             patcher = new Harmony("dev.gua.overcooked.diychef");
             patcher.PatchAll(typeof(Patch));
             patcher.PatchAll(typeof(Patch.FrontendChefCustomisationPatch));
             patcher.PatchAll(typeof(ChefGridPatches));
+            patcher.PatchAll(typeof(ChefGridTogglePatches));
+            patcher.PatchAll(typeof(FrontendCancelTrace));
+            patcher.PatchAll(typeof(ChefGridFrontendUpdate));
             patcher.PatchAll(typeof(ChefGridLobbyPatches));
             patcher.PatchAll(typeof(ChefGridPlayerMenu));
             patcher.PatchAll(typeof(ChefGridWorldMap));
@@ -37,24 +41,31 @@ namespace OC2DIYChef
 
         void Update()
         {
+            DIYChefCustomisation.UpdatePreferences();
             ChefLoading.Update();
+            PlayerHats.Update();
         }
 
         void LateUpdate()
         {
+            ChefGridFrontendUpdate.Tick();
+            FrontendCancelTrace.Observe();
             ChefGridLobby.UpdateFrame();
             ChefGridPlayerMenu.UpdateFrame();
             ModelTestCompatibility.LateUpdate();
+            if (ChefGridMenu.Active != null) ChefGridMenu.Active.RenderPreviews();
         }
 
         void OnDestroy()
         {
             ChefGridLobby.ShutdownActive();
             if (ChefGridMenu.Active != null) ChefGridMenu.Active.CloseGrid();
+            ChefGridTheme.Shutdown();
             ChefGridEngagementGuard.Shutdown();
             ChefGridPortraitCache.Shutdown();
             ModelTestCompatibility.Shutdown();
             ChefLoading.Shutdown();
+            PlayerHats.Shutdown();
         }
 
         public static void Log(string msg) { pluginInstance.Logger.LogInfo(msg); }
