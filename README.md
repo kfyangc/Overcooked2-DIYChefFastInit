@@ -2,13 +2,13 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.3.1.3 (test build)**
+**Current version: 2.4.0** · [Release notes (Chinese)](docs/releases/2.4.0.md)
 
-2.3.1.3 keeps live previews rendering while dragging. Thumbnails are always hatless and their cache no longer depends on hats; author preview.png images are not reused. Arcade menu extensions now leave native frontend actions and navigation alone when their own entry is unavailable.
+The grid now shows live animated chefs on a transparent background, with body heading fixed at −21.64° and horizontal head direction aligned to the body. Thumbnails use the default hats from `prefer.txt`. The file is checked every five seconds; changes refresh the grid order and affected thumbnails. Loading portraits display a spinner.
 
-The grid's large preview now shows an animated chef. Drag the model or use the angle arrows to rotate; click the angle to reset. Use the hat arrows to cycle original and installed DIY hats, or click the hat name to restore the prefer.txt default. Hold the player's chop/interact binding and use left/right to rotate or up/down to change hats. Each player can wear a different hat on the same chef. Confirm to keep changes; cancel to restore the original hats.
+Press the player's chop/interact binding once to cycle hats; the panel shows the actual binding. You can also use the hat arrows, or click the hat name to restore the `prefer.txt` default. Each player can wear a different hat on the same chef. Confirm to keep changes; cancel to restore the original hats.
 
-`PortraitYaw` now affects thumbnails only. `DetailYaw` sets the initial live-preview angle; panel adjustments are saved separately per local input slot. Hats are saved in the BepInEx `[PlayerHats]` configuration without editing prefer.txt. Network hat sync requires this test build on the host and clients. Missing DIY hat resources fall back to the author's default on the receiving machine.
+Hats are saved in the BepInEx `[PlayerHats]` configuration without editing `prefer.txt`. Network hat sync requires 2.4.0 on the host and clients. Missing DIY hat resources fall back to the author's default on the receiving machine. Angle settings and `UnselectedDimOpacity` have been removed; old values are ignored and unselected portraits retain their original brightness.
 
 Use **CHEF GRID: ON/OFF** below the original **CHOOSE CHEF** action in the main menu's Chef tab. The setting is saved automatically. Turning it off restores the original chef selection and hides the lobby grid entry; turn it on again to restore the grid.
 
@@ -22,7 +22,7 @@ This project builds on [Overcooked2-DIYChef by gua248](https://github.com/gua248
 - **Lossless texture compression:** Compress texture caches with LZ4HC in the background, reducing disk usage while preserving pixels, image quality and mipmaps.
 - **ModelTest particle compatibility:** Reapply particle effects after chef replacement without modifying the ModelTest DLL. The bridge stays inactive when ModelTest is absent.
 - **Custom default chefs:** Put a custom chef first to select it automatically when entering the game or adding a local player. The official online fallback is selected separately. This feature has not been tested in-game, and online behavior has not been verified.
-- **Chef selection panels:** Up to four local players select simultaneously in one horizontal row. Each panel has its own four-row grid above a larger, centered preview/info group, with confirmation at bottom right. Thumbnails have small gaps, a player-coloured selection background and an exterior highlight around the selected chef; a single player sees 15 columns. Hover selects; one click confirms. Confirm again to edit only that player's choice. Only P1 can cancel using the bottom-left back action. Device prompts follow actual bindings. Grey 512-pixel detail caches are shared; dimming is configurable. See the [usage guide](docs/CHEF_GRID.md) (Chinese). Actual input and appearance need in-game verification.
+- **Chef selection panels:** Up to four local players select simultaneously in one horizontal row, each with a four-row grid, live preview and details, and bottom-right confirmation. Unselected portraits retain their original brightness; selection backgrounds and exterior highlights use bright player neckerchief colours. A single player sees 15 columns. Hover selects; one click confirms. Confirm again to edit only that player's choice. Only P1 can cancel using the bottom-left back action. Device prompts follow actual bindings. A full-width blue cutlery background and vertically centred black player labels complete the layout. See the [usage guide](docs/CHEF_GRID.md) (Chinese).
 
 ## Installation and upgrades
 
@@ -107,7 +107,7 @@ In the arcade lobby's theme/matchmaking screen, click any local player name and 
 
 On the world-map pause screen, use the game's existing **CHANGE CHEF** button to open the same panels. Local players select independently. Completing selection closes the pause screen; cancellation restores the starting choices and returns to the pause screen. The map player-name menus no longer receive an extra entry.
 
-All generated thumbnails and detail previews use the game's grey **No_Team** outfit, sharing the same image cache across players and scenes. Existing grey v8 portraits remain reusable; missing grey portraits are generated once. Actual player/team outfits retain their normal game colours.
+Generated thumbnails use the game's grey **No_Team** outfit and each chef's `prefer.txt` default hat, sharing the image cache across players and scenes. Live detail previews show the player's actual outfit colour and chosen hat without generating per-player image caches.
 
 Chef selection runs entirely in this mod. The arcade entry follows the native-template interaction pattern used by HostUtilities: an independent action with its own click, hover, focus and navigation handling. It does not modify the game's native option list. Opening names, focusing actions and preparing the grid do not change a chef. There is no hard or soft HostUtilities dependency, detection, registration or invocation. No prefer.txt changes are required. The item follows `[ChefSelection] GridEnabled`. Actual menu appearance, input and online synchronization still need in-game testing.
 

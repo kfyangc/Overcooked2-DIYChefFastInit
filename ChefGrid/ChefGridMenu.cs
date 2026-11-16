@@ -14,7 +14,6 @@ namespace OC2DIYChef
     {
         static ConfigEntry<bool> configured;
         static ConfigFile configuration;
-        static ConfigEntry<float> unselectedDimOpacity;
         static readonly MethodInfo fixedValue = AccessTools.Method(typeof(PlayerInputLookup), "GetFixedValue",
             new[] { typeof(PlayerInputLookup.LogicalValueID), typeof(PlayerGameInput) });
         internal static ChefGridMenu Active;
@@ -42,7 +41,6 @@ namespace OC2DIYChef
             internal GameObject Root;
             internal Image Background;
             internal Image[] Highlight;
-            internal Image Shade;
             internal RawImage Portrait;
             internal ChefGridLoadingIndicator Loading;
             internal Text Failure;
@@ -100,9 +98,6 @@ namespace OC2DIYChef
             configuration = config;
             configured = config.Bind("ChefSelection", "GridEnabled", true,
                 "Show independent horizontal player panels with scrolling chef grids. Disable to use the original carousel.");
-            unselectedDimOpacity = config.Bind("ChefSelection", "UnselectedDimOpacity", 0.4f,
-                new ConfigDescription("Black overlay opacity for unselected chefs: 0 disables dimming, 1 is fully dark. 未选中厨师的压暗比例。",
-                    new AcceptableValueRange<float>(0f, 1f)));
         }
 
         internal static void SetEnabled(bool enabled)
@@ -573,7 +568,6 @@ namespace OC2DIYChef
                     cell.Root = cell.Background.gameObject;
                     cell.Portrait = Rect(cell.Root.transform, "Portrait", 0, 0, side, side).gameObject.AddComponent<RawImage>();
                     cell.Portrait.raycastTarget = false;
-                    cell.Shade = Box(cell.Root.transform, "Shade", 0, 0, side, side, Color.clear);
                     cell.Loading = Rect(cell.Root.transform, "Portrait loading", (side - 26) / 2, (side - 26) / 2, 26, 26)
                         .gameObject.AddComponent<ChefGridLoadingIndicator>();
                     cell.Loading.sprite = loadingArtwork;
@@ -621,7 +615,6 @@ namespace OC2DIYChef
                     cell.Failure.enabled = texture == null && unavailable;
                     cell.Selected = index == cursor.Index;
                     cell.Background.color = cell.Selected ? playerColour : ChefGridTheme.Cell;
-                    cell.Shade.color = cell.Selected ? Color.clear : new Color(0, 0, 0, Mathf.Clamp01(unselectedDimOpacity.Value));
                     foreach (var edge in cell.Highlight) { edge.enabled = cell.Selected; edge.color = playerColour; }
                     if (cell.Selected) cell.Root.transform.SetAsLastSibling();
                 }
