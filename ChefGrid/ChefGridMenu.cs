@@ -544,10 +544,11 @@ namespace OC2DIYChef
             {
                 var l = cursor.Layout;
                 var ui = cursor.UI = new Panel();
-                // Keep the cutlery visible between portraits, with a solid player
-                // colour strip and dark text for legibility on bright team colours.
+                // Centre the visible glyphs rather than the font's baseline box:
+                // YaHei's line metrics place mixed Latin/Chinese text too low.
                 ui.PlayerBackground = Box(frame, "Player strip", l.Left + 3, 108, l.Width - 6, 28, PlayerColour(cursor));
-                ui.Player = Label(frame, "Player", "P" + (cursor.Player + 1), l.Left + 10, 108, l.Width - 20, 28, 21, Ink);
+                ui.Player = Label(frame, "Player", "P" + (cursor.Player + 1), l.Left + 10, 108, l.Width - 20, 28, 21, Color.white);
+                ui.Player.alignByGeometry = true;
                 float imageSize = l.DetailImageSize, textX = l.DetailLeft + imageSize + 8, detailY = l.DetailTop;
                 ui.Detail = Rect(frame, "Selected portrait", l.DetailLeft, detailY, imageSize, imageSize).gameObject.AddComponent<RawImage>();
                 ui.Detail.raycastTarget = false;
@@ -652,7 +653,14 @@ namespace OC2DIYChef
         static Color PlayerColour(Cursor cursor)
         {
             var data = ClientUserSystem.m_Users._items[cursor.Player].SelectedChefData;
-            return data != null && data.Colour != null ? data.Colour.UIColour : ChefGridTheme.Control;
+            if (data == null || data.Colour == null) return ChefGridTheme.Control;
+            // MaskColour is the actual neckerchief dye, whereas UIColour is a
+            // separate muted palette (its red is brown). Lift the dye for an
+            // unlit UI swatch; the model receives lighting in its preview scene.
+            const float exposure = 4;
+            var dye = data.Colour.MaskColour;
+            return new Color(Mathf.Clamp01(dye.r * exposure), Mathf.Clamp01(dye.g * exposure),
+                Mathf.Clamp01(dye.b * exposure), 1);
         }
 
         string HatLabel(string hat)
