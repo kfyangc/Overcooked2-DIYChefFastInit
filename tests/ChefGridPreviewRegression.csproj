@@ -8,6 +8,6 @@
     <NoWarn>$(NoWarn);CS0649</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ChefGridPreview/*.cs;../ChefGrid/Portraits/ChefGridPreviewScene.cs" />
+    <Compile Include="ChefGridPreview/*.cs;../ChefGrid/Portraits/ChefGridPreviewScene.cs;../ChefGrid/Portraits/ChefGridAlphaMask.cs" />
   </ItemGroup>
 </Project>

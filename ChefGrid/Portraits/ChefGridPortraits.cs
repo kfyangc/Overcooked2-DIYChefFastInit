@@ -29,8 +29,7 @@ namespace OC2DIYChef
 
         internal ChefGridPortraits(FrontendChefCustomisation source, float yaw)
         {
-            // A single neutral, hatless outfit shares thumbnails across players,
-            // teams and scenes. Keep the existing colour name and image cache key.
+            // One neutral outfit and prefer.txt hat per chef, shared by all players.
             colour = ChefGridPortraitColour.Get();
             try
             {
@@ -74,12 +73,14 @@ namespace OC2DIYChef
         {
             string path;
             if (paths.TryGetValue(entry, out path)) return path;
-            var key = new StringBuilder("portrait-v9-nohat|" + entry.Avatar.HeadName + "|" +
+            var key = new StringBuilder("portrait-v10-default-hat|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
                 scene.Actor.transform.localEulerAngles.y + "|" + colour.name);
             var game = new FileInfo(typeof(ChefAvatarData).Assembly.Location);
             key.Append('|').Append(game.Length).Append('|').Append(game.LastWriteTimeUtc.Ticks);
             var custom = entry.Avatar as DIYChefAvatarData;
             if (custom != null) AppendFiles(key, custom.Resources.Path);
+            var hat = DIYChefCustomisation.diyHats.Find(x => x.HatName == "Hat_" + entry.Hat);
+            if (hat != null) AppendFiles(key, hat.Resources.Path);
             // This is a disposable visual cache. Resource loading still uses full content checksums.
             byte[] bytes = Encoding.UTF8.GetBytes(key.ToString());
             byte[] hash;
@@ -171,6 +172,23 @@ namespace OC2DIYChef
             if (scene.Replacer.ChefModel != null && scene.Replacer.ChefModel.activeSelf) scene.Replacer.ChefModel.SetActive(false);
         }
 
+        internal void Refresh(List<ChefGridEntry> entries)
+        {
+            // Release removed/changed portraits immediately, including cold cache misses.
+            // Unchanged entries retain their images when prefer.txt is merely reordered.
+            var retained = new HashSet<ChefGridEntry>(entries);
+            foreach (var entry in new List<ChefGridEntry>(paths.Keys))
+            {
+                if (retained.Contains(entry)) continue;
+                Texture2D image;
+                if (images.TryGetValue(entry, out image)) { Object.Destroy(image); images.Remove(entry); }
+                recent.Remove(entry); failed.Remove(entry); paths.Remove(entry);
+                thumbnailCache.Available(entry);
+            }
+            if (pending != null && !retained.Contains(pending))
+            { ChefLoading.Cancel(scene.Replacer); pending = null; }
+        }
+
         bool ThumbnailReady(ChefGridEntry entry) { return images.ContainsKey(entry) || failed.Contains(entry); }
         bool LoadThumbnail(ChefGridEntry entry) { return TryLoad(entry); }
 
@@ -194,7 +212,7 @@ namespace OC2DIYChef
 
         bool TryLoad(ChefGridEntry entry)
         {
-            // Author previews may contain hats; regenerate the uniform hatless image.
+            // Render our own composition so it always matches the current prefer.txt hat.
             string supplied = null;
             Texture2D cached = null;
             try
@@ -238,7 +256,7 @@ namespace OC2DIYChef
             scene.View.ChefModel.SetActive(true);
             scene.SilenceModel();
             ChefGridPose.Prepare(scene.Replacer, scene.Replacer.GetChefData().Character);
-            scene.View.SetChefHat(HatMeshVisibility.VisState.None);
+            scene.View.SetChefHat(HatMeshVisibility.VisState.Fancy);
             ChefLoading.Capture(scene.View);
             using (var snapshot = new ChefGridSnapshot())
             {

@@ -116,10 +116,17 @@ static class ChefGridRegression
             new KeyValuePair<string, string>(official.HeadName, "Santa"),
             new KeyValuePair<string, string>(custom.HeadName, "None") };
         var reloaded = ChefGridRoster.Refresh(entries, all, unlocked);
-        Check(reloaded[0] == entries[1] && reloaded[1] == entries[0] && reloaded[1].Avatar == custom,
-            "live preference reorder reuses entries, thumbnail keys and registered custom avatars");
+        Check(reloaded[0] != entries[1] && reloaded[1] != entries[0] && reloaded[1].Avatar == custom,
+            "changed default hats invalidate thumbnails while reusing registered custom avatars");
         Check(ChefGridRoster.Find(reloaded, entries[0]) == 1 && ChefGridRoster.Find(reloaded, entries[1]) == 0 &&
             reloaded[0].Hat == "Santa" && reloaded[1].Hat == "None", "live preference edits preserve selections by identity and update author hats");
+        var unchanged = ChefGridRoster.Refresh(reloaded, all, unlocked);
+        Check(unchanged[0] == reloaded[0] && unchanged[1] == reloaded[1], "unchanged default hats retain existing thumbnail identities");
+        DIYChefCustomisation.preferredChefs = new[] {
+            new KeyValuePair<string, string>(custom.HeadName, "None"),
+            new KeyValuePair<string, string>(official.HeadName, "Santa") };
+        var reordered = ChefGridRoster.Refresh(reloaded, all, unlocked);
+        Check(reordered[0] == reloaded[1] && reordered[1] == reloaded[0], "reordering unchanged hats reuses the same thumbnails");
         DIYChefCustomisation.preferredChefs = new[] { new KeyValuePair<string, string>(official.HeadName, "") };
         Check(ChefGridRoster.Find(ChefGridRoster.Refresh(reloaded, all, unlocked), entries[0]) == -1,
             "removing a selected entry is reported rather than silently confirming a different chef");

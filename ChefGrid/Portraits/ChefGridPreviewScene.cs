@@ -14,6 +14,9 @@ namespace OC2DIYChef
     // callers only supply pose/framing and decide when to render.
     internal sealed class ChefGridPreviewScene : IDisposable
     {
+        // Native frontend P1 yaw 158.3638°, viewed by its zero-yaw camera.
+        // Our portrait camera faces 180°, so retain the same relative turn.
+        internal const float DefaultYaw = -21.6362f;
         internal readonly GameObject Stage, Actor;
         internal readonly FrontendChef View;
         internal readonly ChefMeshReplacer Replacer;

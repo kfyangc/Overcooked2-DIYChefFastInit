@@ -71,8 +71,10 @@ namespace OC2DIYChef
             {
                 var incoming = result[i];
                 var existing = previous.Find(x => x.Avatar == incoming.Avatar && x.CustomID == incoming.CustomID);
-                if (existing == null) continue;
-                existing.Hat = incoming.Hat; existing.OfficialID = incoming.OfficialID;
+                // A new identity invalidates only thumbnails whose default hat changed.
+                // Selection matching still uses the stable chef ID below.
+                if (existing == null || existing.Hat != incoming.Hat) continue;
+                existing.OfficialID = incoming.OfficialID;
                 result[i] = existing; // Preserve thumbnail/cache identity across reordering.
             }
             return result;

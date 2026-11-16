@@ -59,10 +59,14 @@ static class PlayerHatRegression
         var thumbnail = Actor(p1); PlayerHats.Bind(thumbnail, p1, true);
         Check(PlayerHats.Resolve(thumbnail, "Chef_Fox") == "Fancy", "shared thumbnail actor keeps author defaults rather than a player's override");
         PlayerHats.BindThumbnail(thumbnail);
-        Check(PlayerHats.Resolve(thumbnail, "Chef_Fox") == "None" && PlayerHats.Resolve(thumbnail, "Chef_Other") == "None",
-            "thumbnail actor hides both configured hats and native fallback hats independently of chef selection");
+        Check(PlayerHats.Resolve(thumbnail, "Chef_Fox") == "Fancy" && PlayerHats.Resolve(thumbnail, "Chef_Other") == "",
+            "thumbnail actor uses prefer.txt hats and the native fallback for unconfigured chefs");
         PlayerHats.Set(p1, "Santa");
-        Check(PlayerHats.Resolve(thumbnail, "Chef_Fox") == "None", "switching a player's hat cannot affect thumbnail rendering or its resource request");
+        Check(PlayerHats.Resolve(thumbnail, "Chef_Fox") == "Fancy", "switching a player's hat cannot affect thumbnail rendering or its resource request");
+        var previousDefaults = DIYChefCustomisation.preferredChefs;
+        DIYChefCustomisation.preferredChefs = new[] { new System.Collections.Generic.KeyValuePair<string, string>("Chef_Fox", "Santa") };
+        Check(PlayerHats.Resolve(thumbnail, "Chef_Fox") == "Santa", "a live prefer.txt default hat edit reaches the thumbnail actor");
+        DIYChefCustomisation.preferredChefs = previousDefaults;
         PlayerHats.Set(p1, "巫师帽");
         PlayerHats.Shutdown(); PlayerHats.Configure(config);
         Check(PlayerHats.Get(Local(EngagementSlot.One)) == "巫师帽" && PlayerHats.Get(Local(EngagementSlot.Two)) == "Santa",

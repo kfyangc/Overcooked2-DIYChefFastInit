@@ -108,9 +108,9 @@ namespace OC2DIYChef
             unselectedDimOpacity = config.Bind("ChefSelection", "UnselectedDimOpacity", 0.4f,
                 new ConfigDescription("Black overlay opacity for unselected chefs: 0 disables dimming, 1 is fully dark. 未选中厨师的压暗比例。",
                     new AcceptableValueRange<float>(0f, 1f)));
-            portraitYaw = config.Bind("ChefSelection", "PortraitYaw", 0f,
+            portraitYaw = config.Bind("ChefSelection", "PortraitYaw", ChefGridPreviewScene.DefaultYaw,
                 "Thumbnail rotation in degrees; changing this rebuilds thumbnail caches only.");
-            detailYaw = config.Bind("ChefSelection", "DetailYaw", 0f,
+            detailYaw = config.Bind("ChefSelection", "DetailYaw", ChefGridPreviewScene.DefaultYaw,
                 "Default angle for animated chef previews. Each local input slot can adjust its angle in the grid panel.");
         }
 
@@ -354,6 +354,7 @@ namespace OC2DIYChef
                 cursor.FirstRow = cursor.Layout.Follow(cursor.FirstRow, cursor.Index, updated.Count);
             }
             entries = updated;
+            if (portraits != null) portraits.Refresh(entries);
         }
 
         bool PollControls(bool enabled)
@@ -520,7 +521,7 @@ namespace OC2DIYChef
                     if (action >= 0)
                     {
                         if (action == 0) Rotate(cursor, -15);
-                        else if (action == 1) { cursor.Yaw = 0; cursor.Angle.Value = 0; }
+                        else if (action == 1) { cursor.Yaw = ChefGridPreviewScene.DefaultYaw; cursor.Angle.Value = cursor.Yaw; }
                         else if (action == 2) Rotate(cursor, 15);
                         else if (action == 3) ChangeHat(cursor, -1);
                         else if (action == 4) PlayerHats.Set(ClientUserSystem.m_Users._items[cursor.Player], PlayerHats.Inherit);
@@ -592,7 +593,7 @@ namespace OC2DIYChef
                 ui.Detail = Rect(frame, "Selected portrait", l.DetailLeft, detailY, imageSize, imageSize).gameObject.AddComponent<RawImage>();
                 ui.Detail.raycastTarget = false;
                 if (cursor.Preview == null)
-                    try { cursor.Preview = new ChefGridLivePreview(cursor.View, cursor.Player, ChefGridTheme.Preview); }
+                    try { cursor.Preview = new ChefGridLivePreview(cursor.View, cursor.Player); }
                     catch (Exception ex) { DIYChefPlugin.Warn("Live preview unavailable: " + ex); }
                 ui.Name = Label(frame, "Chef name", "", textX, detailY, l.DetailTextWidth, 54, 22, Ink);
                 ui.Name.resizeTextForBestFit = true; ui.Name.resizeTextMinSize = 16; ui.Name.resizeTextMaxSize = 22;

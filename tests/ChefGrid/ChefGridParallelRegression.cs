@@ -87,10 +87,10 @@ static class ChefGridParallelRegression
                 if (player == 0)
                 {
                     var back = ChefGridPanelLayout.Back;
-                    Check(back.X == 0 && back.Y == confirm.Y && back.Height == confirm.Height && back.X + back.Width + 64 <= confirm.X &&
+                    Check(back.X >= 32 && back.Y == confirm.Y && back.Height == confirm.Height && back.X + back.Width + 32 <= confirm.X &&
                         back.Contains(back.X + back.Width / 2, back.Y + back.Height / 2) &&
-                        !back.Contains(confirmX, confirmY),
-                        "Back and P1 confirmation share the footer row without overlapping, even with four players");
+                        !back.Contains(confirmX, confirmY) && !back.Contains(0, confirmY),
+                        "Back leaves a left margin and a separate P1 confirmation gap, even with four players");
                 }
                 Check(panel.Left >= 0 && panel.Left + panel.Width <= 1280 && panel.GridLeft >= panel.Left,
                     "Each horizontal panel and its grid remain inside the screen");

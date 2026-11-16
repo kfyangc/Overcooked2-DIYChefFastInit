@@ -16,12 +16,14 @@ namespace UnityEngine
     public class Object
     {
         public int DestroyCalls;
+        public HideFlags hideFlags;
         public static void Destroy(Object value) { if (value != null) value.DestroyCalls++; }
     }
     public class Component : Object
     {
         public GameObject gameObject;
         public T GetComponent<T>() where T : Component { return gameObject.GetComponent<T>(); }
+        public T[] GetComponentsInChildren<T>() where T : Component { return gameObject.GetComponentsInChildren<T>(false); }
     }
     public class MonoBehaviour : Component { }
     public sealed class GameObject : Object
@@ -32,13 +34,14 @@ namespace UnityEngine
         public readonly string name;
         public int layer;
         public bool activeSelf = true;
+        public bool activeInHierarchy { get { return activeSelf; } }
         public GameObject(string name) { this.name = name; Created.Add(this); }
         public void SetActive(bool active) { activeSelf = active; }
         public T GetComponent<T>() where T : Component
         { foreach (var item in components) if (item is T) return (T)item; return null; }
         public T AddComponent<T>() where T : Component, new()
         { var item = new T { gameObject = this }; components.Add(item); return item; }
-        public T[] GetComponentsInChildren<T>(bool inactive) where T : Component
+        public T[] GetComponentsInChildren<T>(bool inactive = false) where T : Component
         { return components.FindAll(item => item is T).ConvertAll(item => (T)item).ToArray(); }
     }
     public sealed class Transform
@@ -56,6 +59,7 @@ namespace UnityEngine
     {
         public float r, g, b, a;
         public Color(float r, float g, float b, float a = 1) { this.r = r; this.g = g; this.b = b; this.a = a; }
+        public static Color white { get { return new Color(1, 1, 1, 1); } }
     }
     public enum CameraClearFlags { SolidColor }
     public sealed class Camera : Component
@@ -66,7 +70,29 @@ namespace UnityEngine
         public CameraClearFlags clearFlags;
         public Color backgroundColor;
         public RenderTexture targetTexture;
+        public Rendering.CommandBuffer Commands;
+        public void AddCommandBuffer(Rendering.CameraEvent when, Rendering.CommandBuffer commands) { Commands = commands; }
+        public void RemoveCommandBuffer(Rendering.CameraEvent when, Rendering.CommandBuffer commands) { if (Commands == commands) Commands = null; }
     }
+    public enum HideFlags { HideAndDontSave }
+    public sealed class Shader : Object
+    {
+        public static bool Available = true;
+        public bool isSupported = true;
+        public static Shader Find(string name) { return Available ? new Shader() : null; }
+    }
+    public sealed class Material : Object
+    {
+        public static Material Last;
+        public int Mask;
+        public Material(Shader shader) { Last = this; }
+        public void SetInt(string name, int value) { Mask = value; }
+        public void SetColor(string name, Color value) { }
+        public void SetTexture(string name, Texture2D value) { }
+    }
+    public sealed class Texture2D : Object { public static readonly Texture2D whiteTexture = new Texture2D(); }
+    public class Renderer : Component { public bool enabled = true; public Material[] sharedMaterials = new Material[2]; }
+    public sealed class ParticleSystemRenderer : Renderer { }
     public enum RenderTextureFormat { ARGB32, RGB111110Float }
     public sealed class RenderTexture : Object
     {
@@ -89,6 +115,22 @@ namespace UnityEngine
         public float range, intensity;
     }
     public sealed class AudioSource : Component { public bool enabled = true; }
+}
+
+namespace UnityEngine.Rendering
+{
+    public enum CameraEvent { AfterEverything }
+    public enum ColorWriteMask { Alpha = 1 }
+    public sealed class CommandBuffer
+    {
+        public string name;
+        public int Draws, Releases;
+        public readonly List<UnityEngine.Renderer> Renderers = new List<UnityEngine.Renderer>();
+        public void Clear() { Draws = 0; Renderers.Clear(); }
+        public void DrawRenderer(UnityEngine.Renderer renderer, UnityEngine.Material material, int submesh, int pass)
+        { Draws++; Renderers.Add(renderer); }
+        public void Release() { Releases++; }
+    }
 }
 
 public sealed class FrontendChefCustomisation : UnityEngine.MonoBehaviour

@@ -12,6 +12,7 @@ namespace OC2DIYChef
     {
         readonly ChefGridPreviewScene scene;
         readonly RenderTexture target;
+        readonly ChefGridAlphaMask alpha;
         readonly Mesh measure = new Mesh();
         readonly List<Vector3> vertices = new List<Vector3>();
         ChefAvatarData requested;
@@ -24,21 +25,18 @@ namespace OC2DIYChef
         internal bool Failed { get { return failed; } }
         internal Texture Image { get { return ready ? target : null; } }
 
-        internal ChefGridLivePreview(FrontendChefCustomisation source, int slot, Color background)
+        internal ChefGridLivePreview(FrontendChefCustomisation source, int slot)
         {
             // Spatial isolation keeps the four cameras and thumbnail studio apart.
             try
             {
                 scene = new ChefGridPreviewScene(source,
-                    new Vector3(10000 + (slot + 1) * 100, -10000, 10000), background);
+                    new Vector3(10000 + (slot + 1) * 100, -10000, 10000), Color.clear);
                 scene.View.SetAnimationSet((FrontendChef.AnimationSet)slot);
-                // Native UI chef shaders have unreliable output alpha. An RGB
-                // target supplies alpha=1 and matches the panel's paper background.
-                var format = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.RGB111110Float)
-                    ? RenderTextureFormat.RGB111110Float : RenderTextureFormat.RGB565;
-                target = scene.CreateTarget(512, format);
+                target = scene.CreateTarget(512, RenderTextureFormat.ARGB32);
                 target.filterMode = FilterMode.Bilinear; target.wrapMode = TextureWrapMode.Clamp;
                 scene.Camera.targetTexture = target;
+                alpha = new ChefGridAlphaMask(scene.Camera);
             }
             catch { Dispose(); throw; }
         }
@@ -102,6 +100,7 @@ namespace OC2DIYChef
                     prepared = model;
                 }
                 var previous = RenderTexture.active;
+                alpha.Prepare(model);
                 try { scene.Camera.Render(); }
                 finally { RenderTexture.active = previous; }
                 ready = true;
@@ -158,6 +157,7 @@ namespace OC2DIYChef
         public void Dispose()
         {
             Object.Destroy(measure);
+            if (alpha != null) alpha.Dispose();
             if (scene != null) scene.Dispose();
         }
     }

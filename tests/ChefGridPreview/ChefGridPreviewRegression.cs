@@ -56,6 +56,29 @@ static class ChefGridPreviewRegression
         live.SilenceModel();
         Check(!audio.enabled && !events.enabled && !rumble.enabled, "preview animation produces no sound or rumble");
 
+        var visible = model.AddComponent<Renderer>();
+        var disabled = model.AddComponent<Renderer>(); disabled.enabled = false;
+        model.AddComponent<ParticleSystemRenderer>();
+        var mask = new ChefGridAlphaMask(live.Camera);
+        var commands = live.Camera.Commands; var maskMaterial = Material.Last;
+        mask.Prepare(model);
+        Check(commands.Draws == 2 && commands.Renderers.TrueForAll(item => item == visible) && maskMaterial.Mask == 1,
+            "alpha repair draws all visible submeshes into alpha only, skipping disabled geometry and particles");
+        visible.enabled = false; mask.Prepare(model);
+        Check(commands.Draws == 0, "each frame discards stale alpha draws when a chef or hat becomes hidden");
+        visible.enabled = true; model.layer = 12; mask.Prepare(model);
+        Check(commands.Draws == 0, "alpha repair honors the preview camera's layer mask");
+        model.layer = 0; model.SetActive(false); mask.Prepare(model);
+        Check(commands.Draws == 0, "inactive models cannot leave an opaque silhouette");
+        mask.Dispose(); mask.Dispose();
+        Check(live.Camera.Commands == null && commands.Releases == 1 && maskMaterial.DestroyCalls == 1 &&
+            large.DestroyCalls == 0, "alpha cleanup detaches and releases only its own buffer and material exactly once");
+        Shader.Available = false;
+        bool missingShader = false;
+        try { new ChefGridAlphaMask(live.Camera); } catch (InvalidOperationException) { missingShader = true; }
+        Check(missingShader && live.Camera.Commands == null, "missing mask shader leaves no attached render commands");
+        Shader.Available = true;
+
         live.Dispose();
         Check(live.Camera.targetTexture == null && large.Releases == 1 && large.DestroyCalls == 1 &&
             live.Stage.DestroyCalls == 1 && !live.Stage.activeSelf && ChefLoading.Cancelled.Contains(live.Replacer),

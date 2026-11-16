@@ -20,14 +20,13 @@ namespace OC2DIYChef
         static bool reportedMissing;
 
         internal static readonly Color Ink = new Color(0.12f, 0.27f, 0.36f);
-        internal static readonly Color Preview = new Color(0.61f, 0.79f, 0.89f);
         internal static readonly Color Cell = new Color(0.25f, 0.51f, 0.66f, 0.2f);
         internal static readonly Color Control = new Color(0.25f, 0.49f, 0.63f, 0.85f);
 
         internal static void Apply(Image panel, Image title)
         {
             if (background == null || header == null) Resolve();
-            Apply(panel, background, Preview);
+            Apply(panel, background, new Color(0.61f, 0.79f, 0.89f));
             Apply(title, header, new Color(0.21f, 0.66f, 0.77f));
             if ((background == null || header == null) && !reportedMissing)
             {
