@@ -19,8 +19,7 @@ namespace OC2DIYChef
         static readonly MethodInfo fixedValue = AccessTools.Method(typeof(PlayerInputLookup), "GetFixedValue",
             new[] { typeof(PlayerInputLookup.LogicalValueID), typeof(PlayerGameInput) });
         internal static ChefGridMenu Active;
-        static readonly Color Ink = new Color(0.16f, 0.28f, 0.36f);
-        static readonly Color Paper = new Color(0.96f, 0.9f, 0.91f);
+        static readonly Color Ink = ChefGridTheme.Ink;
         static readonly Color[] PlayerColours = { new Color(0.15f, 0.72f, 1), new Color(1, 0.36f, 0.3f),
             new Color(0.3f, 0.85f, 0.4f), new Color(1, 0.78f, 0.15f) };
 
@@ -537,27 +536,29 @@ namespace OC2DIYChef
             var backRect = (RectTransform)backdrop.transform;
             backRect.anchorMin = Vector2.zero; backRect.anchorMax = Vector2.one;
             backRect.offsetMin = backRect.offsetMax = Vector2.zero;
-            backdrop.GetComponent<Image>().color = new Color(0.04f, 0.08f, 0.12f, 0.78f);
+            backdrop.GetComponent<Image>().color = new Color(0.04f, 0.08f, 0.12f, 0.68f);
             frame = Rect(canvasObject.transform, "Frame", 0, 0, 1280, 720);
             frame.anchorMin = frame.anchorMax = new Vector2(0.5f, 0.5f);
             frame.anchoredPosition = Vector2.zero;
-            Box(frame, "Panel border", 24, 24, 1232, 672, Ink);
-            Box(frame, "Panel", 28, 28, 1224, 664, Paper);
-            Box(frame, "Header", 40, 40, 1200, 58, Ink);
+            var panel = Box(frame, "Native menu background", 24, 24, 1232, 672, Color.white);
+            var header = Box(frame, "Native menu header", 24, 24, 880, 80, Color.white);
+            ChefGridTheme.Apply(panel, header);
             Label(frame, "Title", L("选择厨师", "CHEFS"), 56, 42, 650, 54, 34, Color.white);
-            Label(frame, "Total", entries.Count + L(" 位厨师", " CHEFS"), 1016, 49, 208, 40, 22, Color.white);
+            Label(frame, "Total", entries.Count + L(" 位厨师", " CHEFS"), 1016, 49, 208, 40, 22, Ink);
             foreach (var cursor in cursors)
             {
                 var l = cursor.Layout;
                 var ui = cursor.UI = new Panel();
-                Box(frame, "Player panel", l.Left, 104, l.Width, 584, PlayerColours[cursor.Player]);
-                Box(frame, "Player paper", l.Left + 3, 107, l.Width - 6, 578, Paper);
-                ui.Player = Label(frame, "Player", "P" + (cursor.Player + 1), l.Left + 10, 108, l.Width - 20, 28, 21, Ink);
+                // Leave the cutlery artwork visible between portraits and controls;
+                // player identity remains in the header strip and selected outline.
+                Box(frame, "Player strip", l.Left + 3, 108, l.Width - 6, 28, ChefGridTheme.Control);
+                Box(frame, "Player colour", l.Left + 3, 108, 5, 28, PlayerColours[cursor.Player]);
+                ui.Player = Label(frame, "Player", "P" + (cursor.Player + 1), l.Left + 10, 108, l.Width - 20, 28, 21, Color.white);
                 float imageSize = l.DetailImageSize, textX = l.DetailLeft + imageSize + 8, detailY = l.DetailTop;
                 ui.Detail = Rect(frame, "Selected portrait", l.DetailLeft, detailY, imageSize, imageSize).gameObject.AddComponent<RawImage>();
                 ui.Detail.raycastTarget = false;
                 if (cursor.Preview == null)
-                    try { cursor.Preview = new ChefGridLivePreview(cursor.View, cursor.Player, Paper); }
+                    try { cursor.Preview = new ChefGridLivePreview(cursor.View, cursor.Player, ChefGridTheme.Preview); }
                     catch (Exception ex) { DIYChefPlugin.Warn("Live preview unavailable: " + ex); }
                 ui.Name = Label(frame, "Chef name", "", textX, detailY, l.DetailTextWidth, 54, 22, Ink);
                 ui.Name.resizeTextForBestFit = true; ui.Name.resizeTextMinSize = 16; ui.Name.resizeTextMaxSize = 22;
@@ -574,7 +575,7 @@ namespace OC2DIYChef
                 {
                     var rect = l.Cell(slot); float side = rect.Size;
                     var cell = ui.Cells[slot] = new Cell();
-                    cell.Background = Box(ui.Grid, "Chef", rect.X, rect.Y, side, side, Paper);
+                    cell.Background = Box(ui.Grid, "Chef", rect.X, rect.Y, side, side, ChefGridTheme.Cell);
                     cell.Root = cell.Background.gameObject;
                     cell.Portrait = Rect(cell.Root.transform, "Portrait", 0, 0, side, side).gameObject.AddComponent<RawImage>();
                     cell.Portrait.raycastTarget = false;
@@ -611,7 +612,7 @@ namespace OC2DIYChef
                     var texture = portraits == null ? null : portraits.Get(entries[index]);
                     cell.Portrait.texture = texture; cell.Portrait.enabled = texture != null;
                     cell.Selected = index == cursor.Index;
-                    cell.Background.color = cell.Selected ? PlayerColours[cursor.Player] : Paper;
+                    cell.Background.color = cell.Selected ? PlayerColours[cursor.Player] : ChefGridTheme.Cell;
                     cell.Shade.color = cell.Selected ? Color.clear : new Color(0, 0, 0, Mathf.Clamp01(unselectedDimOpacity.Value));
                     foreach (var edge in cell.Highlight) { edge.enabled = cell.Selected; edge.color = PlayerColours[cursor.Player]; }
                     if (cell.Selected) cell.Root.transform.SetAsLastSibling();
@@ -657,10 +658,10 @@ namespace OC2DIYChef
 
         Text DetailControl(string name, float x, float y, float width)
         {
-            Box(frame, name, x, y, width, 28, new Color(Ink.r, Ink.g, Ink.b, 0.12f));
-            Label(frame, name + " previous", "‹", x, y, 22, 28, 24, Ink);
-            Label(frame, name + " next", "›", x + width - 22, y, 22, 28, 24, Ink);
-            var text = Label(frame, name + " value", "", x + 22, y, width - 44, 28, 16, Ink);
+            Box(frame, name, x, y, width, 28, ChefGridTheme.Control);
+            Label(frame, name + " previous", "‹", x, y, 22, 28, 24, Color.white);
+            Label(frame, name + " next", "›", x + width - 22, y, 22, 28, 24, Color.white);
+            var text = Label(frame, name + " value", "", x + 22, y, width - 44, 28, 16, Color.white);
             text.resizeTextForBestFit = true; text.resizeTextMinSize = 9; text.resizeTextMaxSize = 16;
             return text;
         }
@@ -708,7 +709,7 @@ namespace OC2DIYChef
 
         void ActionButton(string name, float x, float width, out Text label, out Image icon, out Text key)
         {
-            var background = Box(frame, name, x, 650, width, 36, Ink);
+            var background = Box(frame, name, x, 650, width, 36, ChefGridTheme.Control);
             label = Label(background.transform, "Label", "", 6, 0, width - 66, 36, 19, Color.white);
             label.resizeTextForBestFit = true;
             label.resizeTextMinSize = 14;

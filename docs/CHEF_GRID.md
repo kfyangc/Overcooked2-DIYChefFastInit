@@ -1,5 +1,9 @@
 # 厨师网格选择
 
+2.3.1.7 将网格背景改为原版设置菜单的浅蓝餐具暗纹与白色不规则边框，标题改用青色原版标题条。引用 `GameOptions/SettingsBody` 使用的 `t_ui_dialog_large_01_d` 及其 `HeaderBacker` 使用的 `t_ui_dialog_header_01_d`，原始路径分别为 `assets/gui/menu/t_ui_dialog_large_01_d.png` 和 `assets/gui/menu/t_ui_dialog_header_01_d.png`，位于本机 `StreamingAssets/Windows/bundle24`。优先借用已经加载的 Sprite，必要时只从原版管理器已有的 bundle24 取图，不重复加载资源包、不复制原版菜单行为，也不销毁借用资源。按 Sprite 的透明留边补偿显示矩形，使可见边框落在网格外框上；资源未就绪时保留蓝色底色。
+
+移除遮满每位玩家区域的粉色纸面，改用半透明蓝色格子与控件、白字玩家栏和玩家色标记，保留选中头像的玩家色边框。高清动态预览的纯色背景同步调整为浅蓝；缩略图缓存、面板布局、点击范围和输入逻辑保持原样。
+
 当前预览模块分工：`ChefGridPreviewScene` 统一拥有离屏厨师、原版模板与 shader 初始化、相机、灯光、加载取消及 RenderTexture 生命周期；它是静态与动态绘制之间的内部 seam，不向菜单暴露 Unity 初始化顺序。`ChefGridPortraits` 仅负责 128×128 无帽缩略图、缓存和生成调度；已删除动态预览接管后不再使用的静态高清缓存、第二张渲染目标及 selected 参数。`ChefGridLivePreview` 负责每位玩家的动画、转向与高清绘制，静态／动态共用 `ChefGridFraming.ContributesToFraming` 判断远处隐藏零件，保留各自的取景方式。缩略图缓存键及网络报文格式保持不变。
 
 菜单通过 `PlayerHats.Cycle` 切换帽子，选项顺序和循环规则封装在帽子模块内；网络接收传入原版 Machine／Engagement／Split，身份键仅由帽子模块生成。动态预览观察实际应用的帽子变化后自行重新构图，菜单无需干预加载与构图时序。
