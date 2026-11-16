@@ -80,54 +80,11 @@ namespace OC2DIYChef
             subscribed = false;
         }
 
-        private static void LoadPreferredChefs()
+        static IEnumerator LoadAllDIYHat(bool refresh = false)
         {
-            preferredChefs = new KeyValuePair<string, string>[0];
-            enableLobbySwitchChef = false;
-            string path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "/prefer.txt";
-            if (!File.Exists(path))
-                path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "/prefer.txt.txt";
-            if (!File.Exists(path))
-            {
-                defaultChefID = 127U;
-                return;
-            }
-            var lines = File.ReadAllLines(path);
-            foreach (var line in lines)
-            {
-                if (line.Contains("LOBBYSWITCHCHEF=TRUE"))
-                {
-                    enableLobbySwitchChef = true;
-                    continue;
-                }
-                var parts = line.Split(new char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries).ConvertAll(s => s.Trim());
-                if (parts.Length == 0) continue;
-                string hat = "";
-                if (parts.Length > 1 && parts[1].StartsWith("HAT="))
-                {
-                    hat = parts[1].Substring(4);
-                    if (hat == "Festive") hat = "Santa";
-                    if (hat == "Baseball") hat = "Baseballcap";
-                }
-                var pair = new KeyValuePair<string, string>(parts[0], hat);
-                if (!preferredChefs.Any(x => x.Key == pair.Key))
-                {
-                    preferredChefs = preferredChefs.AddToArray(pair);
-                }
-            }
-
-            if (preferredChefs.Length == 0)
-            {
-                defaultChefID = 127U;
-                return;
-            }
-        }
-
-        static IEnumerator LoadAllDIYHat()
-        {
-            diyHats.Clear();
-            diyHats.Add(HatData.Create("Santa"));
-            diyHats.Add(HatData.Create("Baseballcap"));
+            if (!refresh) diyHats.Clear();
+            if (!diyHats.Any(x => x.HatName == "Hat_Santa")) diyHats.Add(HatData.Create("Santa"));
+            if (!diyHats.Any(x => x.HatName == "Hat_Baseballcap")) diyHats.Add(HatData.Create("Baseballcap"));
 
             string dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             string path = dir + "/Resources/HATS";
@@ -138,6 +95,7 @@ namespace OC2DIYChef
             foreach (DirectoryInfo folder in parent.GetDirectories())
             {
                 string name = folder.Name;
+                if (diyHats.Any(x => x.HatName == "Hat_" + name)) continue;
                 if (File.Exists($"{path}/{name}/t_{name}.png") &&
                     File.Exists($"{path}/{name}/m_{name}.txt"))
                 {
@@ -162,10 +120,12 @@ namespace OC2DIYChef
             }
         }
 
-        static IEnumerator LoadAllDIYChef(MetaGameProgress metaGameProgress)
+        static IEnumerator LoadAllDIYChef(MetaGameProgress metaGameProgress, bool refresh = false)
         {
             var newPreferredChefs = new List<KeyValuePair<string, string>>();
-            diyChefs.Clear();
+            // Keep metadata/IDs for removed choices: live actors, pending loads,
+            // cancellation snapshots and network peers may still reference them.
+            if (!refresh) diyChefs.Clear();
             if (preferredChefs.Length == 0)
                 yield break;
             string dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
@@ -199,6 +159,20 @@ namespace OC2DIYChef
                 if (!File.Exists(path + "/t_Head.png") || !File.Exists(path + "/m_Head.txt"))
                 {
                     conflictMessage += $"{dialogText["MissingTexture"]}: {pair.Key}\n";
+                    continue;
+                }
+
+                var existing = diyChefs.Find(x => string.Equals(x.Resources.Path, path, StringComparison.OrdinalIgnoreCase));
+                if (existing != null)
+                {
+                    string hat = pair.Value;
+                    if (!HatData.originalHats.Contains(hat) && !diyHats.Any(x => x.HatName == "Hat_" + hat))
+                    {
+                        conflictMessage += $"{dialogText["HatInvalid"]}: {hat}\n";
+                        hat = "";
+                    }
+                    if (!newPreferredChefs.Any(x => x.Key == existing.HeadName))
+                        newPreferredChefs.Add(new KeyValuePair<string, string>(existing.HeadName, hat));
                     continue;
                 }
 

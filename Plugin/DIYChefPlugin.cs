@@ -41,6 +41,7 @@ namespace OC2DIYChef
 
         void Update()
         {
+            DIYChefCustomisation.UpdatePreferences();
             ChefLoading.Update();
             PlayerHats.Update();
         }

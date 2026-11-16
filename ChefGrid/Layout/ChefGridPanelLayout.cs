@@ -13,7 +13,7 @@ namespace OC2DIYChef
     internal sealed class ChefGridPanelLayout
     {
         internal const float ActionTop = 632;
-        internal static readonly ChefGridActionRect Back = new ChefGridActionRect(48, ActionTop, 140, 32);
+        internal static readonly ChefGridActionRect Back = new ChefGridActionRect(0, ActionTop, 128, 32);
         internal readonly ChefGridActionRect Confirm;
         internal readonly float Left, Width, GridLeft, GridTop = 140, Side = 72, Gap = 4;
         internal readonly float DetailLeft, DetailTextWidth, DetailImageSize;

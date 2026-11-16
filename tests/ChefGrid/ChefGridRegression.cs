@@ -111,6 +111,21 @@ static class ChefGridRegression
         Check(entries[1].OfficialID == 0 && entries[1].CustomID == 255, "official identity is directory index");
         Check(entries[0].Label == "Extra", "chef label");
 
+        var savedPreferences = DIYChefCustomisation.preferredChefs;
+        DIYChefCustomisation.preferredChefs = new[] {
+            new KeyValuePair<string, string>(official.HeadName, "Santa"),
+            new KeyValuePair<string, string>(custom.HeadName, "None") };
+        var reloaded = ChefGridRoster.Refresh(entries, all, unlocked);
+        Check(reloaded[0] == entries[1] && reloaded[1] == entries[0] && reloaded[1].Avatar == custom,
+            "live preference reorder reuses entries, thumbnail keys and registered custom avatars");
+        Check(ChefGridRoster.Find(reloaded, entries[0]) == 1 && ChefGridRoster.Find(reloaded, entries[1]) == 0 &&
+            reloaded[0].Hat == "Santa" && reloaded[1].Hat == "None", "live preference edits preserve selections by identity and update author hats");
+        DIYChefCustomisation.preferredChefs = new[] { new KeyValuePair<string, string>(official.HeadName, "") };
+        Check(ChefGridRoster.Find(ChefGridRoster.Refresh(reloaded, all, unlocked), entries[0]) == -1,
+            "removing a selected entry is reported rather than silently confirming a different chef");
+        DIYChefCustomisation.preferredChefs = savedPreferences;
+        entries = ChefGridRoster.Build(all, unlocked);
+
         var local = new User { IsLocal = true, SelectedChefAvatar = 0 };
         var remote = new User { IsLocal = false, SelectedChefAvatar = 0 };
         ClientUserSystem.m_Users = new UserList(local, remote);

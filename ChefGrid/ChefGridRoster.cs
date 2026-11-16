@@ -58,6 +58,26 @@ namespace OC2DIYChef
                 x.CustomID == 255 && x.OfficialID == user.SelectedChefAvatar);
         }
 
+        internal static int Find(List<ChefGridEntry> entries, ChefGridEntry previous)
+        {
+            return entries.FindIndex(x => previous.CustomID != 255 ? x.CustomID == previous.CustomID :
+                x.CustomID == 255 && x.Avatar.HeadName == previous.Avatar.HeadName);
+        }
+
+        internal static List<ChefGridEntry> Refresh(List<ChefGridEntry> previous, ChefAvatarData[] all, ChefAvatarData[] unlocked)
+        {
+            var result = Build(all, unlocked);
+            for (int i = 0; i < result.Count; i++)
+            {
+                var incoming = result[i];
+                var existing = previous.Find(x => x.Avatar == incoming.Avatar && x.CustomID == incoming.CustomID);
+                if (existing == null) continue;
+                existing.Hat = incoming.Hat; existing.OfficialID = incoming.OfficialID;
+                result[i] = existing; // Preserve thumbnail/cache identity across reordering.
+            }
+            return result;
+        }
+
         internal static bool Select(ChefGridEntry entry, int player, FrontendChefCustomisation view)
         {
             var users = ClientUserSystem.m_Users;
