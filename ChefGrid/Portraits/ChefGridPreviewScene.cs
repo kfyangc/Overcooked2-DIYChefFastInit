@@ -1,6 +1,7 @@
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -14,6 +15,8 @@ namespace OC2DIYChef
     // callers only supply pose/framing and decide when to render.
     internal sealed class ChefGridPreviewScene : IDisposable
     {
+        static readonly FieldInfo cachedAnimator = AccessTools.Field(typeof(FrontendChef), "m_ChefAnimator");
+        static readonly int choosingChef = Animator.StringToHash("TrigChooseChef");
         // Native frontend P1 yaw 158.3638°, viewed by its zero-yaw camera.
         // Our portrait camera faces 180°, so retain the same relative turn.
         internal const float FixedYaw = -21.6362f;
@@ -88,6 +91,20 @@ namespace OC2DIYChef
             targets.Add(target); // Own it even if GPU allocation fails.
             target.Create();
             return target;
+        }
+
+        internal void PlaySelectingAnimation(int slot)
+        {
+            // Native SetChefData caches this animator before discovering the
+            // AnimationSet parameter, but only discovers it when customisation
+            // is present. Our render-only actor intentionally has no such menu.
+            // Let SetCorrectAnimations acquire it again and perform its own check.
+            cachedAnimator.SetValue(View, null);
+            View.SetAnimationSet((FrontendChef.AnimationSet)slot);
+            // Same trigger as FrontendChefCustomisation.PlaySelectingAnimation.
+            // AnimationSet alone enters the van's normal idle, not its selector pose.
+            var animator = cachedAnimator.GetValue(View) as Animator;
+            if (animator != null && animator.HasParameter(choosingChef)) animator.SetTrigger(choosingChef);
         }
 
         internal void SilenceModel()

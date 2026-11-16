@@ -1,5 +1,11 @@
 # 厨师网格选择
 
+2.3.1.16 根据用户实际复现日志修正动态预览的原版动画初始化。2.3.1.15 中 Fox 的原版／网格实例共享 `Head#-5368`、`Eyes#-5360`、同一皮肤 shader 和深度属性；原版 `Eyes2_Blinks` 骨骼缩放为 0，网格却为 1。控制器资源映射确认网格状态 1196481036 为 `Base Layer.Idles.Idle`，原版状态 −1702000345 为 `Base Layer.SelectionScreen.New_Chef@FE_VanSelectIdle_01`。前端没有独立镜片排序修正；这次证据指向选择动画未启动，而非上次缩放推断。
+
+原版 `FrontendChef.SetChefData` 提前缓存 Animator，但只在存在 FrontendChefCustomisation 时检测 AnimationSet 参数。离屏实例没有该菜单组件，缓存能力标志保留 false，构造时的 SetAnimationSet 调用不能初始化后来载入的模型；并且仅设槽位也只能进入普通 VanIdle，还需原版 PlaySelectingAnimation 使用的 `TrigChooseChef` 才能进入选择态。现在新模型就绪后只清理离屏 FrontendChef 的 Animator 缓存，让原版 SetCorrectAnimations 重新检测参数、设置玩家槽位，并触发控制器已有的 TrigChooseChef。未携带该参数的控制器会跳过，不手动隐藏眼睛或修改网格。
+
+首次初始化后等待一次正常的 unscaled 动画更新再取景；换帽仅重新取景，不重复触发选择动画。保留单位缩放、现有相机／灯光、透明背景、静态图缓存及玩家独立帽子。两个回归分别先复现 AnimationSet 停留 0，以及缺少选择 trigger；修复后覆盖 P1/P4 槽位、模型更换、无参数控制器及返回已有模型。临时 `[DEBUG-grid-eyes]` 诊断模块和调用已移除，日志证据与原版控制器分析保存在忽略的 `artifacts/chef-grid-research/eye-*` 文件中。未启动游戏，最终眼部画面由用户复验。
+
 2.3.1.15 为眼睛／眼镜相交制作只读对照诊断。保留 2.3.1.14 的显示参数、单位缩放与缩略图缓存；选中厨师并稳定显示 0.75 秒后，记录原版 `FrontendChefCustomisation.m_chef` 与网格实例，2 秒后补充第二次样本。日志标记 `[DEBUG-grid-eyes]`，包含实际头像、模型与共享网格身份、原版 shader 绑定和材质深度属性、Animator 控制器／状态、Head／Eyes／眨眼骨骼相对位置，以及相机参数。诊断不设置 shader、材质、骨骼、相机或动画状态，不替换渲染结果；自身异常会停止采样并保留正常预览。
 
 复现方式：打开网格，选中 Fox 停留至少 3 秒，再选一位出现眼镜／眼睛相交的厨师停留至少 3 秒。退出游戏后读取 BepInEx/LogOutput.log 中上述标记，先用同场原版实例对照定位差异，不能再以独立浮点精度测试代替实际画面验证。该版本只提供诊断，不宣称修复穿模；完成定位后移除临时模块及调用。

@@ -64,6 +64,25 @@ static class ChefGridPreviewRegression
         var rumble = model.AddComponent<AnimatorRumbleComponent>();
         live.SilenceModel();
         Check(!audio.enabled && !events.enabled && !rumble.enabled, "preview animation produces no sound or rumble");
+        var animator = model.AddComponent<Animator>();
+        live.View.AttachModel(model);
+        live.PlaySelectingAnimation(0);
+        Check(animator.AnimationValue == 1,
+            "a loaded preview without native customisation must enter P1 animation instead of leaving AnimationSet at zero");
+        Check(animator.TriggerCalls == 1 && animator.LastTrigger == Animator.StringToHash("TrigChooseChef"),
+            "preview starts the native choosing-chef state instead of stopping at the generic van idle");
+        live.PlaySelectingAnimation(3);
+        Check(animator.AnimationValue == 4, "the native method retains each local player's animation group");
+        var replacement = new GameObject("Replacement chef");
+        var replacementAnimator = replacement.AddComponent<Animator>(); replacementAnimator.HasAnimationSet = false;
+        replacementAnimator.HasSelectingTrigger = false;
+        live.View.AttachModel(replacement);
+        live.PlaySelectingAnimation(0);
+        Check(replacementAnimator.AnimationValue == 0 && !live.View.m_bHasAnimationSet && replacementAnimator.TriggerCalls == 0,
+            "model replacement rechecks capabilities and does not invent a missing controller parameter");
+        live.View.AttachModel(model); live.PlaySelectingAnimation(0);
+        Check(animator.AnimationValue == 1 && live.View.m_bHasAnimationSet,
+            "returning to a supported model initializes its native animation group again");
 
         var visible = model.AddComponent<Renderer>();
         var disabled = model.AddComponent<Renderer>(); disabled.enabled = false;

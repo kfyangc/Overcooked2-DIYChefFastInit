@@ -122,6 +122,21 @@ namespace UnityEngine
         public float range, intensity;
     }
     public sealed class AudioSource : Component { public bool enabled = true; }
+    public sealed class Animator : Component
+    {
+        public bool HasAnimationSet = true;
+        public int AnimationValue;
+        public bool HasSelectingTrigger = true;
+        public int LastTrigger, TriggerCalls;
+        public static int StringToHash(string value) { return value.GetHashCode(); }
+        public bool HasParameter(int hash)
+        { return hash == StringToHash("TrigChooseChef") && HasSelectingTrigger; }
+        public void SetTrigger(int hash)
+        {
+            if (!HasParameter(hash)) throw new InvalidOperationException("Unsupported animation trigger");
+            LastTrigger = hash; TriggerCalls++;
+        }
+    }
 }
 
 namespace UnityEngine.Rendering
@@ -157,12 +172,30 @@ public sealed class HatMeshVisibility : UnityEngine.MonoBehaviour
 public sealed class FrontendChef : UnityEngine.MonoBehaviour
 {
     public enum ShaderMode { eUI }
+    public enum AnimationSet { First, Second, Third, Fourth }
+    public UnityEngine.Animator m_ChefAnimator;
+    public bool m_bHasAnimationSet;
     public object m_StandardSkinShader, m_StandardClothesShader, m_UISkinShader, m_UIClothesShader;
     public ShaderMode Mode;
     public UnityEngine.Color Ambient;
     public UnityEngine.GameObject ChefModel;
     public void SetShaderMode(ShaderMode mode) { Mode = mode; }
     public void SetUIChefAmbientLighting(UnityEngine.Color ambient) { Ambient = ambient; }
+    // Native SetChefData caches the animator but only checks this parameter inside
+    // its FrontendChefCustomisation branch. Isolated preview actors lack that component.
+    public void AttachModel(UnityEngine.GameObject model)
+    { ChefModel = model; m_ChefAnimator = model.GetComponent<UnityEngine.Animator>(); }
+    public void SetAnimationSet(AnimationSet value)
+    {
+        // Mirrors the native cache guard in SetCorrectAnimations, rather than
+        // automatically repairing the missing parameter observation in the adapter.
+        if (m_ChefAnimator == null && ChefModel != null)
+        {
+            m_ChefAnimator = ChefModel.GetComponent<UnityEngine.Animator>();
+            m_bHasAnimationSet = m_ChefAnimator != null && m_ChefAnimator.HasAnimationSet;
+        }
+        if (m_ChefAnimator != null && m_bHasAnimationSet) m_ChefAnimator.AnimationValue = (int)value + 1;
+    }
 }
 public sealed class AnimatorAudioComponent : UnityEngine.Component { public bool enabled = true; }
 public sealed class AnimatorRumbleComponent : UnityEngine.Component { public bool enabled = true; }

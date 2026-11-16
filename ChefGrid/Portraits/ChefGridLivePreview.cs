@@ -13,11 +13,12 @@ namespace OC2DIYChef
         readonly ChefGridPreviewScene scene;
         readonly RenderTexture target;
         readonly ChefGridAlphaMask alpha;
-        readonly ChefGridRenderTrace trace;
+        readonly int animationSlot;
         readonly Mesh measure = new Mesh();
         readonly List<Vector3> vertices = new List<Vector3>();
         ChefAvatarData requested;
         GameObject prepared;
+        GameObject animated;
         int changedFrame;
         float started;
         string framedHat;
@@ -32,12 +33,11 @@ namespace OC2DIYChef
             {
                 scene = new ChefGridPreviewScene(source,
                     new Vector3(10000 + (slot + 1) * 100, -10000, 10000), Color.clear);
-                scene.View.SetAnimationSet((FrontendChef.AnimationSet)slot);
+                animationSlot = slot;
                 target = scene.CreateTarget(512, RenderTextureFormat.ARGB32);
                 target.filterMode = FilterMode.Bilinear; target.wrapMode = TextureWrapMode.Clamp;
                 scene.Camera.targetTexture = target;
                 alpha = new ChefGridAlphaMask(scene.Camera);
-                trace = new ChefGridRenderTrace(source, slot);
             }
             catch { Dispose(); throw; }
         }
@@ -51,7 +51,7 @@ namespace OC2DIYChef
                 if (requested != avatar)
                 {
                     failed = false;
-                    requested = avatar; ready = false; prepared = null;
+                    requested = avatar; ready = false; prepared = null; animated = null;
                     changedFrame = Time.frameCount;
                     started = Time.realtimeSinceStartup;
                     scene.View.SetChefData(new GameSession.SelectedChefData(avatar, user.SelectedChefData.Colour), true);
@@ -80,7 +80,7 @@ namespace OC2DIYChef
                 var model = scene.View.ChefModel;
                 var owner = scene.Actor.GetComponent<PlayerHatOwner>();
                 if (owner != null && framedHat != owner.AppliedHat) { prepared = null; framedHat = owner.AppliedHat; }
-                if (prepared != model)
+                if (animated != model)
                 {
                     foreach (var animator in model.GetComponentsInChildren<Animator>(true))
                     {
@@ -89,6 +89,16 @@ namespace OC2DIYChef
                         animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
                     }
                     foreach (var skin in model.GetComponentsInChildren<SkinnedMeshRenderer>(true)) skin.updateWhenOffscreen = true;
+                    scene.SilenceModel();
+                    scene.PlaySelectingAnimation(animationSlot);
+                    animated = model;
+                    // Give the original controller one unscaled update to select
+                    // its frontend state and eye-visibility tracks before framing.
+                    changedFrame = Time.frameCount;
+                    return;
+                }
+                if (prepared != model)
+                {
                     scene.SilenceModel();
                     scene.View.SetChefHat(HatMeshVisibility.VisState.Fancy);
                     FrameModel(model);
@@ -99,7 +109,6 @@ namespace OC2DIYChef
                 try { scene.Camera.Render(); }
                 finally { RenderTexture.active = previous; }
                 ready = true;
-                trace.Observe(scene, requested);
             }
             catch (Exception ex)
             {
