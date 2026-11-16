@@ -1,17 +1,22 @@
 using AssetBundles;
+using System;
+using System.IO;
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.Sprites;
 using UnityEngine.UI;
 
 namespace OC2DIYChef
 {
-    // Borrow the same sprites as GameOptions/SettingsBody. Never clone its menu
-    // behaviours, load a second copy of bundle24 or destroy the game's assets.
+    // Own one edited flat-bottom background, borrowing only the native header.
+    // Never clone menu behaviours or load a second copy of the game's bundle24.
     internal static class ChefGridTheme
     {
-        const string BackgroundName = "t_ui_dialog_large_01_d";
+        const string BackgroundResource = "OC2DIYChef.UI.GridBackgroundFlat.png";
         const string HeaderName = "t_ui_dialog_header_01_d";
         static Sprite background, header;
+        static Texture2D backgroundTexture;
+        static bool backgroundAttempted;
         static bool reportedMissing;
 
         internal static readonly Color Ink = new Color(0.12f, 0.27f, 0.36f);
@@ -27,7 +32,7 @@ namespace OC2DIYChef
             if ((background == null || header == null) && !reportedMissing)
             {
                 reportedMissing = true;
-                DIYChefPlugin.Warn("Native chef grid menu sprites are not loaded; using the blue palette.");
+                DIYChefPlugin.Warn("Chef grid artwork is unavailable; using the blue palette.");
             }
         }
 
@@ -72,22 +77,62 @@ namespace OC2DIYChef
 
         static void Resolve()
         {
+            if (background == null && !backgroundAttempted) LoadBackground();
             foreach (var sprite in Resources.FindObjectsOfTypeAll<Sprite>())
             {
-                if (sprite.name == BackgroundName) background = sprite;
-                else if (sprite.name == HeaderName) header = sprite;
+                if (sprite.name == HeaderName) header = sprite;
             }
-            if (background != null && header != null) return;
+            if (header != null) return;
             // A lobby can have the shared UI bundle resident without its options
             // menu instantiated. Read only that existing bundle, preserving its
             // native reference counts and scene-loading lifecycle.
             string error;
             var loaded = AssetBundleManager.GetLoadedAssetBundle("bundle24", out error);
             if (loaded == null || loaded.m_AssetBundle == null) return;
-            if (background == null)
-                background = loaded.m_AssetBundle.LoadAsset<Sprite>("assets/gui/menu/" + BackgroundName + ".png");
-            if (header == null)
-                header = loaded.m_AssetBundle.LoadAsset<Sprite>("assets/gui/menu/" + HeaderName + ".png");
+            header = loaded.m_AssetBundle.LoadAsset<Sprite>("assets/gui/menu/" + HeaderName + ".png");
+        }
+
+        static void LoadBackground()
+        {
+            backgroundAttempted = true;
+            try
+            {
+                using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(BackgroundResource))
+                {
+                    if (stream == null) throw new FileNotFoundException(BackgroundResource);
+                    using (var reader = new BinaryReader(stream))
+                    {
+                        backgroundTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                        backgroundTexture.hideFlags = HideFlags.HideAndDontSave;
+                        if (!backgroundTexture.LoadImage(reader.ReadBytes((int)stream.Length), true))
+                            throw new FormatException("Could not decode the flat grid background");
+                    }
+                }
+                backgroundTexture.filterMode = FilterMode.Bilinear;
+                backgroundTexture.wrapMode = TextureWrapMode.Clamp;
+                background = Sprite.Create(backgroundTexture,
+                    new Rect(0, 0, backgroundTexture.width, backgroundTexture.height), new Vector2(0.5f, 0.5f),
+                    100, 0, SpriteMeshType.FullRect);
+                background.name = "DIYChef flat grid background";
+                background.hideFlags = HideFlags.HideAndDontSave;
+            }
+            catch (Exception error)
+            {
+                if (background != null) UnityEngine.Object.Destroy(background);
+                if (backgroundTexture != null) UnityEngine.Object.Destroy(backgroundTexture);
+                background = null;
+                backgroundTexture = null;
+                DIYChefPlugin.Warn("Grid background load failed: " + error.Message);
+            }
+        }
+
+        internal static void Shutdown()
+        {
+            if (background != null) UnityEngine.Object.Destroy(background);
+            if (backgroundTexture != null) UnityEngine.Object.Destroy(backgroundTexture);
+            background = header = null;
+            backgroundTexture = null;
+            backgroundAttempted = reportedMissing = false;
         }
     }
 }

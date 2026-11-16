@@ -60,6 +60,7 @@ namespace OC2DIYChef
         {
             ChefGridLobby.ShutdownActive();
             if (ChefGridMenu.Active != null) ChefGridMenu.Active.CloseGrid();
+            ChefGridTheme.Shutdown();
             ChefGridEngagementGuard.Shutdown();
             ChefGridPortraitCache.Shutdown();
             ModelTestCompatibility.Shutdown();

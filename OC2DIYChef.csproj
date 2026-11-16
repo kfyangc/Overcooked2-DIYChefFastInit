@@ -19,6 +19,7 @@
     <Compile Include="Plugin/**/*.cs;Customisation/**/*.cs;Loading/**/*.cs;AssetPipeline/**/*.cs;Networking/**/*.cs;Diagnostics/**/*.cs;Compatibility/**/*.cs;ChefGrid/**/*.cs;Properties/AssemblyInfo.cs" />
     <EmbeddedResource Include="lib/lz4-win-x86.dll" LogicalName="OC2DIYChef.Native.LZ4.x86" />
     <EmbeddedResource Include="third_party/lz4/LICENSE" LogicalName="OC2DIYChef.Native.LZ4.LICENSE" />
+    <EmbeddedResource Include="assets/UI/grid-background-flat.png" LogicalName="OC2DIYChef.UI.GridBackgroundFlat.png" />
     <Reference Include="$(ManagedDir)/mscorlib.dll" Private="false" />
     <Reference Include="$(ManagedDir)/System.dll" Private="false" />
     <Reference Include="$(ManagedDir)/System.Core.dll" Private="false" />
