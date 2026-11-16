@@ -13,6 +13,7 @@ namespace OC2DIYChef
         readonly ChefGridPreviewScene scene;
         readonly RenderTexture target;
         readonly ChefGridAlphaMask alpha;
+        readonly ChefGridHeading heading;
         readonly int animationSlot;
         readonly Mesh measure = new Mesh();
         readonly List<Vector3> vertices = new List<Vector3>();
@@ -38,6 +39,7 @@ namespace OC2DIYChef
                 target.filterMode = FilterMode.Bilinear; target.wrapMode = TextureWrapMode.Clamp;
                 scene.Camera.targetTexture = target;
                 alpha = new ChefGridAlphaMask(scene.Camera);
+                heading = new ChefGridHeading(scene.Actor.transform);
             }
             catch { Dispose(); throw; }
         }
@@ -97,6 +99,7 @@ namespace OC2DIYChef
                     changedFrame = Time.frameCount;
                     return;
                 }
+                heading.Apply(model, requested.FrontendModelPrefab);
                 if (prepared != model)
                 {
                     scene.SilenceModel();

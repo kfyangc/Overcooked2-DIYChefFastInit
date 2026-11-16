@@ -35,7 +35,7 @@ namespace UnityEngine
         public int layer;
         public bool activeSelf = true;
         public bool activeInHierarchy { get { return activeSelf; } }
-        public GameObject(string name) { this.name = name; Created.Add(this); }
+        public GameObject(string name) { this.name = name; transform.name = name; Created.Add(this); }
         public void SetActive(bool active) { activeSelf = active; }
         public T GetComponent<T>() where T : Component
         { foreach (var item in components) if (item is T) return (T)item; return null; }
@@ -46,21 +46,71 @@ namespace UnityEngine
     }
     public sealed class Transform
     {
+        public string name;
+        readonly List<Transform> children = new List<Transform>();
         public Transform parent;
         public Vector3 position, localPosition;
         public Vector3 localScale = new Vector3(1, 1, 1);
-        public Quaternion localRotation;
-        public void SetParent(Transform value, bool worldPositionStays) { parent = value; }
+        public Quaternion localRotation = Quaternion.identity;
+        public Quaternion rotation { get { return parent == null ? localRotation : parent.rotation * localRotation; } }
+        public void SetParent(Transform value, bool worldPositionStays)
+        {
+            if (parent != null) parent.children.Remove(this);
+            parent = value;
+            if (value != null) value.children.Add(this);
+        }
+        public Transform Find(string name) { return children.Find(child => child.name == name); }
+        public Transform FindChildRecursive(string name)
+        {
+            foreach (var child in children)
+            {
+                if (child.name == name) return child;
+                var result = child.FindChildRecursive(name);
+                if (result != null) return result;
+            }
+            return null;
+        }
     }
     public struct Quaternion
     {
-        public float x, y, z;
-        public static Quaternion Euler(float x, float y, float z) { return new Quaternion { x = x, y = y, z = z }; }
+        public float x, y, z, w;
+        public static Quaternion identity { get { return new Quaternion { w = 1 }; } }
+        public static Quaternion Euler(float x, float y, float z)
+        {
+            double half = Math.PI / 360;
+            return new Quaternion { y = (float)Math.Sin(y * half), w = (float)Math.Cos(y * half) } *
+                new Quaternion { x = (float)Math.Sin(x * half), w = (float)Math.Cos(x * half) } *
+                new Quaternion { z = (float)Math.Sin(z * half), w = (float)Math.Cos(z * half) };
+        }
+        public static Quaternion Inverse(Quaternion value)
+        {
+            float norm = value.x * value.x + value.y * value.y + value.z * value.z + value.w * value.w;
+            return new Quaternion { x = -value.x / norm, y = -value.y / norm, z = -value.z / norm, w = value.w / norm };
+        }
+        public static Quaternion operator *(Quaternion a, Quaternion b)
+        {
+            return new Quaternion {
+                x = a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+                y = a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+                z = a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+                w = a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z };
+        }
+        public static Vector3 operator *(Quaternion q, Vector3 v)
+        {
+            var p = q * new Quaternion { x = v.x, y = v.y, z = v.z } * Inverse(q);
+            return new Vector3(p.x, p.y, p.z);
+        }
     }
     public struct Vector3
     {
         public float x, y, z;
         public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
+        public static Vector3 forward { get { return new Vector3(0, 0, 1); } }
+    }
+    public static class Mathf
+    {
+        public const float Rad2Deg = (float)(180 / Math.PI);
+        public static float Atan2(float y, float x) { return (float)Math.Atan2(y, x); }
     }
     public struct Color
     {

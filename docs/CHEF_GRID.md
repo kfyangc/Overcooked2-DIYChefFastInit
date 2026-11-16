@@ -1,5 +1,11 @@
 # 厨师网格选择
 
+2.3.1.17 根据“−21.64° 看起来变成 0°”反馈，固定的含义改为动画后的最终脸部水平朝向。对原版 FE_VanSelectIdle_01 压缩轨道解码：相对中立 prefab，头部完整父链在 t=0／0.5／1 秒附加约 +19.0611°／+17.1369°／+14.5416°；仅给外层 −21.6362° 会显示为约 −2.58°／−4.50°／−7.09°。只补躯干约 +4.9° 也不能消除头部自己的附加转向。
+
+`ChefGridHeading` 缓存当前模型与 prefab 的 Head 中立旋转，在每帧原版动画更新后、取景／渲染前，计算模型头部相对中立姿态的水平朝向，并仅通过离屏 Actor 的反向旋转补偿，使最终脸朝向保持 −21.6362°。测量时先消去 Actor 上一帧的补偿，避免反馈或累积。找不到标准 Head 时尝试 Jnt_Body，再退回固定外层朝向。骨骼轨道、眼睛／眨眼可见性、俯仰／侧倾和手部动作不被覆盖；模型尺度、相机参数、静态缩略图和原版选择动画入口保持原样。
+
+回归先复现“动画抵消外层角度”失败，再验证最终朝向、重复帧无累积、角度跨越 ±180°、多层身体／头部转向、模型根旋转、切换不同中立骨架及无标准骨架的后备路径。另以原版解码的 Head 四元数复现 −2.58° 近正面并校正为 −21.64°；原始骨骼旋转保持一致。原版证据位于忽略目录 `artifacts/chef-grid-research/select-turn-summary.txt`。未启动游戏，最终显示仍由用户复验。
+
 2.3.1.16 根据用户实际复现日志修正动态预览的原版动画初始化。2.3.1.15 中 Fox 的原版／网格实例共享 `Head#-5368`、`Eyes#-5360`、同一皮肤 shader 和深度属性；原版 `Eyes2_Blinks` 骨骼缩放为 0，网格却为 1。控制器资源映射确认网格状态 1196481036 为 `Base Layer.Idles.Idle`，原版状态 −1702000345 为 `Base Layer.SelectionScreen.New_Chef@FE_VanSelectIdle_01`。前端没有独立镜片排序修正；这次证据指向选择动画未启动，而非上次缩放推断。
 
 原版 `FrontendChef.SetChefData` 提前缓存 Animator，但只在存在 FrontendChefCustomisation 时检测 AnimationSet 参数。离屏实例没有该菜单组件，缓存能力标志保留 false，构造时的 SetAnimationSet 调用不能初始化后来载入的模型；并且仅设槽位也只能进入普通 VanIdle，还需原版 PlaySelectingAnimation 使用的 `TrigChooseChef` 才能进入选择态。现在新模型就绪后只清理离屏 FrontendChef 的 Animator 缓存，让原版 SetCorrectAnimations 重新检测参数、设置玩家槽位，并触发控制器已有的 TrigChooseChef。未携带该参数的控制器会跳过，不手动隐藏眼睛或修改网格。

@@ -23,6 +23,7 @@ static class ChefGridPreviewRegression
 
     static void Main()
     {
+        checks += ChefGridHeadingRegression.Run();
         var source = Source();
         var thumbnail = new ChefGridPreviewScene(source, new Vector3(10000, -10000, 10000), new Color(0, 0, 0, 0));
         var live = new ChefGridPreviewScene(source, new Vector3(10100, -10000, 10000), new Color(1, 0.9f, 0.9f));
