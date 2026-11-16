@@ -1,5 +1,11 @@
 # 厨师网格选择
 
+2.3.1.13 针对 `728880_211.jpg` 的眼睛／眼镜相交反馈，对比了原版 Beaver、Black_cat、calico_cat、Turtle 的 InGame／FrontEnd／UI 资源：镜框、镜片和眼睛属于同一头部网格、同一普通皮肤材质，没有单独镜片透明排序；原版 `Skin_UI` 使用 ZTest LEqual、ZWrite On、Cull Back，无深度偏移。原版 UI 显示材质 `RenderTexturePassthrough` 也只是普通 Alpha Blended。
+
+关键差异是原版 UIPlayer 的 `Chef` 子对象采用 150 倍缩放，而此前离屏工作室在约 10000 的世界坐标处以 1 倍绘制。离线反汇编确认原版 Skin_UI 顶点 shader 先计算 ObjectToWorld，再乘 VP，近距离表面间隔会受世界坐标 float32 精度影响。原生产场景位置与原版 Head／Eyes 锚点的回归先失败，相对位置误差约 0.00039663 模型单位；保留原版网格、材质、shader 与深度状态，将占位 Chef 子对象改为原版 150 倍缩放，由原生 ChefMeshReplacer 继承。同步放大相机裁剪面、前方取景距离、灯光位置／范围，以及工作室间隔；取景继续测量实际缩放后的顶点，屏幕显示尺寸和固定角度保持一致。缩略图 key 升级为 `portrait-v11-native-scale` 以重新生成受旧精度影响的图片。
+
+回归验证静态／动态共用原版缩放、P1–P4 世界坐标下 Head／Eyes 的相对精度、相机和灯光单位一致、工作室间隔与释放行为。未启动游戏，离线检查确认并修正了精度损失，但眼镜穿模是否完全消失仍需游戏截图复验。原版资源与 shader 证据保存在忽略目录 `artifacts/chef-grid-research/native-ui-player-prefab.txt`、`native-glasses-summary.txt`、`skin-ui-vertex.asm`、`native-render-mat.txt`。
+
 2.3.1.12 将 −21.6362° 固定在 `ChefGridPreviewScene` 创建离屏实例的位置，静态图与动态预览共用；删除 PortraitYaw、DetailYaw 及每玩家角度配置的读取、旋转行、鼠标拖动和方向键旋转路径，已有旧角度配置不再影响显示。
 
 换帽继续使用当前玩家 WorkstationInteract 的原有映射，但改为每次新按下顺序切换一次；按住不重复、无需上下方向键，方向键正常选择厨师。按键边沿与确认／返回一起由 `ChefGridControls` 管理，覆盖初次打开、弹窗停用、同设备重绑、切换设备和分屏玩家独立输入；面板提示改为“按 [当前绑定] 换帽子”。鼠标帽子上一顶／默认／下一顶仍保留，并上移填补角度行。

@@ -17,6 +17,11 @@ namespace OC2DIYChef
         // Native frontend P1 yaw 158.3638°, viewed by its zero-yaw camera.
         // Our portrait camera faces 180°, so retain the same relative turn.
         internal const float FixedYaw = -21.6362f;
+        // Native UIPlayer/Chef is scaled 150x. Skin_UI transforms vertices into
+        // world space before VP, so unit-size faces at the remote studio origin
+        // lose the small depth gaps between eyes, eyelids and glasses.
+        internal const float ModelScale = 150;
+        internal const float CameraGap = 8 * ModelScale;
         internal readonly GameObject Stage, Actor;
         internal readonly FrontendChef View;
         internal readonly ChefMeshReplacer Replacer;
@@ -24,10 +29,10 @@ namespace OC2DIYChef
         readonly List<RenderTexture> targets = new List<RenderTexture>();
         bool disposed;
 
-        internal ChefGridPreviewScene(FrontendChefCustomisation source, Vector3 position, Color background)
+        internal ChefGridPreviewScene(FrontendChefCustomisation source, int studio, Color background)
         {
             Stage = new GameObject("DIYChef preview scene");
-            Stage.transform.position = position;
+            Stage.transform.position = new Vector3(10000 + studio * 20 * ModelScale, -10000, 10000);
             try
             {
                 var original = (ChefMeshReplacer)AccessTools.Field(typeof(FrontendChefCustomisation), "m_chef").GetValue(source);
@@ -38,6 +43,8 @@ namespace OC2DIYChef
                 Actor.AddComponent<ChefGridPortraitActor>();
                 var placeholder = new GameObject("Chef");
                 placeholder.transform.SetParent(Actor.transform, false);
+                // ChefMeshReplacer retains this scale when it replaces the placeholder.
+                placeholder.transform.localScale = new Vector3(ModelScale, ModelScale, ModelScale);
                 Replacer = Actor.AddComponent<ChefMeshReplacer>();
                 template.SetValue(Replacer, template.GetValue(original));
                 AccessTools.Field(typeof(ChefMeshReplacer), "m_modelType").SetValue(Replacer, ChefMeshReplacer.ChefModelType.FrontEnd);
@@ -66,15 +73,15 @@ namespace OC2DIYChef
                 Camera.clearFlags = CameraClearFlags.SolidColor;
                 Camera.backgroundColor = background;
                 Camera.useOcclusionCulling = false;
-                Camera.nearClipPlane = 0.01f;
-                Camera.farClipPlane = 30;
+                Camera.nearClipPlane = 0.01f * ModelScale;
+                Camera.farClipPlane = 30 * ModelScale;
                 Camera.cullingMask = (1 << Actor.layer) | (1 << HatData.hatLayer);
                 var lamp = new GameObject("Preview light");
                 lamp.transform.SetParent(Stage.transform, false);
-                lamp.transform.localPosition = new Vector3(-2, 3, 4);
+                lamp.transform.localPosition = new Vector3(-2 * ModelScale, 3 * ModelScale, 4 * ModelScale);
                 var light = lamp.AddComponent<Light>();
                 light.type = LightType.Point;
-                light.range = 12;
+                light.range = 12 * ModelScale;
                 light.intensity = 2;
                 light.shadows = LightShadows.None;
             }

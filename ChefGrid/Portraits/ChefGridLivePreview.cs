@@ -29,8 +29,7 @@ namespace OC2DIYChef
             // Spatial isolation keeps the four cameras and thumbnail studio apart.
             try
             {
-                scene = new ChefGridPreviewScene(source,
-                    new Vector3(10000 + (slot + 1) * 100, -10000, 10000), Color.clear);
+                scene = new ChefGridPreviewScene(source, slot + 1, Color.clear);
                 scene.View.SetAnimationSet((FrontendChef.AnimationSet)slot);
                 target = scene.CreateTarget(512, RenderTextureFormat.ARGB32);
                 target.filterMode = FilterMode.Bilinear; target.wrapMode = TextureWrapMode.Clamp;
@@ -142,8 +141,10 @@ namespace OC2DIYChef
             }
             if (!any) throw new InvalidOperationException("No visible chef geometry");
             // Keep framing stable during idle animation; leave room for head sway.
-            scene.Camera.orthographicSize = Mathf.Max(0.1f, Mathf.Max(bounds.extents.x, bounds.extents.y) * 1.18f);
-            scene.Camera.transform.localPosition = new Vector3(bounds.center.x, bounds.center.y, bounds.max.z + 8);
+            scene.Camera.orthographicSize = Mathf.Max(0.1f * ChefGridPreviewScene.ModelScale,
+                Mathf.Max(bounds.extents.x, bounds.extents.y) * 1.18f);
+            scene.Camera.transform.localPosition = new Vector3(bounds.center.x, bounds.center.y,
+                bounds.max.z + ChefGridPreviewScene.CameraGap);
             scene.Camera.transform.localRotation = Quaternion.Euler(0, 180, 0);
         }
 

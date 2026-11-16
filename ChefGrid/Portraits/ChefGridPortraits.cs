@@ -33,7 +33,7 @@ namespace OC2DIYChef
             colour = ChefGridPortraitColour.Get();
             try
             {
-                scene = new ChefGridPreviewScene(source, new Vector3(10000, -10000, 10000), Color.clear);
+                scene = new ChefGridPreviewScene(source, 0, Color.clear);
                 PlayerHats.BindThumbnail(scene.Actor);
                 target = scene.CreateTarget(Size, RenderTextureFormat.ARGB32);
                 scene.Camera.targetTexture = target;
@@ -74,7 +74,7 @@ namespace OC2DIYChef
         {
             string path;
             if (paths.TryGetValue(entry, out path)) return path;
-            var key = new StringBuilder("portrait-v10-default-hat|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
+            var key = new StringBuilder("portrait-v11-native-scale|" + entry.Avatar.HeadName + "|" + entry.Hat + "|" +
                 scene.Actor.transform.localEulerAngles.y + "|" + colour.name);
             var game = new FileInfo(typeof(ChefAvatarData).Assembly.Location);
             key.Append('|').Append(game.Length).Append('|').Append(game.LastWriteTimeUtc.Ticks);
@@ -290,7 +290,7 @@ namespace OC2DIYChef
                         front = Mathf.Max(front, depths[i]);
                     }
                 var framing = ChefGridFraming.Calculate(all, head, eyes, anchors, true);
-                scene.Camera.transform.localPosition = new Vector3(framing.X, framing.Y, front + 8);
+                scene.Camera.transform.localPosition = new Vector3(framing.X, framing.Y, front + ChefGridPreviewScene.CameraGap);
                 scene.Camera.transform.localRotation = Quaternion.Euler(0, 180, 0);
                 scene.Camera.orthographicSize = framing.HalfSize;
                 return RenderTransparent();

@@ -24,6 +24,16 @@ static class ChefGridFramingRegression
         var head = Box(-0.4f, 0.8f, 0.3f, 1.4f);
         var thumbnail = ChefGridFraming.Calculate(all, head, true);
         var detail = ChefGridFraming.Calculate(all, head, false);
+        foreach (bool small in new[] { true, false })
+        {
+            var beforeScale = ChefGridFraming.Calculate(all, head, small);
+            var nativeScale = ChefGridFraming.Calculate(
+                Box(all.MinX * 150, all.MinY * 150, all.MaxX * 150, all.MaxY * 150),
+                Box(head.MinX * 150, head.MinY * 150, head.MaxX * 150, head.MaxY * 150), small);
+            Check(Near(nativeScale.X / 150, beforeScale.X) && Near(nativeScale.Y / 150, beforeScale.Y) &&
+                Near(nativeScale.HalfSize / 150, beforeScale.HalfSize),
+                "native UI scaling preserves the screen composition of the face and full model");
+        }
         Check(Near(thumbnail.X, -0.05f) && Near(detail.X, -0.05f), "face, rather than asymmetric full-body bounds, sets the horizontal center");
         Check(thumbnail.HalfSize * 2 < detail.HalfSize, "headshot is over twice the full-body scale in the same square");
         Check(head.MinX >= thumbnail.X - thumbnail.HalfSize && head.MaxX <= thumbnail.X + thumbnail.HalfSize &&

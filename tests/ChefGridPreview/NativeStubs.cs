@@ -48,6 +48,7 @@ namespace UnityEngine
     {
         public Transform parent;
         public Vector3 position, localPosition;
+        public Vector3 localScale = new Vector3(1, 1, 1);
         public Quaternion localRotation;
         public void SetParent(Transform value, bool worldPositionStays) { parent = value; }
     }

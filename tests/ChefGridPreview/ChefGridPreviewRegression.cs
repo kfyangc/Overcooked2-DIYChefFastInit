@@ -24,13 +24,40 @@ static class ChefGridPreviewRegression
     static void Main()
     {
         var source = Source();
-        var thumbnail = new ChefGridPreviewScene(source, new Vector3(10000, -10000, 10000), new Color(0, 0, 0, 0));
-        var live = new ChefGridPreviewScene(source, new Vector3(10100, -10000, 10000), new Color(1, 0.9f, 0.9f));
+        var thumbnail = new ChefGridPreviewScene(source, 0, new Color(0, 0, 0, 0));
+        var live = new ChefGridPreviewScene(source, 1, new Color(1, 0.9f, 0.9f));
         Check(thumbnail.Stage != live.Stage && thumbnail.Actor != live.Actor && thumbnail.Camera != live.Camera,
             "thumbnail and animated renderers own independent scenes");
         Check(thumbnail.Actor.transform.localRotation.Equals(Quaternion.Euler(0, -21.6362f, 0)) &&
             live.Actor.transform.localRotation.Equals(thumbnail.Actor.transform.localRotation),
             "static and animated chefs both use the fixed native angle without caller settings");
+        var placeholder = GameObject.Created.FindLast(item => item.name == "Chef" && item.transform.parent == live.Actor.transform);
+        // Native Head/Eyes anchors, rotated by the fixed preview yaw. A unit-size
+        // skeleton at the remote studio loses their small relative separation.
+        double angle = -21.6362 * Math.PI / 180;
+        double eyeX = -0.2690793 * Math.Sin(angle);
+        float worldX = live.Stage.transform.position.x;
+        float scale = placeholder.transform.localScale.x;
+        float translatedEye = worldX + (float)(eyeX * scale);
+        double localEye = (translatedEye - worldX) / scale;
+        Check(Math.Abs(localEye - eyeX) < 0.00002,
+            "native head/eye separation must survive preview world-space float precision (error=" + Math.Abs(localEye - eyeX) + ")");
+        Check(scale == 150 && placeholder.transform.localScale.y == 150 && placeholder.transform.localScale.z == 150 &&
+            live.Camera.nearClipPlane == 1.5f && live.Camera.farClipPlane == 4500 && ChefGridPreviewScene.CameraGap == 1200,
+            "native UI model scale, clip planes and framing distance use matching units");
+        var lamp = GameObject.Created.FindLast(item => item.name == "Preview light");
+        Check(lamp.GetComponent<Light>().range == 1800 && lamp.transform.localPosition.y == 450 &&
+            live.Stage.transform.position.x - thumbnail.Stage.transform.position.x > lamp.GetComponent<Light>().range + 300,
+            "scaled preview lighting reaches its own model without lighting the neighboring studio");
+        for (int studio = 2; studio <= 4; studio++)
+        {
+            var participant = new ChefGridPreviewScene(source, studio, new Color());
+            float origin = participant.Stage.transform.position.x;
+            float eye = origin + (float)(eyeX * 150);
+            Check(Math.Abs((eye - origin) / 150 - eyeX) < 0.00002,
+                "head/eye precision also holds in the more distant P2-P4 studios");
+            participant.Dispose();
+        }
         Check(thumbnail.Stage.transform.position.x != live.Stage.transform.position.x &&
             live.Actor.transform.parent == live.Stage.transform,
             "chef instances stay attached to their isolated stage");
@@ -109,7 +136,7 @@ static class ChefGridPreviewRegression
         var broken = new GameObject("Missing native replacer").AddComponent<FrontendChefCustomisation>();
         int firstCreated = GameObject.Created.Count;
         failed = false;
-        try { new ChefGridPreviewScene(broken, new Vector3(), new Color()); }
+        try { new ChefGridPreviewScene(broken, 0, new Color()); }
         catch (Exception) { failed = true; }
         var partialStage = GameObject.Created[firstCreated];
         Check(failed && partialStage.DestroyCalls == 1 && !partialStage.activeSelf,
