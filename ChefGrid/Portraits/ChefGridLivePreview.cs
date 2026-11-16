@@ -13,6 +13,7 @@ namespace OC2DIYChef
         readonly ChefGridPreviewScene scene;
         readonly RenderTexture target;
         readonly ChefGridAlphaMask alpha;
+        readonly ChefGridRenderTrace trace;
         readonly Mesh measure = new Mesh();
         readonly List<Vector3> vertices = new List<Vector3>();
         ChefAvatarData requested;
@@ -36,6 +37,7 @@ namespace OC2DIYChef
                 target.filterMode = FilterMode.Bilinear; target.wrapMode = TextureWrapMode.Clamp;
                 scene.Camera.targetTexture = target;
                 alpha = new ChefGridAlphaMask(scene.Camera);
+                trace = new ChefGridRenderTrace(source, slot);
             }
             catch { Dispose(); throw; }
         }
@@ -97,6 +99,7 @@ namespace OC2DIYChef
                 try { scene.Camera.Render(); }
                 finally { RenderTexture.active = previous; }
                 ready = true;
+                trace.Observe(scene, requested);
             }
             catch (Exception ex)
             {
