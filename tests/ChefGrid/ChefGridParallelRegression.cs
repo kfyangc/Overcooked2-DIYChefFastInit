@@ -73,9 +73,16 @@ static class ChefGridParallelRegression
                     Math.Abs(panel.DetailLeft + (panel.DetailImageSize + 8 + panel.DetailTextWidth) / 2 - (panel.Left + panel.Width / 2)) < 0.001f &&
                     panel.DetailLeft >= panel.Left && panel.DetailLeft + panel.DetailImageSize + 8 + panel.DetailTextWidth <= panel.Left + panel.Width &&
                     panel.DetailTextWidth >= 92 && panel.DetailTextTop >= panel.DetailTop &&
-                    panel.DetailTextTop + 122 <= panel.DetailTop + panel.DetailImageSize,
+                    panel.DetailTextTop + ChefGridPanelLayout.DetailTextHeight <= panel.DetailTop + panel.DetailImageSize,
                     "The portrait and bounded text form one centered group beneath the grid and above the buttons");
                 var confirm = panel.Confirm;
+                Check(panel.KindTop - (panel.DetailTextTop + ChefGridPanelLayout.NameHeight) >= 10 &&
+                    panel.PositionTop - (panel.KindTop + ChefGridPanelLayout.InfoRowHeight) >= 10 &&
+                    panel.HatTop - (panel.PositionTop + ChefGridPanelLayout.InfoRowHeight) >= 12 &&
+                    panel.HintTop - (panel.HatTop + 28) >= 10,
+                    "Chef name, kind, position, hat row and key hint must have separate readable vertical gaps");
+                Check(panel.HintTop + ChefGridPanelLayout.HintHeight <= confirm.Y - 10,
+                    "The expanded detail text leaves a clear margin above footer actions in one to four panels");
                 float confirmX = confirm.X + confirm.Width / 2, confirmY = confirm.Y + confirm.Height / 2;
                 Check(confirm.X >= panel.Left && confirm.X + confirm.Width <= panel.Left + panel.Width &&
                     confirm.Y + confirm.Height <= 668 && confirm.Height >= 32 &&
@@ -160,7 +167,7 @@ static class ChefGridParallelRegression
                     "Hat controls retain independent previous, default and next mouse targets");
                 Check(panel.HatAction(controlsX + 1, panel.HatTop + 30) == -1 &&
                     panel.HatAction(panel.DetailLeft + 1, panel.DetailTop + 1) == -1 &&
-                    panel.HatAction(panel.Left, panel.GridTop) == -1 && panel.HatTop + 54 < panel.Confirm.Y,
+                    panel.HatAction(panel.Left, panel.GridTop) == -1 && panel.HintTop + ChefGridPanelLayout.HintHeight < panel.Confirm.Y,
                     "The hint and fixed-angle preview have no interaction targets and fit above confirmation");
                 Check(panel.BeginScroll(trackX, panel.GridTop + 1, 0, 109) && panel.Dragging &&
                     panel.DragScroll(panel.GridTop - 1000, 109) == 0 &&

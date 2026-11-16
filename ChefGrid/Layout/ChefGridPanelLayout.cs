@@ -13,6 +13,7 @@ namespace OC2DIYChef
     internal sealed class ChefGridPanelLayout
     {
         internal const float ActionTop = 632;
+        internal const float NameHeight = 40, InfoRowHeight = 22, HintHeight = 22, DetailTextHeight = 176;
         internal static readonly ChefGridActionRect Back = new ChefGridActionRect(32, ActionTop, 128, 32);
         internal readonly ChefGridActionRect Confirm;
         internal readonly float Left, Width, GridLeft, GridTop = 140, Side = 72, Gap = 4;
@@ -21,8 +22,11 @@ namespace OC2DIYChef
         internal float GridHeight { get { return Rows * Side + (Rows - 1) * Gap; } }
         internal float ScrollLeft { get { return GridLeft + GridWidth + 4; } }
         internal float DetailTop { get { return GridTop + GridHeight + 4; } }
-        internal float HatTop { get { return DetailTop + 94; } }
-        internal float DetailTextTop { get { return DetailTop + (DetailImageSize - 122) / 2; } }
+        internal float DetailTextTop { get { return DetailTop + (DetailImageSize - DetailTextHeight) / 2; } }
+        internal float KindTop { get { return DetailTextTop + 50; } }
+        internal float PositionTop { get { return DetailTextTop + 82; } }
+        internal float HatTop { get { return DetailTextTop + 116; } }
+        internal float HintTop { get { return DetailTextTop + 154; } }
         internal readonly int Columns;
         internal int Rows { get { return 4; } }
         internal int VisibleCount { get { return Rows * Columns; } }

@@ -52,6 +52,32 @@ static class ChefGridHeadingRegression
         body = Rig(replacement, Quaternion.Euler(-5, 62, 4) * rest);
         heading.Apply(replacement, otherPrefab);
         Check(Fixed(body, rest), "switching chefs uses the new rig's neutral bone orientation");
+        var wholePrefab = new GameObject("Neutral complete rig");
+        var prefabSkeleton = new GameObject("Skeleton"); prefabSkeleton.transform.SetParent(wholePrefab.transform, false);
+        var prefabTorso = new GameObject("Jnt_Body"); prefabTorso.transform.SetParent(prefabSkeleton.transform, false);
+        var prefabHead = new GameObject("Head"); prefabHead.transform.SetParent(prefabTorso.transform, false);
+        var wholeModel = new GameObject("Animated complete rig"); wholeModel.transform.SetParent(actor.transform, false);
+        var modelSkeleton = new GameObject("Skeleton"); modelSkeleton.transform.SetParent(wholeModel.transform, false);
+        var modelTorso = new GameObject("Jnt_Body"); modelTorso.transform.SetParent(modelSkeleton.transform, false);
+        modelTorso.transform.localRotation = Quaternion.Euler(0, 4.9123f, 0);
+        var modelHead = new GameObject("Head"); modelHead.transform.SetParent(modelTorso.transform, false);
+        modelHead.transform.localRotation = Quaternion.Euler(0, 14.1488f, 0);
+        heading.Apply(wholeModel, wholePrefab);
+        Check(Fixed(modelTorso.transform, Quaternion.identity),
+            "the whole chef heading follows the torso rather than over-rotating the actor to cancel its head gaze");
+        Check(modelHead.transform.localRotation.Equals(Quaternion.Euler(0, 14.1488f, 0)),
+            "the native head gaze remains independent of the fixed whole-chef heading");
+        float[] torsoYaw = { 4.9123f, 2.7550f, -16.3278f, -2.4484f };
+        float[] headYaw = { 19.0611f, 13.5f, -44f, -12f };
+        for (int player = 0; player < 4; player++)
+        {
+            modelTorso.transform.localRotation = Quaternion.Euler(0, torsoYaw[player], 0);
+            var gaze = Quaternion.Euler(0, headYaw[player] - torsoYaw[player], 0);
+            modelHead.transform.localRotation = gaze;
+            heading.Apply(wholeModel, wholePrefab);
+            Check(Fixed(modelTorso.transform, Quaternion.identity) && modelHead.transform.localRotation.Equals(gaze),
+                "P1-P4 selecting animations retain one whole-chef heading despite their different head turns");
+        }
         var neutralModel = new GameObject("Neutral nested rig");
         var neutralHead = Rig(neutralModel, Quaternion.identity);
         var nestedModel = new GameObject("Animated nested rig"); nestedModel.transform.SetParent(actor.transform, false);
@@ -84,6 +110,16 @@ static class ChefGridHeadingRegression
         var bodyOnly = Rig(bodyModel, Quaternion.Euler(0, 25, 0), "Jnt_Body");
         heading.Apply(bodyModel, bodyPrefab);
         Check(Fixed(bodyOnly, Quaternion.identity), "rigs without Head use the standard torso heading as a fallback");
+        // Replay the original native body and head quaternion chains together.
+        prefabTorso.transform.localRotation = rest;
+        var nativeBodyPose = new Quaternion { x = -0.7055433f, y = -0.6907647f, z = 0.1364273f, w = -0.080252f };
+        modelTorso.transform.localRotation = nativeBodyPose;
+        var nativeGaze = Quaternion.Inverse(nativeBodyPose) * nativePose;
+        modelHead.transform.localRotation = nativeGaze;
+        heading.Apply(wholeModel, wholePrefab);
+        Check(Fixed(modelTorso.transform, rest) && Math.Abs(Yaw(actor.transform.rotation) - (-26.548508f)) < 0.001f,
+            "the native selection fixture compensates only the 4.9123-degree body turn instead of its 19-degree head gaze");
+        Check(modelHead.transform.localRotation.Equals(nativeGaze), "native fixture head animation is preserved exactly");
         var custom = new GameObject("Chef without the standard rig"); custom.transform.SetParent(actor.transform, false);
         heading.Apply(custom, null);
         Check(Math.Abs(Yaw(actor.transform.rotation) + 21.6362f) < 0.001f, "unrecognized rigs retain the fixed outer-angle fallback");

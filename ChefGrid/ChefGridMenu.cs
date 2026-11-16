@@ -554,12 +554,12 @@ namespace OC2DIYChef
                 if (cursor.Preview == null)
                     try { cursor.Preview = new ChefGridLivePreview(cursor.View, cursor.Player); }
                     catch (Exception ex) { DIYChefPlugin.Warn("Live preview unavailable: " + ex); }
-                ui.Name = Label(frame, "Chef name", "", textX, detailY, l.DetailTextWidth, 54, 22, Ink);
+                ui.Name = Label(frame, "Chef name", "", textX, l.DetailTextTop, l.DetailTextWidth, ChefGridPanelLayout.NameHeight, 22, Ink);
                 ui.Name.resizeTextForBestFit = true; ui.Name.resizeTextMinSize = 16; ui.Name.resizeTextMaxSize = 22;
-                ui.Kind = Label(frame, "Chef kind", "", textX, detailY + 54, l.DetailTextWidth, 20, 15, Ink);
-                ui.Position = Label(frame, "Position", "", textX, detailY + 74, l.DetailTextWidth, 20, 15, Ink);
+                ui.Kind = Label(frame, "Chef kind", "", textX, l.KindTop, l.DetailTextWidth, ChefGridPanelLayout.InfoRowHeight, 15, Ink);
+                ui.Position = Label(frame, "Position", "", textX, l.PositionTop, l.DetailTextWidth, ChefGridPanelLayout.InfoRowHeight, 15, Ink);
                 ui.Hat = DetailControl("Hat", textX, l.HatTop, l.DetailTextWidth);
-                ui.Hint = Label(frame, "Customize hint", "", textX, l.HatTop + 30, l.DetailTextWidth, 24, 11, Ink);
+                ui.Hint = Label(frame, "Customize hint", "", textX, l.HintTop, l.DetailTextWidth, ChefGridPanelLayout.HintHeight, 11, Ink);
                 ui.Hint.resizeTextForBestFit = true; ui.Hint.resizeTextMinSize = 9; ui.Hint.resizeTextMaxSize = 11;
                 ui.Status = Label(frame, "Preview status", "", l.DetailLeft, detailY + (imageSize - 48) / 2, imageSize, 48, 16, Ink);
                 ui.Grid = Rect(frame, "Grid", 0, 0, 1280, 720);

@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace OC2DIYChef
 {
-    // Keep the visible face heading fixed while the native selector animates.
+    // Keep the whole chef heading fixed without counter-rotating its head gaze.
     internal sealed class ChefGridHeading
     {
         readonly Transform actor;
@@ -20,7 +20,7 @@ namespace OC2DIYChef
                 var actualSkeleton = model == null ? null : model.transform.Find("Skeleton");
                 var neutralSkeleton = prefab == null ? null : prefab.transform.Find("Skeleton");
                 if (actualSkeleton != null && neutralSkeleton != null)
-                    foreach (string bone in new[] { "Head", "Jnt_Body" })
+                    foreach (string bone in new[] { "Jnt_Body", "Head" })
                     {
                         var actual = actualSkeleton.FindChildRecursive(bone);
                         var rest = neutralSkeleton.FindChildRecursive(bone);
