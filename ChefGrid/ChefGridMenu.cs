@@ -547,7 +547,7 @@ namespace OC2DIYChef
                 // Centre the visible glyphs rather than the font's baseline box:
                 // YaHei's line metrics place mixed Latin/Chinese text too low.
                 ui.PlayerBackground = Box(frame, "Player strip", l.Left + 3, 108, l.Width - 6, 28, PlayerColour(cursor));
-                ui.Player = Label(frame, "Player", "P" + (cursor.Player + 1), l.Left + 10, 108, l.Width - 20, 28, 21, Color.white);
+                ui.Player = Label(frame, "Player", "P" + (cursor.Player + 1), l.Left + 10, 108, l.Width - 20, 28, 21, Color.black);
                 ui.Player.alignByGeometry = true;
                 float imageSize = l.DetailImageSize, textX = l.DetailLeft + imageSize + 8, detailY = l.DetailTop;
                 ui.Detail = Rect(frame, "Selected portrait", l.DetailLeft, detailY, imageSize, imageSize).gameObject.AddComponent<RawImage>();

@@ -65,8 +65,8 @@ static class ChefGridHeadingRegression
         heading.Apply(wholeModel, wholePrefab);
         Check(Fixed(modelTorso.transform, Quaternion.identity),
             "the whole chef heading follows the torso rather than over-rotating the actor to cancel its head gaze");
-        Check(modelHead.transform.localRotation.Equals(Quaternion.Euler(0, 14.1488f, 0)),
-            "the native head gaze remains independent of the fixed whole-chef heading");
+        Check(Fixed(modelHead.transform, Quaternion.identity),
+            "the head must follow the fixed torso heading instead of retaining an independent selecting-screen turn");
         float[] torsoYaw = { 4.9123f, 2.7550f, -16.3278f, -2.4484f };
         float[] headYaw = { 19.0611f, 13.5f, -44f, -12f };
         for (int player = 0; player < 4; player++)
@@ -75,8 +75,12 @@ static class ChefGridHeadingRegression
             var gaze = Quaternion.Euler(0, headYaw[player] - torsoYaw[player], 0);
             modelHead.transform.localRotation = gaze;
             heading.Apply(wholeModel, wholePrefab);
-            Check(Fixed(modelTorso.transform, Quaternion.identity) && modelHead.transform.localRotation.Equals(gaze),
-                "P1-P4 selecting animations retain one whole-chef heading despite their different head turns");
+            Check(Fixed(modelTorso.transform, Quaternion.identity) && Fixed(modelHead.transform, Quaternion.identity),
+                "P1-P4 selecting animations align each head to its torso despite their different head turns");
+            var correctedHead = modelHead.transform.localRotation;
+            heading.Apply(wholeModel, wholePrefab);
+            Check(Fixed(modelHead.transform, Quaternion.identity) && SameRotation(modelHead.transform.localRotation, correctedHead),
+                "repeated rendering does not accumulate head correction when the animator has not changed its pose");
         }
         var neutralModel = new GameObject("Neutral nested rig");
         var neutralHead = Rig(neutralModel, Quaternion.identity);
@@ -116,13 +120,51 @@ static class ChefGridHeadingRegression
         modelTorso.transform.localRotation = nativeBodyPose;
         var nativeGaze = Quaternion.Inverse(nativeBodyPose) * nativePose;
         modelHead.transform.localRotation = nativeGaze;
+        float pitchBefore = (modelHead.transform.rotation * Quaternion.Inverse(rest) * Vector3.forward).y;
+        float rollBefore = (modelHead.transform.rotation * Quaternion.Inverse(rest) * new Vector3(0, 1, 0)).y;
+        var blink = new GameObject("Eyes2_Blinks"); blink.transform.SetParent(modelHead.transform, false);
+        blink.transform.localScale = new Vector3(0, 0, 0);
+        blink.transform.localRotation = Quaternion.Euler(3, 7, 9);
         heading.Apply(wholeModel, wholePrefab);
         Check(Fixed(modelTorso.transform, rest) && Math.Abs(Yaw(actor.transform.rotation) - (-26.548508f)) < 0.001f,
             "the native selection fixture compensates only the 4.9123-degree body turn instead of its 19-degree head gaze");
-        Check(modelHead.transform.localRotation.Equals(nativeGaze), "native fixture head animation is preserved exactly");
+        Check(Fixed(modelHead.transform, rest), "the actual native head quaternion follows the torso heading");
+        Check(Math.Abs((modelHead.transform.rotation * Quaternion.Inverse(rest) * Vector3.forward).y - pitchBefore) < 0.00001f &&
+            Math.Abs((modelHead.transform.rotation * Quaternion.Inverse(rest) * new Vector3(0, 1, 0)).y - rollBefore) < 0.00001f,
+            "native head pitch and roll survive the horizontal correction even with rotated bone axes");
+        Check(blink.transform.localScale.x == 0 && blink.transform.localScale.y == 0 && blink.transform.localScale.z == 0 &&
+            SameRotation(blink.transform.localRotation, Quaternion.Euler(3, 7, 9)),
+            "head alignment leaves the selecting animation's eye visibility and child-bone rotations intact");
+        Check(SameRotation(prefabTorso.transform.localRotation, rest) && SameRotation(prefabHead.transform.localRotation, Quaternion.identity),
+            "only the isolated preview is adjusted, never the shared neutral prefab");
+        // Head has its own neutral axes and an animated neck between it and
+        // the torso. Replay the animator writing a new pose before each render.
+        var neutralHeadAxes = Quaternion.Euler(12, 30, -7);
+        prefabHead.transform.localRotation = neutralHeadAxes;
+        var neck = new GameObject("Neck"); neck.transform.SetParent(modelTorso.transform, false);
+        neck.transform.localRotation = Quaternion.Euler(2, 8, -4);
+        modelHead.transform.SetParent(neck.transform, false);
+        heading = new ChefGridHeading(actor.transform);
+        foreach (float yaw in new[] { -179f, -44, 0, 19, 179 })
+        {
+            modelTorso.transform.localRotation = nativeBodyPose;
+            var pose = Quaternion.Euler(15, yaw, -10) * rest * neutralHeadAxes;
+            modelHead.transform.localRotation = Quaternion.Inverse(neck.transform.rotation) * pose;
+            heading.Apply(wholeModel, wholePrefab);
+            Check(Fixed(modelTorso.transform, rest) && Fixed(modelHead.transform, rest * neutralHeadAxes),
+                "animated necks and different head rest axes align to the torso across wrapped yaw angles");
+            Check(SameRotation(neck.transform.localRotation, Quaternion.Euler(2, 8, -4)),
+                "head alignment does not overwrite the intermediate neck animation");
+        }
         var custom = new GameObject("Chef without the standard rig"); custom.transform.SetParent(actor.transform, false);
         heading.Apply(custom, null);
         Check(Math.Abs(Yaw(actor.transform.rotation) + 21.6362f) < 0.001f, "unrecognized rigs retain the fixed outer-angle fallback");
         return checks;
+    }
+
+    static bool SameRotation(Quaternion a, Quaternion b)
+    {
+        float dot = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+        return Math.Abs(Math.Abs(dot) - 1) < 0.00001f;
     }
 }
