@@ -2,7 +2,7 @@
 
 [中文说明](README-zh.md)
 
-**Current version: 2.4.0** · [Release notes (Chinese)](docs/releases/2.4.0.md)
+**Current version: 2.4.0** · [Release notes](docs/releases/2.4.0.md#english)
 
 The grid now shows live animated chefs on a transparent background, with body heading fixed at −21.64° and horizontal head direction aligned to the body. Thumbnails use the default hats from `prefer.txt`. The file is checked every five seconds; changes refresh the grid order and affected thumbnails. Loading portraits display a spinner.
 
