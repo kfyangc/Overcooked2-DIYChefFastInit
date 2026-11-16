@@ -17,7 +17,6 @@ namespace OC2DIYChef
         readonly List<Vector3> vertices = new List<Vector3>();
         ChefAvatarData requested;
         GameObject prepared;
-        float yaw = float.NaN;
         int changedFrame;
         float started;
         string framedHat;
@@ -41,7 +40,7 @@ namespace OC2DIYChef
             catch { Dispose(); throw; }
         }
 
-        internal void Select(ChefAvatarData avatar, User user, float angle)
+        internal void Select(ChefAvatarData avatar, User user)
         {
             if (failed && requested == avatar) return;
             try
@@ -54,12 +53,6 @@ namespace OC2DIYChef
                     changedFrame = Time.frameCount;
                     started = Time.realtimeSinceStartup;
                     scene.View.SetChefData(new GameSession.SelectedChefData(avatar, user.SelectedChefData.Colour), true);
-                }
-                if (yaw != angle)
-                {
-                    yaw = angle;
-                    scene.Actor.transform.localRotation = Quaternion.Euler(0, angle, 0);
-                    prepared = null;
                 }
             }
             catch (Exception ex)

@@ -2,7 +2,7 @@ namespace OC2DIYChef
 {
     internal struct ChefGridControlEvents
     {
-        internal bool Accept, Cancel;
+        internal bool Accept, Cancel, CycleHat;
         internal int Direction;
     }
 
@@ -11,7 +11,7 @@ namespace OC2DIYChef
     // consumed here rather than requiring a second observation flag in each menu.
     internal sealed class ChefGridControls
     {
-        bool acceptWasDown, cancelWasDown, needsNeutral;
+        bool acceptWasDown, cancelWasDown, hatWasDown, needsNeutral;
         int previousDirection = -1;
         float repeatAt;
         bool hasBinding, observed;
@@ -26,21 +26,23 @@ namespace OC2DIYChef
             observed = false;
             boundPad = pad;
             boundSide = side;
-            acceptWasDown = cancelWasDown = needsNeutral = false;
+            acceptWasDown = cancelWasDown = hatWasDown = needsNeutral = false;
             previousDirection = -1;
             repeatAt = 0;
         }
 
-        internal ChefGridControlEvents Poll(int direction, bool accept, bool cancel, float now, bool active)
+        internal ChefGridControlEvents Poll(int direction, bool accept, bool cancel, float now, bool active, bool cycleHat = false)
         {
             active &= observed;
             observed = true;
             var result = new ChefGridControlEvents {
                 Accept = active && accept && !acceptWasDown,
                 Cancel = active && cancel && !cancelWasDown,
+                CycleHat = active && cycleHat && !hatWasDown,
                 Direction = -1 };
             acceptWasDown = accept;
             cancelWasDown = cancel;
+            hatWasDown = cycleHat;
             if (!active)
             {
                 needsNeutral = direction >= 0;

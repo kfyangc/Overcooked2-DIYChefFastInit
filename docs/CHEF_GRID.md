@@ -1,5 +1,11 @@
 # 厨师网格选择
 
+2.3.1.12 将 −21.6362° 固定在 `ChefGridPreviewScene` 创建离屏实例的位置，静态图与动态预览共用；删除 PortraitYaw、DetailYaw 及每玩家角度配置的读取、旋转行、鼠标拖动和方向键旋转路径，已有旧角度配置不再影响显示。
+
+换帽继续使用当前玩家 WorkstationInteract 的原有映射，但改为每次新按下顺序切换一次；按住不重复、无需上下方向键，方向键正常选择厨师。按键边沿与确认／返回一起由 `ChefGridControls` 管理，覆盖初次打开、弹窗停用、同设备重绑、切换设备和分屏玩家独立输入；面板提示改为“按 [当前绑定] 换帽子”。鼠标帽子上一顶／默认／下一顶仍保留，并上移填补角度行。
+
+尚未生成的静态小图显示 26 像素转圈动画，优先借用已加载的原版 `resources.assets` 中 `t_UIlobbyRefreshArrow_01` Sprite；资源尚未加载时直接用 UI 网格绘制十二段环形作为后备，按 unscaledTime 旋转而不每帧重建几何。缓存或新图就绪时隐藏；确认加载失败时显示 `!`，不会继续转圈。只借用原版图像，不调用全局 SpinnerIconManager，也不销毁其 Sprite。
+
 2.3.1.11 默认缩略图与动态预览转角改为原版前端 P1 的相对角度 −21.6362°（前端资源 `FrontendChef` 旋转 158.3638°、原版相机 0°，网格相机 180°）；角度中间按钮重置为该角度。返回按钮左侧保留 32 设计像素，四人布局下与 P1 确认区仍有 32 像素间隔。
 
 动态预览使用 ARGB32 纹理、透明清屏；原版 UI 厨师 shader 可能只写 RGB，在相机 AfterEverything 阶段用 `UI/Default` 材质仅补写可见厨师几何的 Alpha，保留原始 RGB 及动画。遮罩每帧跟随实际启用的 renderer、层和子网格，包括新增帽子，排除粒子与隐藏对象；不进行 ReadPixels、CPU 像素转换或磁盘写入。关闭预览时先解绑、释放自有命令缓冲和材质，再释放场景和渲染纹理。
@@ -24,11 +30,11 @@
 
 移除遮满每位玩家区域的粉色纸面，改用半透明蓝色格子与控件、白字玩家栏和玩家色标记，保留选中头像的玩家色边框。高清动态预览的纯色背景同步调整为浅蓝；缩略图缓存、面板布局、点击范围和输入逻辑保持原样。
 
-当前预览模块分工：`ChefGridPreviewScene` 统一拥有离屏厨师、原版模板与 shader 初始化、相机、灯光、加载取消及 RenderTexture 生命周期；它是静态与动态绘制之间的内部 seam，不向菜单暴露 Unity 初始化顺序。`ChefGridPortraits` 仅负责 128×128 无帽缩略图、缓存和生成调度；已删除动态预览接管后不再使用的静态高清缓存、第二张渲染目标及 selected 参数。`ChefGridLivePreview` 负责每位玩家的动画、转向与高清绘制，静态／动态共用 `ChefGridFraming.ContributesToFraming` 判断远处隐藏零件，保留各自的取景方式。缩略图缓存键及网络报文格式保持不变。
+当前预览模块分工：`ChefGridPreviewScene` 统一拥有离屏厨师、固定原版角度、模板与 shader 初始化、相机、灯光、加载取消及 RenderTexture 生命周期。`ChefGridPortraits` 负责 128×128 默认帽子缩略图、缓存、偏好变更失效及生成调度；`ChefGridLoadingIndicator` 负责尚无缩略图时的转圈提示。`ChefGridLivePreview` 负责每位玩家的动画与高清绘制，`ChefGridAlphaMask` 保留原版 RGB 并补写透明通道；静态／动态共用 `ChefGridFraming.ContributesToFraming` 判断远处隐藏零件，保留各自的取景方式。网络报文格式保持不变。
 
 菜单通过 `PlayerHats.Cycle` 切换帽子，选项顺序和循环规则封装在帽子模块内；网络接收传入原版 Machine／Engagement／Split，身份键仅由帽子模块生成。动态预览观察实际应用的帽子变化后自行重新构图，菜单无需干预加载与构图时序。
 
-输入模块 `ChefGridControls` 统一拥有绑定变更、首次采样、确认／返回边沿与方向连发。调用方只需 `Bind(pad, side)` 和持续 `Poll(..., active)`，对话框或失焦期间也继续采样；相同设备／键盘侧的绑定刷新保留边沿与连发计时，真正换绑后先消费打开时已按住的输入，回中／释放后才响应新操作。菜单不再维护额外的 InputObserved／backObserved 标记，每次关闭后创建新的返回输入状态。测试直接使用该接口，删除重复模拟采样规则的 BoundControls；仅剩旧测试引用的 ChefGridTurnOrder 及顺序确认测试一并移除，多人独立确认继续由 ChefGridReadySet 与现有并行回归覆盖。
+输入模块 `ChefGridControls` 统一拥有绑定变更、首次采样、确认／返回／换帽边沿与方向连发。调用方只需 `Bind(pad, side)` 和持续 `Poll(..., active, cycleHat)`，对话框或失焦期间也继续采样；相同设备／键盘侧的绑定刷新保留边沿与连发计时，真正换绑后先消费打开时已按住的输入，回中／释放后才响应新操作。菜单不再维护额外的 InputObserved／backObserved 标记，每次关闭后创建新的返回输入状态。多人独立确认由 ChefGridReadySet 与现有并行回归覆盖。
 
 预览资源所有权回归：`dotnet run --project tests/ChefGridPreviewRegression.csproj -c Release`。通过模块接口检查两个场景隔离、原版模板与 shader 设置、动画静音、取消加载、创建失败后释放、重复清理以及关闭后拒绝新建目标；引擎调用使用离线替身，不代表游戏内画面验收。
 
@@ -213,10 +219,9 @@
 [ChefSelection]
 GridEnabled = true
 UnselectedDimOpacity = 0.4
-PortraitYaw = 0
 ```
 
-`UnselectedDimOpacity` 范围 0–1，表示未选中头像的黑色遮罩不透明度：0 为不压暗，默认 0.4 为 40%，1 为全黑。选中头像保留 6% 白色提亮。配置管理器修改压暗比例立即生效；直接编辑配置文件时退出游戏、保存后重新启动。布局固定为 10 列 × 5 行，旧的 `GridColumns` / `GridRows` 即使仍保留在配置文件中也不再生效。`GridEnabled=false` 使用原左右轮播；`PortraitYaw` 调整生成头像的模型旋转角度，修改后自动使用新的缓存键。界面或头像初始化异常会记录日志；界面异常回到原菜单，单个头像失败时仍可移动光标并查看右侧名称。
+`UnselectedDimOpacity` 范围 0–1，表示未选中头像的黑色遮罩不透明度：0 为不压暗，默认 0.4 为 40%，1 为全黑。配置管理器修改压暗比例立即生效；直接编辑配置文件时退出游戏、保存后重新启动。每位本地玩家都有独立四行网格，列数随玩家数量变化；旧的 `GridColumns` / `GridRows` 不再生效。`GridEnabled=false` 使用原左右轮播；预览角度固定为 −21.6362°，旧 PortraitYaw、DetailYaw 和每玩家角度配置均不再读取。界面或头像初始化异常会记录日志；界面异常回到原菜单，单个头像失败时仍可选择其他厨师。
 
 ## 验证
 

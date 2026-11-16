@@ -48,7 +48,13 @@ namespace UnityEngine
     {
         public Transform parent;
         public Vector3 position, localPosition;
+        public Quaternion localRotation;
         public void SetParent(Transform value, bool worldPositionStays) { parent = value; }
+    }
+    public struct Quaternion
+    {
+        public float x, y, z;
+        public static Quaternion Euler(float x, float y, float z) { return new Quaternion { x = x, y = y, z = z }; }
     }
     public struct Vector3
     {

@@ -82,8 +82,8 @@ static class ChefGridParallelRegression
                     confirm.Contains(confirmX, confirmY) && !confirm.Contains(confirm.X + confirm.Width, confirmY) &&
                     !confirm.Contains(confirmX, confirm.Y + confirm.Height),
                     "Confirmation has a usable hit rectangle inside its own panel and above the white lower edge");
-                Check(panel.HitTest(confirmX, confirmY, 0, 109) == -1 && panel.DetailAction(confirmX, confirmY) == -1,
-                    "Clicking the moved confirmation cannot select a thumbnail, rotate the preview or change its hat");
+                Check(panel.HitTest(confirmX, confirmY, 0, 109) == -1 && panel.HatAction(confirmX, confirmY) == -1,
+                    "Clicking confirmation cannot select a thumbnail or change its hat");
                 if (player == 0)
                 {
                     var back = ChefGridPanelLayout.Back;
@@ -154,17 +154,14 @@ static class ChefGridParallelRegression
                     "Panel margins and an empty roster do not hover-select a chef");
                 float trackX = panel.ScrollLeft;
                 float controlsX = panel.DetailLeft + panel.DetailImageSize + 8;
-                Check(panel.DetailAction(controlsX + 1, panel.DetailTop + 95) == 0 &&
-                    panel.DetailAction(controlsX + panel.DetailTextWidth / 2, panel.DetailTop + 95) == 1 &&
-                    panel.DetailAction(controlsX + panel.DetailTextWidth - 1, panel.DetailTop + 95) == 2,
-                    "Every player can rotate left, reset, or rotate right without hitting the chef grid");
-                Check(panel.DetailAction(controlsX + 1, panel.DetailTop + 125) == 3 &&
-                    panel.DetailAction(controlsX + panel.DetailTextWidth / 2, panel.DetailTop + 125) == 4 &&
-                    panel.DetailAction(controlsX + panel.DetailTextWidth - 1, panel.DetailTop + 125) == 5,
-                    "Hat controls have independent previous, default and next targets");
-                Check(panel.DetailAction(panel.DetailLeft + 1, panel.DetailTop + 1) == 6 &&
-                    panel.DetailAction(panel.Left, panel.GridTop) == -1 && panel.DetailTop + 178 < panel.Confirm.Y,
-                    "Model dragging and all customization rows fit above confirmation in one to four panels");
+                Check(panel.HatAction(controlsX + 1, panel.HatTop + 1) == 0 &&
+                    panel.HatAction(controlsX + panel.DetailTextWidth / 2, panel.HatTop + 1) == 1 &&
+                    panel.HatAction(controlsX + panel.DetailTextWidth - 1, panel.HatTop + 1) == 2,
+                    "Hat controls retain independent previous, default and next mouse targets");
+                Check(panel.HatAction(controlsX + 1, panel.HatTop + 30) == -1 &&
+                    panel.HatAction(panel.DetailLeft + 1, panel.DetailTop + 1) == -1 &&
+                    panel.HatAction(panel.Left, panel.GridTop) == -1 && panel.HatTop + 54 < panel.Confirm.Y,
+                    "The hint and fixed-angle preview have no interaction targets and fit above confirmation");
                 Check(panel.BeginScroll(trackX, panel.GridTop + 1, 0, 109) && panel.Dragging &&
                     panel.DragScroll(panel.GridTop - 1000, 109) == 0 &&
                     panel.DragScroll(panel.GridTop + panel.GridHeight + 1000, 109) == panel.LastFirstRow(109),

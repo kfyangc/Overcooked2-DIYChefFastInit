@@ -105,6 +105,37 @@ static class ChefGridInteractionRegression
         reopened.Poll(-1, false, false, 6, true);
         Check(reopened.Poll(-1, false, true, 7, true).Cancel,
             "A fresh Esc/B press works after reopening on the same input binding");
+        var hats = new ChefGridControls();
+        hats.Bind(0, 0);
+        Check(!hats.Poll(-1, false, false, 0, true, true).CycleHat &&
+            !hats.Poll(-1, false, false, 1, true, true).CycleHat,
+            "A held opening hat key is consumed instead of cycling on entry");
+        hats.Poll(-1, false, false, 2, true);
+        Check(hats.Poll(-1, false, false, 3, true, true).CycleHat,
+            "Pressing the mapped hat key alone cycles without a direction modifier");
+        var simultaneous = hats.Poll(3, false, false, 4, true, true);
+        Check(!simultaneous.CycleHat && simultaneous.Direction == 3,
+            "Holding the hat key neither repeats hats nor redirects normal down navigation");
+        hats.Poll(-1, false, false, 5, true);
+        hats.Poll(-1, false, false, 6, false, true);
+        Check(!hats.Poll(-1, false, false, 7, true, true).CycleHat,
+            "Hat presses during a dialog cannot leak into the resumed menu");
+        hats.Bind(0, 0);
+        Check(!hats.Poll(-1, false, false, 8, true, true).CycleHat,
+            "Equivalent native input replacement preserves the held hat edge");
+        hats.Poll(-1, false, false, 9, true);
+        var otherHats = new ChefGridControls(); otherHats.Bind(0, 1);
+        otherHats.Poll(-1, false, false, 9, true);
+        Check(hats.Poll(-1, false, false, 10, true, true).CycleHat &&
+            !otherHats.Poll(-1, false, false, 10, true).CycleHat &&
+            otherHats.Poll(-1, false, false, 11, true, true).CycleHat,
+            "Split players cycle independently on their own fresh presses");
+        hats.Bind(1, 0);
+        Check(!hats.Poll(-1, false, false, 12, true, true).CycleHat,
+            "Switching devices consumes the newly observed held hat button");
+        hats.Poll(-1, false, false, 13, true);
+        Check(hats.Poll(-1, false, false, 14, true, true).CycleHat,
+            "The replacement device cycles after release and a fresh press");
         return checks;
     }
 }

@@ -28,6 +28,9 @@ static class ChefGridPreviewRegression
         var live = new ChefGridPreviewScene(source, new Vector3(10100, -10000, 10000), new Color(1, 0.9f, 0.9f));
         Check(thumbnail.Stage != live.Stage && thumbnail.Actor != live.Actor && thumbnail.Camera != live.Camera,
             "thumbnail and animated renderers own independent scenes");
+        Check(thumbnail.Actor.transform.localRotation.Equals(Quaternion.Euler(0, -21.6362f, 0)) &&
+            live.Actor.transform.localRotation.Equals(thumbnail.Actor.transform.localRotation),
+            "static and animated chefs both use the fixed native angle without caller settings");
         Check(thumbnail.Stage.transform.position.x != live.Stage.transform.position.x &&
             live.Actor.transform.parent == live.Stage.transform,
             "chef instances stay attached to their isolated stage");

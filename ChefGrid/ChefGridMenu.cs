@@ -14,8 +14,7 @@ namespace OC2DIYChef
     {
         static ConfigEntry<bool> configured;
         static ConfigFile configuration;
-        static ConfigEntry<float> portraitYaw, detailYaw, unselectedDimOpacity;
-        static readonly Dictionary<string, ConfigEntry<float>> detailAngles = new Dictionary<string, ConfigEntry<float>>();
+        static ConfigEntry<float> unselectedDimOpacity;
         static readonly MethodInfo fixedValue = AccessTools.Method(typeof(PlayerInputLookup), "GetFixedValue",
             new[] { typeof(PlayerInputLookup.LogicalValueID), typeof(PlayerGameInput) });
         internal static ChefGridMenu Active;
@@ -32,9 +31,6 @@ namespace OC2DIYChef
             internal ChefGridControls Controls = new ChefGridControls();
             internal ChefGridControlEvents Events;
             internal ILogicalButton Customize;
-            internal bool Customizing;
-            internal ConfigEntry<float> Angle;
-            internal float Yaw;
             internal ChefGridLivePreview Preview;
             internal ChefGridPanelLayout Layout;
             internal int FirstRow;
@@ -48,6 +44,8 @@ namespace OC2DIYChef
             internal Image[] Highlight;
             internal Image Shade;
             internal RawImage Portrait;
+            internal ChefGridLoadingIndicator Loading;
+            internal Text Failure;
             internal bool Selected;
         }
 
@@ -64,7 +62,7 @@ namespace OC2DIYChef
         {
             internal Cell[] Cells;
             internal RectTransform Grid, Scroll;
-            internal Text Name, Kind, Position, Status, Accept, Key, Player, Angle, Hat, Hint;
+            internal Text Name, Kind, Position, Status, Accept, Key, Player, Hat, Hint;
             internal Image Icon;
             internal Image PlayerBackground;
             internal RawImage Detail;
@@ -92,8 +90,6 @@ namespace OC2DIYChef
         ExitRequest exitRequest;
         bool open, failed, ownsFont;
         readonly PlayerHatTransaction hatEdits = new PlayerHatTransaction();
-        Cursor rotating;
-        float rotationMouseX;
         bool Chinese { get { return Localization.GetLanguage() == SupportedLanguages.Chinese; } }
         string L(string zh, string en) { return Chinese ? zh : en; }
         internal bool IsOpen { get { return open; } }
@@ -102,16 +98,11 @@ namespace OC2DIYChef
         internal static void Configure(ConfigFile config)
         {
             configuration = config;
-            detailAngles.Clear();
             configured = config.Bind("ChefSelection", "GridEnabled", true,
                 "Show independent horizontal player panels with scrolling chef grids. Disable to use the original carousel.");
             unselectedDimOpacity = config.Bind("ChefSelection", "UnselectedDimOpacity", 0.4f,
                 new ConfigDescription("Black overlay opacity for unselected chefs: 0 disables dimming, 1 is fully dark. 未选中厨师的压暗比例。",
                     new AcceptableValueRange<float>(0f, 1f)));
-            portraitYaw = config.Bind("ChefSelection", "PortraitYaw", ChefGridPreviewScene.DefaultYaw,
-                "Thumbnail rotation in degrees; changing this rebuilds thumbnail caches only.");
-            detailYaw = config.Bind("ChefSelection", "DetailYaw", ChefGridPreviewScene.DefaultYaw,
-                "Default angle for animated chef previews. Each local input slot can adjust its angle in the grid panel.");
         }
 
         internal static void SetEnabled(bool enabled)
@@ -160,7 +151,7 @@ namespace OC2DIYChef
             SyncPlayers();
             if (focused == null) return;
             BuildUI();
-            try { portraits = new ChefGridPortraits(focused.View, portraitYaw.Value); }
+            try { portraits = new ChefGridPortraits(focused.View); }
             catch (Exception ex) { DIYChefPlugin.Warn("Portrait studio unavailable; chef names remain selectable: " + ex); }
             openedFrame = Time.frameCount;
             open = true;
@@ -190,11 +181,6 @@ namespace OC2DIYChef
                     int index = ChefGridRoster.Find(entries, i);
                     cursor = new Cursor { Key = key, Index = Math.Max(0, index), Chosen = index >= 0 };
                     cursors.Add(cursor);
-                    string angleKey = "DetailYawPlayer" + (int)user.Engagement + "Split" + (int)user.Split;
-                    if (!detailAngles.TryGetValue(angleKey, out cursor.Angle))
-                        detailAngles[angleKey] = cursor.Angle = configuration.Bind("ChefSelection", angleKey, detailYaw.Value,
-                            "Animated preview angle for this local input slot, independent of PortraitYaw.");
-                    cursor.Yaw = cursor.Angle.Value;
                     hatEdits.Capture(user);
                 }
                 cursor.Player = i;
@@ -224,7 +210,6 @@ namespace OC2DIYChef
                 if (!alive.Contains(cursors[i].Key))
                 {
                     if (cursors[i].Preview != null) cursors[i].Preview.Dispose();
-                    if (rotating == cursors[i]) rotating = null;
                     cursors.RemoveAt(i);
                 }
             cursors.Sort((a, b) => a.Player.CompareTo(b.Player));
@@ -301,12 +286,7 @@ namespace OC2DIYChef
                     foreach (var cursor in cursors)
                     {
                         var input = cursor.Events;
-                        if (!ready.IsConfirmed(cursor.Key) && cursor.Customizing)
-                        {
-                            if (input.Direction == 0 || input.Direction == 1) Rotate(cursor, input.Direction == 0 ? -15 : 15);
-                            else if (input.Direction >= 2) ChangeHat(cursor, input.Direction == 2 ? -1 : 1);
-                            continue;
-                        }
+                        if (input.CycleHat) ChangeHat(cursor, 1);
                         if (!ready.IsConfirmed(cursor.Key) && input.Direction >= 0)
                         {
                             int dx = input.Direction == 0 ? -1 : input.Direction == 1 ? 1 : 0;
@@ -347,7 +327,6 @@ namespace OC2DIYChef
                 {
                     cursor.Chosen = false;
                     ready.Reopen(cursor.Key);
-                    if (rotating == cursor) { cursor.Angle.Value = cursor.Yaw; rotating = null; }
                 }
                 cursor.Index = Math.Max(0, index);
                 cursor.Layout.EndScroll();
@@ -376,8 +355,8 @@ namespace OC2DIYChef
                 bool accept = ChefGridButtonPrompts.Down(cursor.Input, cursor.Buttons[4]) || (keyboard && (Input.GetKey(KeyCode.Space) ||
                     Input.GetKey(KeyCode.Return) || Input.GetKey(KeyCode.KeypadEnter)));
                 bool cancel = ChefGridButtonPrompts.Down(cursor.Input, cursor.Buttons[5]) || (keyboard && Input.GetKey(KeyCode.Escape));
-                cursor.Events = cursor.Controls.Poll(direction, accept, cancel, Time.unscaledTime, enabled);
-                cursor.Customizing = ChefGridButtonPrompts.Down(cursor.Input, cursor.Customize);
+                cursor.Events = cursor.Controls.Poll(direction, accept, cancel, Time.unscaledTime, enabled,
+                    ChefGridButtonPrompts.Down(cursor.Input, cursor.Customize));
             }
             foreach (var cursor in cursors) foreach (var button in cursor.Buttons) Claim(button);
             foreach (var cursor in cursors) Claim(cursor.Customize);
@@ -408,20 +387,13 @@ namespace OC2DIYChef
             }
             foreach (var cursor in cursors)
                 if (cursor.Preview != null)
-                    cursor.Preview.Select(entries[cursor.Index].Avatar, ClientUserSystem.m_Users._items[cursor.Player], cursor.Yaw);
+                    cursor.Preview.Select(entries[cursor.Index].Avatar, ClientUserSystem.m_Users._items[cursor.Player]);
         }
 
         internal void RenderPreviews()
         {
             if (!open) return;
             foreach (var cursor in cursors) if (cursor.Preview != null) cursor.Preview.Render();
-        }
-
-        void Rotate(Cursor cursor, float delta)
-        {
-            if (ready.IsConfirmed(cursor.Key)) return;
-            cursor.Yaw = Mathf.Repeat(cursor.Yaw + delta + 180, 360) - 180;
-            if (rotating != cursor) cursor.Angle.Value = cursor.Yaw;
         }
 
         void ChangeHat(Cursor cursor, int step)
@@ -488,16 +460,6 @@ namespace OC2DIYChef
             bool moved = (Input.mousePosition - lastMouse).sqrMagnitude > 0.1f;
             lastMouse = Input.mousePosition;
             bool click = Input.GetMouseButtonDown(0);
-            if (rotating != null)
-            {
-                if (Input.GetMouseButton(0))
-                {
-                    Rotate(rotating, (x - rotationMouseX) * 0.75f);
-                    rotationMouseX = x;
-                }
-                else { rotating.Angle.Value = rotating.Yaw; rotating = null; }
-                return;
-            }
             // A drag belongs to its original panel even while crossing another one.
             foreach (var cursor in cursors)
             {
@@ -517,16 +479,12 @@ namespace OC2DIYChef
                 if (click && layout.Confirm.Contains(x, y)) { Accept(cursor); return; }
                 if (click && !ready.IsConfirmed(cursor.Key))
                 {
-                    int action = layout.DetailAction(x, y);
+                    int action = layout.HatAction(x, y);
                     if (action >= 0)
                     {
-                        if (action == 0) Rotate(cursor, -15);
-                        else if (action == 1) { cursor.Yaw = ChefGridPreviewScene.DefaultYaw; cursor.Angle.Value = cursor.Yaw; }
-                        else if (action == 2) Rotate(cursor, 15);
-                        else if (action == 3) ChangeHat(cursor, -1);
-                        else if (action == 4) PlayerHats.Set(ClientUserSystem.m_Users._items[cursor.Player], PlayerHats.Inherit);
-                        else if (action == 5) ChangeHat(cursor, 1);
-                        else { rotating = cursor; rotationMouseX = x; }
+                        if (action == 0) ChangeHat(cursor, -1);
+                        else if (action == 1) PlayerHats.Set(ClientUserSystem.m_Users._items[cursor.Player], PlayerHats.Inherit);
+                        else ChangeHat(cursor, 1);
                         return;
                     }
                 }
@@ -546,6 +504,7 @@ namespace OC2DIYChef
 
         void BuildUI()
         {
+            var loadingArtwork = ChefGridLoadingIndicator.FindArtwork();
             // Use a readable body font: the game's decorative font loses detail in small names.
             font = Font.CreateDynamicFontFromOSFont(Chinese ?
                 new[] { "Microsoft YaHei", "SimHei", "Arial" } : new[] { "Segoe UI", "Arial" }, 24);
@@ -599,9 +558,8 @@ namespace OC2DIYChef
                 ui.Name.resizeTextForBestFit = true; ui.Name.resizeTextMinSize = 16; ui.Name.resizeTextMaxSize = 22;
                 ui.Kind = Label(frame, "Chef kind", "", textX, detailY + 54, l.DetailTextWidth, 20, 15, Ink);
                 ui.Position = Label(frame, "Position", "", textX, detailY + 74, l.DetailTextWidth, 20, 15, Ink);
-                ui.Angle = DetailControl("Angle", textX, detailY + 94, l.DetailTextWidth);
-                ui.Hat = DetailControl("Hat", textX, detailY + 124, l.DetailTextWidth);
-                ui.Hint = Label(frame, "Customize hint", "", textX, detailY + 154, l.DetailTextWidth, 24, 11, Ink);
+                ui.Hat = DetailControl("Hat", textX, l.HatTop, l.DetailTextWidth);
+                ui.Hint = Label(frame, "Customize hint", "", textX, l.HatTop + 30, l.DetailTextWidth, 24, 11, Ink);
                 ui.Hint.resizeTextForBestFit = true; ui.Hint.resizeTextMinSize = 9; ui.Hint.resizeTextMaxSize = 11;
                 ui.Status = Label(frame, "Preview status", "", l.DetailLeft, detailY + (imageSize - 48) / 2, imageSize, 48, 16, Ink);
                 ui.Grid = Rect(frame, "Grid", 0, 0, 1280, 720);
@@ -615,6 +573,14 @@ namespace OC2DIYChef
                     cell.Portrait = Rect(cell.Root.transform, "Portrait", 0, 0, side, side).gameObject.AddComponent<RawImage>();
                     cell.Portrait.raycastTarget = false;
                     cell.Shade = Box(cell.Root.transform, "Shade", 0, 0, side, side, Color.clear);
+                    cell.Loading = Rect(cell.Root.transform, "Portrait loading", (side - 26) / 2, (side - 26) / 2, 26, 26)
+                        .gameObject.AddComponent<ChefGridLoadingIndicator>();
+                    cell.Loading.sprite = loadingArtwork;
+                    cell.Loading.color = loadingArtwork == null ? Ink : Color.white;
+                    cell.Loading.preserveAspect = true;
+                    cell.Loading.raycastTarget = false;
+                    cell.Failure = Label(cell.Root.transform, "Portrait unavailable", "!", 0, 0, side, side, 22, Ink);
+                    cell.Failure.enabled = false;
                     const float stroke = 5;
                     cell.Highlight = new[] {
                         Box(cell.Root.transform, "Selected top", -stroke, -stroke, side + stroke * 2, stroke, Ink),
@@ -649,6 +615,9 @@ namespace OC2DIYChef
                     if (index >= entries.Count) continue;
                     var texture = portraits == null ? null : portraits.Get(entries[index]);
                     cell.Portrait.texture = texture; cell.Portrait.enabled = texture != null;
+                    bool unavailable = portraits == null || portraits.Failed(entries[index]);
+                    cell.Loading.gameObject.SetActive(texture == null && !unavailable);
+                    cell.Failure.enabled = texture == null && unavailable;
                     cell.Selected = index == cursor.Index;
                     cell.Background.color = cell.Selected ? playerColour : ChefGridTheme.Cell;
                     cell.Shade.color = cell.Selected ? Color.clear : new Color(0, 0, 0, Mathf.Clamp01(unselectedDimOpacity.Value));
@@ -665,11 +634,10 @@ namespace OC2DIYChef
                 ui.Name.text = selected.Label;
                 ui.Kind.text = selected.CustomID == 255 ? L("官方厨师", "ORIGINAL") : L("额外厨师", "CUSTOM");
                 ui.Position.text = (cursor.Index + 1) + " / " + entries.Count;
-                ui.Angle.text = cursor.Yaw.ToString("0") + "°";
                 string hat = PlayerHats.Get(ClientUserSystem.m_Users._items[cursor.Player]);
                 ui.Hat.text = HatLabel(hat);
-                string modifier = ChefGridButtonPrompts.Describe(cursor.Input, cursor.Customize);
-                ui.Hint.text = L("按住 ", "Hold ") + modifier + L("\n←→转向 ↑↓帽子", "\n←→ rotate ↑↓ hat");
+                string button = ChefGridButtonPrompts.Describe(cursor.Input, cursor.Customize);
+                ui.Hint.text = L("按 ", "Press ") + button + L(" 换帽子", " to cycle hats");
                 float height = l.ThumbHeight(entries.Count);
                 ui.Scroll.sizeDelta = new Vector2(6, height);
                 ui.Scroll.anchoredPosition = new Vector2(l.ScrollLeft + 3, -l.ThumbTop(cursor.FirstRow, entries.Count) - height / 2);
@@ -778,8 +746,6 @@ namespace OC2DIYChef
         internal void CloseGrid()
         {
             hatEdits.Dispose();
-            if (rotating != null) rotating.Angle.Value = rotating.Yaw;
-            rotating = null;
             backPrompts.Reset();
             backIdentity = null;
             backControls = new ChefGridControls();

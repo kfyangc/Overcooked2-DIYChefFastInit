@@ -27,14 +27,13 @@ namespace OC2DIYChef
         float started;
         int readyFrame;
 
-        internal ChefGridPortraits(FrontendChefCustomisation source, float yaw)
+        internal ChefGridPortraits(FrontendChefCustomisation source)
         {
             // One neutral outfit and prefer.txt hat per chef, shared by all players.
             colour = ChefGridPortraitColour.Get();
             try
             {
                 scene = new ChefGridPreviewScene(source, new Vector3(10000, -10000, 10000), Color.clear);
-                scene.Actor.transform.localRotation = Quaternion.Euler(0, yaw, 0);
                 PlayerHats.BindThumbnail(scene.Actor);
                 target = scene.CreateTarget(Size, RenderTextureFormat.ARGB32);
                 scene.Camera.targetTexture = target;
@@ -50,6 +49,8 @@ namespace OC2DIYChef
             recent.AddLast(entry);
             return value;
         }
+
+        internal bool Failed(ChefGridEntry entry) { return failed.Contains(entry); }
 
         void Store(ChefGridEntry entry, Texture2D texture)
         {

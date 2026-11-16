@@ -21,6 +21,7 @@ namespace OC2DIYChef
         internal float GridHeight { get { return Rows * Side + (Rows - 1) * Gap; } }
         internal float ScrollLeft { get { return GridLeft + GridWidth + 4; } }
         internal float DetailTop { get { return GridTop + GridHeight + 4; } }
+        internal float HatTop { get { return DetailTop + 94; } }
         internal float DetailTextTop { get { return DetailTop + (DetailImageSize - 122) / 2; } }
         internal readonly int Columns;
         internal int Rows { get { return 4; } }
@@ -72,18 +73,15 @@ namespace OC2DIYChef
             return travel <= 0 ? 0 : (int)Math.Floor(Math.Max(0, Math.Min(1, (y - GridTop - grab) / travel)) * LastFirstRow(count) + 0.5f);
         }
         internal void EndScroll() { Dragging = false; }
-        // 0/1/2: rotate left/reset/right; 3/4/5: hat previous/default/next;
-        // 6: drag the live model. Control geometry is shared with drawing.
-        internal int DetailAction(float x, float y)
+        // 0/1/2: hat previous/default/next. No hit target on the fixed-angle model.
+        internal int HatAction(float x, float y)
         {
             float controlX = DetailLeft + DetailImageSize + 8;
             if (x >= controlX && x < controlX + DetailTextWidth)
             {
                 int column = x < controlX + 22 ? 0 : x >= controlX + DetailTextWidth - 22 ? 2 : 1;
-                if (y >= DetailTop + 94 && y < DetailTop + 122) return column;
-                if (y >= DetailTop + 124 && y < DetailTop + 152) return column + 3;
+                if (y >= HatTop && y < HatTop + 28) return column;
             }
-            if (x >= DetailLeft && x < DetailLeft + DetailImageSize && y >= DetailTop && y < DetailTop + DetailImageSize) return 6;
             return -1;
         }
     }

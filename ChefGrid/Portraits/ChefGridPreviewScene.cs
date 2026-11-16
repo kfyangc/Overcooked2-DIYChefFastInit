@@ -16,7 +16,7 @@ namespace OC2DIYChef
     {
         // Native frontend P1 yaw 158.3638°, viewed by its zero-yaw camera.
         // Our portrait camera faces 180°, so retain the same relative turn.
-        internal const float DefaultYaw = -21.6362f;
+        internal const float FixedYaw = -21.6362f;
         internal readonly GameObject Stage, Actor;
         internal readonly FrontendChef View;
         internal readonly ChefMeshReplacer Replacer;
@@ -34,6 +34,7 @@ namespace OC2DIYChef
                 var template = AccessTools.Field(typeof(ChefMeshReplacer), "m_chefTemplatePrefab");
                 Actor = new GameObject("Preview chef");
                 Actor.transform.SetParent(Stage.transform, false);
+                Actor.transform.localRotation = Quaternion.Euler(0, FixedYaw, 0);
                 Actor.AddComponent<ChefGridPortraitActor>();
                 var placeholder = new GameObject("Chef");
                 placeholder.transform.SetParent(Actor.transform, false);
